@@ -8,6 +8,7 @@ import (
 
 	"github.com/pulseaiclub/xui"
 
+	"github.com/pulseaiclub/phi/internal/cli"
 	"github.com/pulseaiclub/phi/internal/components"
 	"github.com/pulseaiclub/phi/internal/components/app"
 	"github.com/pulseaiclub/phi/internal/project"
@@ -17,33 +18,53 @@ import (
 )
 
 func main() {
-	if len(os.Args) > 1 {
-		switch os.Args[1] {
-		case "run":
-			os.Exit(runCmd(os.Args[2:]))
-		case "sessions":
-			os.Exit(sessionsCmd(os.Args[2:]))
-		case "mcp":
-			os.Exit(mcpCmd(os.Args[2:]))
-		case "config":
-			os.Exit(configCmd(os.Args[2:]))
-		case "update":
-			os.Exit(updateCmd(os.Args[2:]))
-		case "tui":
-			os.Exit(runTUIExit(runTUI()))
-		case "-h", "--help", "help":
-			printMainUsage(os.Stdout)
-			return
-		default:
-			fmt.Fprintf(os.Stderr, "phi: unknown command %q (try 'phi run --help' or 'phi tui')\n", os.Args[1])
-			os.Exit(ExitUsage)
-		}
+	if err := rootCommand().Dispatch(os.Args[1:]); err != nil {
+		printCLIError(err)
+		os.Exit(exitCode(err))
 	}
-	os.Exit(runTUIExit(runTUI()))
+}
+
+// rootCommand builds the phi command tree. Bare `phi` (or `phi tui`) starts
+// the interactive TUI; subcommands cover the headless entrypoints.
+func rootCommand() *cli.Command {
+	root := &cli.Command{
+		Name: "phi",
+		Desc: "minimal Go terminal coding agent",
+		Long: "Bare `phi` starts the interactive TUI.",
+	}
+	root.Add(
+		newRunCommand(&runOptions{}),
+		sessionsCommand(),
+		mcpCommand(),
+		configCommand(),
+		updateCommand(),
+		tuiCommand(),
+	)
+	root.Run = func(args []string) error {
+		if len(args) > 0 {
+			return root.Usagef("unknown command %q (try 'phi run --help' or 'phi tui')", args[0])
+		}
+		return runTUI()
+	}
+	return root
+}
+
+func tuiCommand() *cli.Command {
+	return &cli.Command{
+		Name: "tui",
+		Desc: "start the interactive TUI",
+		Run: func(args []string) error {
+			if len(args) > 0 {
+				return errors.New("unexpected argument")
+			}
+			return runTUI()
+		},
+	}
 }
 
 // runTUI starts the interactive terminal UI (default, unchanged behavior).
-// It returns an error so main() can pick the process exit code.
+// It returns an error so main() can pick the process exit code. All
+// diagnostics are printed here, hence the silent exitError.
 func runTUI() error {
 	proj := project.GetDefaultProject()
 	if err := proj.LoadConfig(); err != nil {
@@ -52,7 +73,7 @@ func runTUI() error {
 		fmt.Fprintln(os.Stderr, "Configure a model first, then restart:")
 		fmt.Fprintln(os.Stderr, "  phi config")
 		fmt.Fprintln(os.Stderr, "or set PHI_MODEL and PHI_API_KEY.")
-		return &exitError{code: ExitUsage, err: err}
+		return &exitError{code: ExitUsage, err: err, silent: true}
 	}
 	cfg := proj.Config().Model()
 
@@ -67,11 +88,10 @@ func runTUI() error {
 	vx, err := xui.New(xui.Options{Mouse: true, BracketedPaste: true})
 	if err != nil {
 		fmt.Fprintln(os.Stderr, "phi: terminal UI:", err)
-		return &exitError{code: ExitError, err: err}
+		return &exitError{code: ExitError, err: err, silent: true}
 	}
 	defer func(vx *xui.XUI) {
-		err := vx.Close()
-		if err != nil {
+		if err := vx.Close(); err != nil {
 			panic(err)
 		}
 	}(vx)
@@ -79,7 +99,7 @@ func runTUI() error {
 	cwd, err := os.Getwd()
 	if err != nil {
 		fmt.Fprintln(os.Stderr, "phi: getwd:", err)
-		return &exitError{code: ExitError, err: err}
+		return &exitError{code: ExitError, err: err, silent: true}
 	}
 	th := components.DefaultTheme()
 	models := proj.Config().AllModels()
@@ -96,7 +116,7 @@ func runTUI() error {
 	ctrl, err := controller.NewController(bus, proj, cwd)
 	if err != nil {
 		fmt.Fprintln(os.Stderr, "phi:", err)
-		return &exitError{code: ExitError, err: err}
+		return &exitError{code: ExitError, err: err, silent: true}
 	}
 	cmds := commands.NewBuiltinRegistry()
 	ui := editor.NewEditor(
@@ -117,41 +137,7 @@ func runTUI() error {
 	ui.StartBranchWatch()
 	if err := application.Run(ui); err != nil {
 		fmt.Fprintln(os.Stderr, "phi:", err)
-		return &exitError{code: ExitError, err: err}
+		return &exitError{code: ExitError, err: err, silent: true}
 	}
 	return nil
-}
-
-// exitError carries a process exit code so helpers can fail without calling os.Exit.
-type exitError struct {
-	code int
-	err  error
-}
-
-func (e *exitError) Error() string { return e.err.Error() }
-
-func (e *exitError) Unwrap() error { return e.err }
-
-// runTUIExit maps the error returned by runTUI to the process exit code.
-func runTUIExit(err error) int {
-	if err == nil {
-		return ExitOK
-	}
-	if ee, ok := errors.AsType[*exitError](err); ok {
-		return ee.code
-	}
-	return ExitError
-}
-
-func printMainUsage(w *os.File) {
-	fmt.Fprintf(w, `usage: phi [COMMAND]
-
-  phi                start the interactive TUI
-  phi tui            start the interactive TUI
-  phi config         open the HTML config editor (local web server)
-  phi update         install the latest release (see 'phi update --help')
-  phi run -p "..."   run one agent loop headlessly (see 'phi run --help')
-  phi sessions list  list persisted sessions for this directory
-  phi mcp …          manage MCP servers (see 'phi mcp --help')
-`)
 }

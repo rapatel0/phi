@@ -21,6 +21,7 @@ import (
 
 	"gopkg.in/yaml.v3"
 
+	"github.com/pulseaiclub/phi/internal/cli"
 	"github.com/pulseaiclub/phi/internal/project"
 	"github.com/pulseaiclub/phi/internal/util"
 )
@@ -91,18 +92,24 @@ const (
 	modelListBodyLimit    = int64(4 << 20)
 )
 
-// configCmd starts a local web server (loopback only) that edits config.yaml
-// in the browser.
-func configCmd(args []string) int {
-	for _, a := range args {
-		if a == "-h" || a == "--help" {
-			fmt.Fprintln(
-				os.Stdout,
-				"usage: phi config\n\nOpen the HTML config editor (starts a local web server on 127.0.0.1).",
-			)
-			return ExitOK
-		}
+// configCommand starts a local web server (loopback only) that edits
+// config.yaml in the browser.
+func configCommand() *cli.Command {
+	c := &cli.Command{
+		Name: "config",
+		Desc: "open the HTML config editor (local web server)",
+		Long: "Starts a local web server on 127.0.0.1 and opens the editor in the browser. Ctrl-C stops it.",
 	}
+	c.Run = func(args []string) error {
+		if len(args) > 0 {
+			return c.Usagef("unexpected argument %q", args[0])
+		}
+		return runConfig()
+	}
+	return c
+}
+
+func runConfig() error {
 	proj := project.GetDefaultProject()
 
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt)
@@ -111,8 +118,7 @@ func configCmd(args []string) int {
 	var lc net.ListenConfig
 	ln, err := lc.Listen(ctx, "tcp", "127.0.0.1:0")
 	if err != nil {
-		fmt.Fprintln(os.Stderr, "phi config:", err)
-		return ExitError
+		return err
 	}
 	addr := ln.Addr().(*net.TCPAddr)
 	pageURL := fmt.Sprintf("http://127.0.0.1:%d/", addr.Port)
@@ -129,13 +135,12 @@ func configCmd(args []string) int {
 	select {
 	case err := <-errc:
 		if err != nil && !errors.Is(err, http.ErrServerClosed) {
-			fmt.Fprintln(os.Stderr, "phi config:", err)
-			return ExitError
+			return err
 		}
 	case <-ctx.Done():
 		_ = srv.Close()
 	}
-	return ExitOK
+	return nil
 }
 
 // configHandler serves the embedded editor page and its /api/config endpoints.

@@ -16,6 +16,8 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ### Changed
 
+- CLI: commands now run on a small internal framework (`internal/cli`) — a generic flag binder with auto-generated help. Flag parsing, `--help`, and usage errors behave the same as before; help text is now derived from the flag definitions instead of hand-written strings.
+
 ### Deprecated
 
 ### Removed

@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/pulseaiclub/phi/internal/agent"
+	"github.com/pulseaiclub/phi/internal/cli"
 	"github.com/pulseaiclub/phi/internal/hooks"
 	"github.com/pulseaiclub/phi/internal/mcp"
 	"github.com/pulseaiclub/phi/internal/session"
@@ -28,44 +29,103 @@ type runOptions struct {
 	session      string
 	continueLast bool
 	sessionDir   string
-	help         bool
 }
 
-func runCmd(args []string) int {
-	opts, err := parseRunArgs(args)
-	if err != nil {
-		fmt.Fprintln(os.Stderr, "phi run:", err)
-		printRunUsage(os.Stderr)
-		return ExitUsage
+// newRunCommand binds `phi run` flags into o and returns the command.
+func newRunCommand(o *runOptions) *cli.Command {
+	c := &cli.Command{
+		Name:    "run",
+		Desc:    "Run one agent loop headlessly and exit.",
+		ArgsUse: "-p STRING",
+		Long: "Human logs go to stderr; with --jsonl, machine-readable events go to stdout (one JSON object per line).\n\n" +
+			"exit codes:\n  0 success   1 runtime/LLM error   2 max rounds   3 config/usage",
 	}
-	if opts.help {
-		printRunUsage(os.Stdout)
-		return ExitOK
+	cli.String(c, "prompt", "p", "prompt to run (required)", &o.prompt)
+	cli.Bool(c, "jsonl", "", "emit JSONL events to stdout", &o.jsonl)
+	cli.Bool(c, "yolo", "", "skip all permission checks for this run (benchmarks / CI only)", &o.yolo)
+	cli.Var(c, "max-rounds", "", "N", "cap tool rounds (default 64)", &o.maxRounds, positiveInt)
+	cli.Var(
+		c,
+		"timeout",
+		"",
+		"DURATION",
+		"stop after a wall-clock duration (default unlimited)",
+		&o.timeout,
+		positiveDuration,
+	)
+	cli.String(c, "session", "", "resume a persisted session by id or unique prefix", &o.session)
+	cli.Bool(c, "continue-last", "", "resume the newest persisted session for this directory", &o.continueLast)
+	cli.String(c, "session-dir", "", "override the session storage directory", &o.sessionDir)
+	c.Run = func(args []string) error {
+		if err := validateRunArgs(c, o, args); err != nil {
+			return err
+		}
+		if code := runMain(o); code != ExitOK {
+			return &exitError{code: code, err: errRunFailed, silent: true}
+		}
+		return nil
 	}
-	if strings.TrimSpace(opts.prompt) == "" {
-		fmt.Fprintln(os.Stderr, "phi run: prompt is required (-p \"...\")")
-		printRunUsage(os.Stderr)
-		return ExitUsage
-	}
-	if opts.continueLast && opts.session != "" {
-		fmt.Fprintln(os.Stderr, "phi run: --continue-last and --session are mutually exclusive")
-		return ExitUsage
-	}
+	return c
+}
 
+var errRunFailed = errors.New("run failed")
+
+// validateRunArgs rejects positionals and contradictory flag combinations.
+func validateRunArgs(c *cli.Command, o *runOptions, args []string) error {
+	if len(args) > 0 {
+		return c.Usagef("unexpected argument %q", args[0])
+	}
+	if strings.TrimSpace(o.prompt) == "" {
+		return c.Usagef("prompt is required (-p \"...\")")
+	}
+	if o.continueLast && o.session != "" {
+		return c.Usagef("--continue-last and --session are mutually exclusive")
+	}
+	return nil
+}
+
+// parseRunArgs is a test hook that parses flags without running the command.
+func parseRunArgs(args []string) (runOptions, error) {
+	o := &runOptions{}
+	if _, err := newRunCommand(o).Parse(args); err != nil {
+		return runOptions{}, err
+	}
+	return *o, nil
+}
+
+func positiveInt(s string) (int, error) {
+	n, err := strconv.Atoi(s)
+	if err != nil || n <= 0 {
+		return 0, errors.New("must be a positive integer")
+	}
+	return n, nil
+}
+
+func positiveDuration(s string) (time.Duration, error) {
+	d, err := time.ParseDuration(s)
+	if err != nil || d <= 0 {
+		return 0, errors.New("must be a positive duration")
+	}
+	return d, nil
+}
+
+// runMain executes the run: everything after flag parsing. It prints its own
+// diagnostics (prefixed "phi run:") and returns the process exit code.
+func runMain(o *runOptions) int {
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt)
 	defer stop()
 
-	bs, err := loadRunBootstrap(ctx, opts.sessionDir, opts.yolo)
+	bs, err := loadRunBootstrap(ctx, o.sessionDir, o.yolo)
 	if err != nil {
 		fmt.Fprintln(os.Stderr, "phi run:", err)
 		return ExitUsage
 	}
-	if opts.yolo {
+	if o.yolo {
 		fmt.Fprintln(os.Stderr, "warning: --yolo skips all permission checks for this run")
 	}
 
 	resumeID, resumePath := "", ""
-	if opts.continueLast {
+	if o.continueLast {
 		list, err := session.ListSessions(bs.SessionDir)
 		if err != nil {
 			fmt.Fprintln(os.Stderr, "phi run:", err)
@@ -76,8 +136,8 @@ func runCmd(args []string) int {
 			return ExitError
 		}
 		resumePath = list[0].File
-	} else if opts.session != "" {
-		resumeID = opts.session
+	} else if o.session != "" {
+		resumeID = o.session
 	}
 
 	engineOpts := agent.EngineOpts{
@@ -120,8 +180,8 @@ func runCmd(args []string) int {
 		fmt.Fprintln(os.Stderr, "phi run:", err)
 		return ExitUsage
 	}
-	if opts.maxRounds > 0 {
-		if err := engine.SetMaxRounds(opts.maxRounds); err != nil {
+	if o.maxRounds > 0 {
+		if err := engine.SetMaxRounds(o.maxRounds); err != nil {
 			fmt.Fprintln(os.Stderr, "phi run:", err)
 			return ExitUsage
 		}
@@ -133,13 +193,13 @@ func runCmd(args []string) int {
 	}
 
 	runCtx := ctx
-	if opts.timeout > 0 {
+	if o.timeout > 0 {
 		var cancel context.CancelFunc
-		runCtx, cancel = context.WithTimeout(ctx, opts.timeout)
+		runCtx, cancel = context.WithTimeout(ctx, o.timeout)
 		defer cancel()
 	}
 
-	return runLoop(runCtx, engine, opts)
+	return runLoop(runCtx, engine, *o)
 }
 
 // loadRunHooks discovers user + project hooks for headless `phi run`.
@@ -209,118 +269,6 @@ func runLoop(ctx context.Context, engine *agent.Engine, opts runOptions) int {
 
 	enc.doneEvent(engine.SessionID(), engine.SessionFile(), exit)
 	return exit
-}
-
-// --- flag parsing ---------------------------------------------------------
-
-func parseRunArgs(args []string) (runOptions, error) {
-	var o runOptions
-	i := 0
-	next := func(name string) (string, error) {
-		i++
-		if i >= len(args) {
-			return "", fmt.Errorf("%s requires a value", name)
-		}
-		return args[i], nil
-	}
-	for ; i < len(args); i++ {
-		arg := args[i]
-		switch {
-		case arg == "-h" || arg == "--help":
-			o.help = true
-		case arg == "--jsonl":
-			o.jsonl = true
-		case arg == "--yolo":
-			o.yolo = true
-		case arg == "--continue-last":
-			o.continueLast = true
-		case arg == "-p" || arg == "--prompt":
-			v, err := next(arg)
-			if err != nil {
-				return o, err
-			}
-			o.prompt = v
-		case strings.HasPrefix(arg, "--prompt="):
-			o.prompt = strings.TrimPrefix(arg, "--prompt=")
-		case strings.HasPrefix(arg, "-p="):
-			o.prompt = strings.TrimPrefix(arg, "-p=")
-		case arg == "--max-rounds":
-			v, err := next(arg)
-			if err != nil {
-				return o, err
-			}
-			n, err := strconv.Atoi(v)
-			if err != nil || n <= 0 {
-				return o, fmt.Errorf("--max-rounds must be a positive integer, got %q", v)
-			}
-			o.maxRounds = n
-		case strings.HasPrefix(arg, "--max-rounds="):
-			v := strings.TrimPrefix(arg, "--max-rounds=")
-			n, err := strconv.Atoi(v)
-			if err != nil || n <= 0 {
-				return o, fmt.Errorf("--max-rounds must be a positive integer, got %q", v)
-			}
-			o.maxRounds = n
-		case arg == "--timeout":
-			v, err := next(arg)
-			if err != nil {
-				return o, err
-			}
-			d, err := time.ParseDuration(v)
-			if err != nil || d <= 0 {
-				return o, fmt.Errorf("--timeout must be a positive duration, got %q", v)
-			}
-			o.timeout = d
-		case strings.HasPrefix(arg, "--timeout="):
-			v := strings.TrimPrefix(arg, "--timeout=")
-			d, err := time.ParseDuration(v)
-			if err != nil || d <= 0 {
-				return o, fmt.Errorf("--timeout must be a positive duration, got %q", v)
-			}
-			o.timeout = d
-		case arg == "--session":
-			v, err := next(arg)
-			if err != nil {
-				return o, err
-			}
-			o.session = v
-		case strings.HasPrefix(arg, "--session="):
-			o.session = strings.TrimPrefix(arg, "--session=")
-		case arg == "--session-dir":
-			v, err := next(arg)
-			if err != nil {
-				return o, err
-			}
-			o.sessionDir = v
-		case strings.HasPrefix(arg, "--session-dir="):
-			o.sessionDir = strings.TrimPrefix(arg, "--session-dir=")
-		default:
-			return o, fmt.Errorf("unknown flag %q", arg)
-		}
-	}
-	return o, nil
-}
-
-func printRunUsage(w *os.File) {
-	fmt.Fprintf(w, `usage: phi run -p "PROMPT" [flags]
-
-Run one agent loop headlessly and exit. Human logs go to stderr; with
---jsonl, machine-readable events go to stdout (one JSON object per line).
-
-flags:
-  -p, --prompt STRING   prompt to run (required)
-      --jsonl           emit JSONL events to stdout
-      --yolo            skip all permission checks for this run (benchmarks / CI only)
-      --max-rounds N    cap tool rounds (default 64)
-      --timeout DURATION stop after a wall-clock duration (e.g. 10m; default unlimited)
-      --session ID      resume a persisted session by id or unique prefix
-      --continue-last   resume the newest persisted session for this directory
-      --session-dir DIR override the session storage directory
-  -h, --help            show this help
-
-exit codes:
-  0 success   1 runtime/LLM error   2 max rounds   3 config/usage
-`)
 }
 
 // --- JSONL event schema ---------------------------------------------------
