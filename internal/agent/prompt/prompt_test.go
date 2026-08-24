@@ -43,6 +43,12 @@ func TestBuildEditHashCopyIsUnambiguous(t *testing.T) {
 	if !strings.Contains(got, "Prefer cwd-relative paths") {
 		t.Fatal("expected tools to prefer cwd-relative paths")
 	}
+	if !strings.Contains(got, "`websearch`") || !strings.Contains(got, "`webfetch`") {
+		t.Fatal("expected websearch/webfetch routing")
+	}
+	if !strings.Contains(got, "`skill`") {
+		t.Fatal("expected skill tool routing")
+	}
 }
 
 func TestBuildMCPCatalog(t *testing.T) {

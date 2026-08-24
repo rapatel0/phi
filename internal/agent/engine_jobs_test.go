@@ -79,6 +79,9 @@ func TestChildToolsAreReadonly(t *testing.T) {
 	assert.True(t, names["read_image"])
 	assert.True(t, names["grep"])
 	assert.True(t, names["bash"])
+	assert.True(t, names["skill"])
+	assert.True(t, names["webfetch"])
+	assert.True(t, names["websearch"])
 	assert.False(t, names["write"])
 	assert.False(t, names["edit"])
 }

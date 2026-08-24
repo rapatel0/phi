@@ -41,6 +41,18 @@ func TestExtractAtUsesExplicitCwd(t *testing.T) {
 	}
 }
 
+func TestExtractWebToolsAreReadable(t *testing.T) {
+	for _, name := range []string{"webfetch", "websearch", "skill"} {
+		req, err := Extract(name, json.RawMessage(`{}`))
+		if err != nil {
+			t.Fatalf("%s: %v", name, err)
+		}
+		if req.Action != ActionRead {
+			t.Fatalf("%s action = %q, want read", name, req.Action)
+		}
+	}
+}
+
 func TestExtractEditFilePath(t *testing.T) {
 	req, err := Extract("edit", json.RawMessage(`{"file_path":"a.go","edits":[]}`))
 	if err != nil {

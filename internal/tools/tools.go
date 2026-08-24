@@ -9,7 +9,10 @@ import (
 	"github.com/pulseaiclub/phi/internal/tools/mcptool"
 	"github.com/pulseaiclub/phi/internal/tools/readimagetool"
 	"github.com/pulseaiclub/phi/internal/tools/readtool"
+	"github.com/pulseaiclub/phi/internal/tools/skilltool"
 	"github.com/pulseaiclub/phi/internal/tools/tooldef"
+	"github.com/pulseaiclub/phi/internal/tools/webfetchtool"
+	"github.com/pulseaiclub/phi/internal/tools/websearchtool"
 	"github.com/pulseaiclub/phi/internal/tools/writetool"
 )
 
@@ -31,6 +34,7 @@ var (
 	WithToolCallID = tooldef.WithToolCallID
 	ToolCallID     = tooldef.ToolCallID
 	WithCwd        = tooldef.WithCwd
+	WithModel      = tooldef.WithModel
 )
 
 type (
@@ -79,6 +83,9 @@ func DefaultTools() []Tool {
 		lstool.LsTool(),
 		writetool.EditTool(),
 		findtool.FindTool(),
+		skilltool.SkillTool(),
+		webfetchtool.WebFetchTool(),
+		websearchtool.WebSearchTool(),
 	}
 }
 
@@ -93,5 +100,8 @@ func ReadonlyTools() []Tool {
 		greptool.GrepTool(),
 		lstool.LsTool(),
 		findtool.FindTool(),
+		skilltool.SkillTool(),
+		webfetchtool.WebFetchTool(),
+		websearchtool.WebSearchTool(),
 	}
 }

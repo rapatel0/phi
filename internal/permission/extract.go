@@ -118,6 +118,10 @@ func ExtractAt(toolName string, args json.RawMessage, cwd string) (Request, erro
 		req.Action = ActionAgent
 		return req, nil
 
+	case "webfetch", "websearch", "skill":
+		req.Action = ActionRead
+		return req, nil
+
 	default:
 		req.Action = Action(toolName)
 		return req, nil

@@ -29,6 +29,7 @@ type Executor struct {
 	hooks     *hooks.Manager // nil = no hooks (behavior identical to pre-hooks)
 	sessionID string
 	cwd       string
+	model     llm.ModelConfig
 
 	// failClosedHooksOnly is set in ModeReadonly: only FailClosed hooks run
 	// so slow audit hooks cannot stall exploration.
@@ -57,6 +58,14 @@ func (e *Executor) SetMeta(sessionID, cwd string) {
 	}
 	e.sessionID = sessionID
 	e.cwd = cwd
+}
+
+// SetModel attaches the active LLM connection (native websearch backends).
+func (e *Executor) SetModel(cfg llm.ModelConfig) {
+	if e == nil {
+		return
+	}
+	e.model = cfg
 }
 
 func (e *Executor) syncHookFilter() {
@@ -96,6 +105,7 @@ func (e *Executor) Run(
 
 func (e *Executor) runOne(ctx context.Context, call llm.ToolCall, emit func(session.ToolData) bool) llm.Message {
 	ctx = tools.WithCwd(ctx, e.cwd)
+	ctx = tools.WithModel(ctx, e.model)
 	tool, ok := e.registry[call.Function.Name]
 	args := json.RawMessage(call.Function.Arguments)
 	detail := call.Function.Arguments

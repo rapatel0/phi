@@ -180,6 +180,7 @@ func (engine *Engine) systemPrompt() string {
 func (engine *Engine) bindExecutor(registry tools.Registry) {
 	engine.executor = NewExecutor(registry, engine.gate, engine.ask, engine.hooks)
 	engine.executor.SetMeta(engine.SessionID(), engine.SessionCwd())
+	engine.executor.SetModel(engine.modelCfg)
 }
 
 // HasTool reports whether a tool is currently registered on the executor.
