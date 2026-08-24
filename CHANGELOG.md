@@ -10,6 +10,8 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ### Added
 
+- Built-in `skill`, `webfetch`, and `websearch` tools. Search uses the current model's native API when available (Anthropic `web_search_20250305`, Gemini `google_search`, OpenAI/xAI Responses `web_search`) and falls back to DuckDuckGo HTML. `webfetch` is https-only with SSRF checks.
+- `mise.toml` pins Go 1.26.3 and golangci-lint 2.13.0, with tasks for build / test / fmt / lint (`mise run check`).
 - Go extension host (`internal/ext`): compiled-in plugins register tools and footer bits. Bundled: `tokenspeed`, `todo_write`, `ask_user_question`.
 - Gemini (`internal/llm/gemini`) and SuperGrok/xAI (`phi login xai`, `https://api.x.ai/v1`). See [doc/plugins.md](doc/plugins.md).
 - `phi login anthropic` / `phi login codex`: Claude Pro/Max (PKCE) and ChatGPT Codex (device code) OAuth. Tokens live in `~/.phi/auth.json`; config `api_key` still wins. OAuth Anthropic requests use Claude Code identity headers and tool names so subscription billing applies.
@@ -33,6 +35,8 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 - Ctrl+B hid the TASKS sidebar for one frame then immediately re-showed it whenever sub-agents were running. Hide is now sticky until you toggle again. `Ctrl+T` is the same binding (tmux eats Ctrl+B).
 - `/resume` with no id now continues the latest session for this directory (it used to only print usage). Replay restores tool rows and sub-agent cards, not just user/assistant text.
 - TUI model palette only listed `config.yaml` entries, so Anthropic / Codex / Grok / Gemini never appeared after `phi login`. Logged-in (or env-keyed) providers now inject their catalog into settings → model.
+- Ctrl+K → settings → model fetches live IDs from each provider's `/models` API (OpenAI-compat, Anthropic, Gemini, Codex). Static catalog is the fallback; `PHI_MODEL_LIST=0` skips the network.
+- Anthropic OAuth mapped both `agent_wait` and `agent_list` to `TaskOutput`, so Claude rejected the request with "tools: Tool names must be unique." `agent_list` is now `TaskList`; remaining collisions keep the original name.
 
 ### Security
 
