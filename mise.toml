@@ -1,0 +1,59 @@
+# Pins the toolchain and the same tasks as the Makefile.
+#   mise install
+#   mise run check
+
+[tools]
+go = "1.26.3"
+golangci-lint = "2.13.0"
+
+[env]
+CGO_ENABLED = "0"
+
+[tasks.build]
+description = "Build ./phi (CGO off, stripped)"
+run = "go build -ldflags='-s -w' -o phi ./cmd"
+
+[tasks.install]
+description = "Build and install phi into GOBIN"
+depends = ["build"]
+run = '''
+set -euo pipefail
+bin="$(go env GOBIN)"
+[ -n "$bin" ] || bin="$(go env GOPATH)/bin"
+mkdir -p "$bin"
+mv -f phi "$bin/phi"
+echo "installed phi -> $bin/phi"
+'''
+
+[tasks.run]
+description = "Build and start the TUI"
+depends = ["build"]
+run = "./phi"
+
+[tasks.clean]
+description = "Remove the local binary and Go cache artifacts"
+run = ["rm -f phi", "go clean"]
+
+[tasks.test]
+description = "Run all Go tests"
+run = "go test ./..."
+
+[tasks.fmt]
+description = "Apply gofumpt / goimports / golines via golangci-lint"
+run = "golangci-lint fmt ./..."
+
+[tasks."fmt-check"]
+description = "Fail if formatting would change files (CI gate)"
+run = "golangci-lint fmt --diff ./..."
+
+[tasks.lint]
+description = "Run golangci-lint"
+run = "golangci-lint run ./..."
+
+[tasks.tidy]
+description = "Tidy go.mod / go.sum"
+run = "go mod tidy"
+
+[tasks.check]
+description = "Local CI gate: format, lint, tests"
+depends = ["fmt-check", "lint", "test"]

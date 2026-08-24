@@ -33,14 +33,16 @@ Minimal Go terminal coding-agent harness. Layout: [doc/project-layout.md](doc/pr
 
 ## Commands
 
+Toolchain is pinned in `mise.toml` (`mise install`). `make` still works if Go and golangci-lint are already on PATH.
+
 ```
-make help
-make test                      # go test ./...
+mise run check                 # fmt-check + lint + test
+mise run test                  # go test ./...
+mise run fmt                   # apply formatters
+mise run fmt-check             # CI formatting gate
+mise run lint                  # golangci-lint
+mise run build                 # ./phi
 go test ./internal/hooks -v    # one package
-make fmt                       # apply formatters
-make fmt-check                 # CI formatting gate
-make lint                      # golangci-lint
-make build                     # ./phi
 ```
 
 ## Style

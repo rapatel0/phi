@@ -52,20 +52,21 @@ Sessions are persisted per project directory under
 
 ## Running checks
 
-Before submitting, make sure everything passes locally:
+`mise.toml` pins Go (`1.26.3`) and golangci-lint (`2.13.0`, same as CI). After
+`mise install`, the tasks match the Makefile:
 
 ```sh
-make test        # go test ./...
-make fmt         # apply gofumpt / goimports / golines
-make fmt-check   # fail if formatting would change files (same as CI)
-make lint        # golangci-lint run ./...
+mise install
+mise run test        # go test ./...
+mise run fmt         # apply gofumpt / goimports / golines
+mise run fmt-check   # fail if formatting would change files (same as CI)
+mise run lint        # golangci-lint run ./...
+mise run check       # fmt-check + lint + test
+mise run build       # ./phi
 ```
 
-Install `golangci-lint` (required for `fmt` / `fmt-check` / `lint`):
-
-```sh
-go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest
-```
+`make test` / `make fmt` / `make lint` still work if those tools are already on
+PATH.
 
 If you add or change dependencies, run `go mod tidy` so `go.mod`/`go.sum`
 stay clean.
