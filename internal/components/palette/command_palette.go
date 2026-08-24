@@ -21,7 +21,8 @@ type PaletteCommand struct {
 	Disabled bool
 	// Submenu opens a nested picker (e.g. Select Theme).
 	Submenu      []PaletteCommand
-	SubmenuTitle string // header for the nested list; default Verb
+	SubmenuFn    func() []PaletteCommand // lazy submenu (e.g. live model list)
+	SubmenuTitle string                  // header for the nested list; default Verb
 	// KeepOpen leaves the palette open after Run (when not using Submenu).
 	KeepOpen bool
 	Run      func()
@@ -201,12 +202,16 @@ func (p *CommandPalette) accept() (stillOpen bool) {
 		return true
 	}
 	depth := len(p.stack)
-	if len(cmd.Submenu) > 0 {
+	items := cmd.Submenu
+	if cmd.SubmenuFn != nil {
+		items = cmd.SubmenuFn()
+	}
+	if len(items) > 0 {
 		title := cmd.SubmenuTitle
 		if title == "" {
 			title = cmd.Verb
 		}
-		p.Push(title, cmd.Submenu)
+		p.Push(title, items)
 		return true
 	}
 	if p.OnAccept != nil {

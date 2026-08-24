@@ -6,7 +6,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io"
 	"mime"
 	"net"
 	"net/http"
@@ -15,14 +14,14 @@ import (
 	"os/exec"
 	"os/signal"
 	"runtime"
-	"sort"
 	"strings"
 	"time"
 
 	"gopkg.in/yaml.v3"
 
+	"github.com/pulseaiclub/phi/internal/llm"
+	"github.com/pulseaiclub/phi/internal/llm/modellist"
 	"github.com/pulseaiclub/phi/internal/project"
-	"github.com/pulseaiclub/phi/internal/util"
 )
 
 //go:embed config.html
@@ -73,23 +72,7 @@ type modelListRequest struct {
 	Model   string `json:"model"`
 }
 
-type modelListItem struct {
-	ID          string `json:"id"`
-	Name        string `json:"name"`
-	DisplayName string `json:"display_name"`
-}
-
-type modelListResponse struct {
-	Data   []modelListItem `json:"data"`
-	Models []modelListItem `json:"models"`
-}
-
-const (
-	defaultOpenAIBaseURL  = "https://api.openai.com/v1"
-	anthropicAPIVersion   = "2023-06-01"
-	modelListRequestLimit = 15 * time.Second
-	modelListBodyLimit    = int64(4 << 20)
-)
+const modelListRequestLimit = 15 * time.Second
 
 // configCmd starts a local web server (loopback only) that edits config.yaml
 // in the browser.
@@ -214,142 +197,20 @@ func (*configHandler) handleModels(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	baseURL := strings.TrimSpace(input.BaseURL)
-	apiKey := strings.TrimSpace(input.APIKey)
-	anthropic := isAnthropicModelRequest(baseURL, input.Model)
-	if baseURL == "" {
-		if anthropic {
-			baseURL = "https://api.anthropic.com"
-		} else {
-			baseURL = defaultOpenAIBaseURL
-		}
-	}
-	endpoint, err := modelListEndpoint(baseURL, anthropic)
-	if err != nil {
-		writeConfigErr(w, http.StatusBadRequest, err)
-		return
-	}
-
 	ctx, cancel := context.WithTimeout(r.Context(), modelListRequestLimit)
 	defer cancel()
-	request, err := http.NewRequestWithContext(ctx, http.MethodGet, endpoint, http.NoBody)
+	names, err := modellist.Fetch(ctx, llm.ModelConfig{
+		Name:    input.Model,
+		APIKey:  strings.TrimSpace(input.APIKey),
+		BaseURL: strings.TrimSpace(input.BaseURL),
+	})
 	if err != nil {
-		writeConfigErr(w, http.StatusBadRequest, fmt.Errorf("build model list request: %w", err))
+		writeConfigErr(w, http.StatusBadGateway, err)
 		return
 	}
-	request.Header.Set("Accept", "application/json")
-	if anthropic {
-		request.Header.Set("X-Api-Key", apiKey)
-		request.Header.Set("Anthropic-Version", anthropicAPIVersion)
-	} else {
-		request.Header.Set("Authorization", "Bearer "+apiKey)
-	}
-
-	response, err := modelListHTTPClient().Do(request)
-	if err != nil {
-		writeConfigErr(w, http.StatusBadGateway, fmt.Errorf("fetch model list: %w", err))
-		return
-	}
-	defer response.Body.Close()
-
-	body, err := io.ReadAll(io.LimitReader(response.Body, modelListBodyLimit+1))
-	if err != nil {
-		writeConfigErr(w, http.StatusBadGateway, fmt.Errorf("read model list: %w", err))
-		return
-	}
-	if int64(len(body)) > modelListBodyLimit {
-		writeConfigErr(w, http.StatusBadGateway, errors.New("model list response is too large"))
-		return
-	}
-	if response.StatusCode < http.StatusOK || response.StatusCode >= http.StatusMultipleChoices {
-		message := strings.TrimSpace(string(body))
-		if len(message) > 500 {
-			message = message[:500]
-		}
-		if message == "" {
-			message = response.Status
-		}
-		writeConfigErr(w, http.StatusBadGateway, fmt.Errorf("model list request failed: %s", message))
-		return
-	}
-
-	var payload modelListResponse
-	if err := json.Unmarshal(body, &payload); err != nil {
-		writeConfigErr(w, http.StatusBadGateway, fmt.Errorf("decode model list: %w", err))
-		return
-	}
-	models := collectModelIDs(append(payload.Data, payload.Models...))
-	sort.Strings(models)
 	writeConfigJSON(w, struct {
 		Models []string `json:"models"`
-	}{Models: models})
-}
-
-func modelListHTTPClient() *http.Client {
-	client := *util.DefaultHTTPClient()
-	client.CheckRedirect = func(req *http.Request, via []*http.Request) error {
-		if len(via) >= 10 {
-			return errors.New("stopped after 10 redirects")
-		}
-		origin := via[0].URL
-		if !strings.EqualFold(req.URL.Scheme, origin.Scheme) ||
-			!strings.EqualFold(req.URL.Host, origin.Host) {
-			return errors.New("model list redirect changed origin")
-		}
-		return nil
-	}
-	return &client
-}
-
-func isAnthropicModelRequest(baseURL, model string) bool {
-	return strings.Contains(strings.ToLower(baseURL), "anthropic") ||
-		strings.HasPrefix(strings.ToLower(strings.TrimSpace(model)), "claude")
-}
-
-func modelListEndpoint(baseURL string, anthropic bool) (string, error) {
-	u, err := url.Parse(strings.TrimSpace(baseURL))
-	if err != nil || u.Scheme == "" || u.Host == "" {
-		return "", errors.New("base URL must be an absolute HTTP(S) URL")
-	}
-	if u.Scheme != "http" && u.Scheme != "https" {
-		return "", errors.New("base URL must use http or https")
-	}
-
-	path := strings.TrimRight(u.Path, "/")
-	if !strings.HasSuffix(path, "/models") {
-		if anthropic && !strings.HasSuffix(path, "/v1") {
-			path += "/v1"
-		}
-		path += "/models"
-	}
-	u.Path = path
-	u.RawPath = ""
-	u.RawQuery = ""
-	u.Fragment = ""
-	return u.String(), nil
-}
-
-func collectModelIDs(items []modelListItem) []string {
-	seen := make(map[string]struct{}, len(items))
-	models := make([]string, 0, len(items))
-	for _, item := range items {
-		id := strings.TrimSpace(item.ID)
-		if id == "" {
-			id = strings.TrimSpace(item.Name)
-		}
-		if id == "" {
-			id = strings.TrimSpace(item.DisplayName)
-		}
-		if id == "" {
-			continue
-		}
-		if _, ok := seen[id]; ok {
-			continue
-		}
-		seen[id] = struct{}{}
-		models = append(models, id)
-	}
-	return models
+	}{Models: names})
 }
 
 // validateLocalJSONRequest requires browser POSTs to use a non-simple content

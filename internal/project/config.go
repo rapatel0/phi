@@ -66,6 +66,74 @@ func (c *Config) FindModel(name string) (llm.ModelConfig, bool) {
 	return llm.ModelConfig{}, false
 }
 
+// AddModels appends extra models whose names are not already present.
+func (c *Config) AddModels(extra []llm.ModelConfig) {
+	if c == nil || len(extra) == 0 {
+		return
+	}
+	seen := make(map[string]struct{}, len(c.Models)+len(extra))
+	for _, m := range c.Models {
+		if m.Name != "" {
+			seen[m.Name] = struct{}{}
+		}
+	}
+	for _, m := range extra {
+		if m.Name == "" {
+			continue
+		}
+		if _, ok := seen[m.Name]; ok {
+			continue
+		}
+		seen[m.Name] = struct{}{}
+		c.Models = append(c.Models, m)
+	}
+}
+
+// ConnectionForName returns the model entry for name, or a copy of a sibling
+// from the same provider (so API-listed IDs reuse that provider's key/URL).
+func (c *Config) ConnectionForName(name string) llm.ModelConfig {
+	if m, ok := c.FindModel(name); ok {
+		return m
+	}
+	low := strings.ToLower(strings.TrimSpace(name))
+	var match func(llm.ModelConfig) bool
+	switch {
+	case strings.HasPrefix(low, "claude"):
+		match = func(m llm.ModelConfig) bool {
+			return strings.Contains(strings.ToLower(m.BaseURL), "anthropic") ||
+				strings.HasPrefix(strings.ToLower(m.Name), "claude")
+		}
+	case strings.HasPrefix(low, "gemini"):
+		match = func(m llm.ModelConfig) bool {
+			return strings.Contains(strings.ToLower(m.BaseURL), "generativelanguage.googleapis.com") ||
+				strings.HasPrefix(strings.ToLower(m.Name), "gemini")
+		}
+	case strings.HasPrefix(low, "grok"):
+		match = func(m llm.ModelConfig) bool {
+			return strings.Contains(strings.ToLower(m.BaseURL), "x.ai") ||
+				strings.HasPrefix(strings.ToLower(m.Name), "grok")
+		}
+	case strings.Contains(low, "codex") || strings.HasPrefix(low, "gpt-") ||
+		strings.HasPrefix(low, "o1") || strings.HasPrefix(low, "o3") || strings.HasPrefix(low, "o4"):
+		match = func(m llm.ModelConfig) bool {
+			return strings.Contains(strings.ToLower(m.BaseURL), "chatgpt.com") ||
+				strings.Contains(strings.ToLower(m.BaseURL), "codex") ||
+				strings.Contains(strings.ToLower(m.Name), "codex")
+		}
+	}
+	if match != nil {
+		for _, m := range c.AllModels() {
+			if match(m) {
+				m.Name = name
+				return m
+			}
+		}
+	}
+	m := c.Model()
+	m.Name = name
+	return m
+}
+
 // defaultEntry returns the default model entry (DefaultModel by name, else
 // the first entry), creating one if the config has no models yet so env-only
 // setups can still apply PHI_* overrides.

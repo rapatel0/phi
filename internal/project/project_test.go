@@ -9,6 +9,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/pulseaiclub/phi/internal/auth"
+	"github.com/pulseaiclub/phi/internal/llm"
 )
 
 // discoverInTempHome runs Discover("") with HOME redirected to a temp dir so
@@ -266,6 +267,20 @@ models:
 	assert.Equal(t, "https://a2.example/v1", a2.BaseURL)
 	_, ok = cfg.FindModel("nope")
 	assert.False(t, ok)
+}
+
+func TestConnectionForNameUsesProviderSibling(t *testing.T) {
+	cfg := &Config{Models: []llm.ModelConfig{
+		{Name: "local", APIKey: "lk", BaseURL: "https://llm.example/v1"},
+		{Name: "claude-sonnet-5", APIKey: "ak", BaseURL: "https://api.anthropic.com"},
+	}}
+	got := cfg.ConnectionForName("claude-opus-5")
+	assert.Equal(t, "claude-opus-5", got.Name)
+	assert.Equal(t, "ak", got.APIKey)
+	assert.Equal(t, "https://api.anthropic.com", got.BaseURL)
+	got = cfg.ConnectionForName("mystery")
+	assert.Equal(t, "mystery", got.Name)
+	assert.Equal(t, "lk", got.APIKey)
 }
 
 func TestLoadConfigDefaultFallsBackToFirst(t *testing.T) {

@@ -905,7 +905,19 @@ func (b *commandBridge) context() commands.CommandContext {
 			}
 			b.sessions.Clear()
 		},
-		SetModel:       b.setModel,
+		SetModel: b.setModel,
+		ListModels: func() []string {
+			if b.ctrl == nil {
+				return b.modelNames
+			}
+			ctx, cancel := context.WithTimeout(context.Background(), 8*time.Second)
+			defer cancel()
+			names := b.ctrl.RefreshModelCatalog(ctx)
+			if len(names) > 0 {
+				b.modelNames = names
+			}
+			return b.modelNames
+		},
 		ApplyTheme:     b.applyTheme,
 		SetPermissions: b.setPermissions,
 		SetAgents:      b.setAgents,

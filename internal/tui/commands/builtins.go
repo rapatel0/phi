@@ -81,7 +81,7 @@ func registerBuiltinCommands(r *CommandRegistry) {
 	r.Register(Command{
 		Name: "settings-model",
 		PaletteRoot: func(ctx CommandContext) palette.PaletteCommand {
-			return modelSettingsCommand(ctx.SetModel, ctx.ModelNames)
+			return modelSettingsCommand(ctx.SetModel, ctx.ModelNames, ctx.ListModels)
 		},
 	})
 	r.Register(Command{
@@ -145,25 +145,32 @@ func LookupSlashInsert(name string) string {
 }
 
 // modelSettingsCommand returns settings → model submenu.
-func modelSettingsCommand(onModel func(name string), modelNames []string) palette.PaletteCommand {
-	models := make([]palette.PaletteCommand, 0, len(modelNames))
-	for _, name := range modelNames {
-		models = append(models, palette.PaletteCommand{
-			ID:   "model-" + name,
-			Verb: name,
-			Run: func() {
-				if onModel != nil {
-					onModel(name)
-				}
-			},
-		})
-	}
-	if len(models) == 0 {
-		models = append(models, palette.PaletteCommand{
-			ID:       "model-empty",
-			Verb:     "No models configured",
-			Disabled: true,
-		})
+func modelSettingsCommand(
+	onModel func(name string),
+	modelNames []string,
+	listModels func() []string,
+) palette.PaletteCommand {
+	build := func(names []string) []palette.PaletteCommand {
+		models := make([]palette.PaletteCommand, 0, len(names))
+		for _, name := range names {
+			models = append(models, palette.PaletteCommand{
+				ID:   "model-" + name,
+				Verb: name,
+				Run: func() {
+					if onModel != nil {
+						onModel(name)
+					}
+				},
+			})
+		}
+		if len(models) == 0 {
+			models = append(models, palette.PaletteCommand{
+				ID:       "model-empty",
+				Verb:     "No models configured",
+				Disabled: true,
+			})
+		}
+		return models
 	}
 	return palette.PaletteCommand{
 		ID:           "settings-model",
@@ -171,14 +178,23 @@ func modelSettingsCommand(onModel func(name string), modelNames []string) palett
 		Verb:         "model",
 		Keywords:     []string{"model"},
 		SubmenuTitle: "Select Model",
-		Submenu:      models,
+		Submenu:      build(modelNames),
+		SubmenuFn: func() []palette.PaletteCommand {
+			names := modelNames
+			if listModels != nil {
+				if live := listModels(); len(live) > 0 {
+					names = live
+				}
+			}
+			return build(names)
+		},
 	}
 }
 
 // PaletteCommands returns model-switch commands for the command palette
 // (legacy helper; prefer registry BuildPalette).
 func PaletteCommands(onModel func(name string), modelNames []string) []palette.PaletteCommand {
-	return []palette.PaletteCommand{modelSettingsCommand(onModel, modelNames)}
+	return []palette.PaletteCommand{modelSettingsCommand(onModel, modelNames, nil)}
 }
 
 // ThemeCommand returns a settings → theme submenu listing builtin palettes.

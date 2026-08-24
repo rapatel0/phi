@@ -81,6 +81,33 @@ func TestFuzzyMatch(t *testing.T) {
 	}
 }
 
+func TestCommandPaletteLazySubmenu(t *testing.T) {
+	calls := 0
+	p := &CommandPalette{
+		Theme: components.DefaultTheme(),
+		Commands: []PaletteCommand{
+			{
+				ID:           "settings-model",
+				Verb:         "model",
+				SubmenuTitle: "Select Model",
+				SubmenuFn: func() []PaletteCommand {
+					calls++
+					return []PaletteCommand{{ID: "live", Verb: "live-model"}}
+				},
+			},
+		},
+	}
+	p.Show()
+	ctx := &components.EventContext{}
+	p.Handle(ctx, xui.KeyEvent{Code: xui.KeyEnter, Press: true})
+	if calls != 1 {
+		t.Fatalf("SubmenuFn calls=%d", calls)
+	}
+	if p.Title != "Select Model" || len(p.Commands) != 1 || p.Commands[0].Verb != "live-model" {
+		t.Fatalf("title=%q cmds=%+v", p.Title, p.Commands)
+	}
+}
+
 func TestCommandPaletteNestedSubmenu(t *testing.T) {
 	picked := ""
 	p := &CommandPalette{

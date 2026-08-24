@@ -17,6 +17,7 @@ import (
 	"github.com/pulseaiclub/phi/internal/hooks"
 	"github.com/pulseaiclub/phi/internal/job"
 	"github.com/pulseaiclub/phi/internal/llm"
+	"github.com/pulseaiclub/phi/internal/llm/modellist"
 	"github.com/pulseaiclub/phi/internal/mcp"
 	"github.com/pulseaiclub/phi/internal/permission"
 	"github.com/pulseaiclub/phi/internal/project"
@@ -58,6 +59,10 @@ type Controller struct {
 	children     *childRegistry
 	attachedID   string   // guarded by streamMu; empty = parent focused
 	attachedInfo job.Info // guarded by streamMu
+
+	modelListMu sync.Mutex
+	modelList   []string
+	modelListAt time.Time
 }
 
 // NewController wires bus + project into a ready Controller with a live Engine.
@@ -388,18 +393,19 @@ func (c *Controller) SetModel(name string) error {
 	if c.proj == nil {
 		return errors.New("project not available")
 	}
-	if err := c.proj.LoadConfig(); err != nil {
-		return err
+	cfg := c.proj.Config()
+	if cfg == nil {
+		if err := c.proj.LoadConfig(); err != nil {
+			return err
+		}
+		cfg = c.proj.Config()
 	}
-	cfg, ok := c.proj.Config().FindModel(name)
-	if !ok {
-		// Not a configured model: keep the primary's connection settings and
-		// only swap the name (arbitrary-model workflow).
-		cfg = c.proj.Config().Model()
-		cfg.Name = name
+	if cfg == nil {
+		return errors.New("project not available")
 	}
+	model := cfg.ConnectionForName(name)
 	c.Cancel()
-	c.initGate(c.proj.Config().Permissions)
+	c.initGate(cfg.Permissions)
 	if c.engine == nil {
 		return errors.New("agent not configured")
 	}
@@ -409,11 +415,89 @@ func (c *Controller) SetModel(name string) error {
 	if _, _, err := c.ReloadHooks(); err != nil {
 		debuglog.Logf("hooks: reload on SetModel: %v", err)
 	}
-	if err := c.engine.SetModel(cfg); err != nil {
+	if err := c.engine.SetModel(model); err != nil {
 		return err
 	}
-	c.modelCfg = cfg
+	c.modelCfg = model
 	return nil
+}
+
+const modelListTTL = 2 * time.Minute
+
+// RefreshModelCatalog fetches /models from each unique provider endpoint and
+// merges IDs into the live config so the palette and SetModel share them.
+// Failures keep the config/catalog list. PHI_MODEL_LIST=0 skips the network.
+func (c *Controller) RefreshModelCatalog(ctx context.Context) []string {
+	if c == nil || c.proj == nil || c.proj.Config() == nil {
+		return nil
+	}
+	cfg := c.proj.Config()
+	c.modelListMu.Lock()
+	if time.Since(c.modelListAt) < modelListTTL && len(c.modelList) > 0 {
+		out := append([]string(nil), c.modelList...)
+		c.modelListMu.Unlock()
+		return out
+	}
+	c.modelListMu.Unlock()
+
+	if !modellist.Disabled() {
+		var (
+			wg    sync.WaitGroup
+			mu    sync.Mutex
+			extra []llm.ModelConfig
+		)
+		for _, ep := range uniqueModelEndpoints(cfg) {
+			wg.Add(1)
+			go func(ep llm.ModelConfig) {
+				defer wg.Done()
+				ids, err := modellist.Fetch(ctx, ep)
+				if err != nil || len(ids) == 0 {
+					return
+				}
+				mu.Lock()
+				for _, id := range ids {
+					m := ep
+					m.Name = id
+					extra = append(extra, m)
+				}
+				mu.Unlock()
+			}(ep)
+		}
+		wg.Wait()
+		cfg.AddModels(extra)
+	}
+
+	names := make([]string, 0, len(cfg.AllModels()))
+	for _, m := range cfg.AllModels() {
+		if m.Name != "" {
+			names = append(names, m.Name)
+		}
+	}
+	c.modelListMu.Lock()
+	c.modelList = names
+	c.modelListAt = time.Now()
+	c.modelListMu.Unlock()
+	return names
+}
+
+func uniqueModelEndpoints(cfg *project.Config) []llm.ModelConfig {
+	if cfg == nil {
+		return nil
+	}
+	seen := map[string]struct{}{}
+	var out []llm.ModelConfig
+	for _, m := range cfg.AllModels() {
+		if strings.TrimSpace(m.APIKey) == "" {
+			continue
+		}
+		key := strings.ToLower(strings.TrimRight(m.BaseURL, "/")) + "\x00" + m.APIKey
+		if _, ok := seen[key]; ok {
+			continue
+		}
+		seen[key] = struct{}{}
+		out = append(out, m)
+	}
+	return out
 }
 
 // SessionID returns the short-form-friendly session id.
