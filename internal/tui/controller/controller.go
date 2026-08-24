@@ -516,6 +516,15 @@ func (c *Controller) SessionDir() string {
 	return c.sessionDir
 }
 
+// BrowseSessions lists every project under the session base with its saved
+// sessions, so the picker can offer sessions from other working directories.
+func (c *Controller) BrowseSessions() ([]session.ProjectSessions, error) {
+	if c == nil || c.proj == nil {
+		return nil, errors.New("project not available")
+	}
+	return session.BrowseSessions(c.proj.Global().SessionBase())
+}
+
 // LiveJobCount returns in-flight sub-agent jobs (0 if jobs disabled).
 func (c *Controller) authFile() string {
 	if c == nil || c.proj == nil {

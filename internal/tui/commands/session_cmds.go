@@ -2,6 +2,7 @@ package commands
 
 import (
 	"fmt"
+	"slices"
 	"strings"
 	"time"
 
@@ -20,6 +21,9 @@ type SessionCommands struct {
 	Toast           toast.Toast
 	SyncHooks       func()
 	OnAbandonAttach func() // drop sub-agent focus before resume/clear
+	// ShowPicker opens the session tree dialog. The editor supplies it; when
+	// nil, Show falls back to printing the list into the transcript.
+	ShowPicker func([]session.ProjectSessions, string)
 }
 
 // NewSessionCommands builds session command handlers.
@@ -39,7 +43,8 @@ func NewSessionCommands(
 	}
 }
 
-// Show lists recent sessions for the current session directory.
+// Show opens the session tree dialog, or prints the list when no dialog is
+// wired (tests and headless callers).
 func (s *SessionCommands) Show() {
 	if s == nil {
 		return
@@ -47,6 +52,15 @@ func (s *SessionCommands) Show() {
 	dir := ""
 	if s.Ctrl != nil {
 		dir = s.Ctrl.SessionDir()
+	}
+	if s.ShowPicker != nil && s.Ctrl != nil {
+		projects, err := s.Ctrl.BrowseSessions()
+		if err != nil {
+			s.Toast.Show(err.Error(), toast.ToastError, 3*time.Second)
+			return
+		}
+		s.ShowPicker(projects, dir)
+		return
 	}
 	list, err := session.ListSessions(dir)
 	if err != nil {
@@ -154,9 +168,9 @@ func shortSessionID(id string) string {
 }
 
 func lastReportedUsage(snap session.Snapshot) session.TokenUsage {
-	for i := len(snap.Messages) - 1; i >= 0; i-- {
-		if snap.Messages[i].Role == session.RoleAssistant && snap.Messages[i].Usage.Reported() {
-			return snap.Messages[i].Usage
+	for _, v := range slices.Backward(snap.Messages) {
+		if v.Role == session.RoleAssistant && v.Usage.Reported() {
+			return v.Usage
 		}
 	}
 	return session.TokenUsage{}

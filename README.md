@@ -227,6 +227,7 @@ The editor supports:
 - `!command` — run a shell command locally and stream its output into the
   transcript (see [Commands](#commands))
 - `Ctrl+K` — command palette: settings → model / theme / permissions / agents, skills, hooks
+- `Ctrl+R` — session tree: pick a saved session to resume (same as `/sessions`)
 
 ### Keyboard shortcuts
 
@@ -235,6 +236,7 @@ The editor supports:
 | `Ctrl+C`       | Quit alpha                        |
 | `Esc`          | Cancel stream / close pickers / close sub-agent view / detach |
 | `Ctrl+K`       | Toggle the command palette      |
+| `Ctrl+R`       | Toggle the session tree dialog  |
 | `Ctrl+B` / `Ctrl+T` | Toggle the TASKS sidebar (Ctrl+T if Ctrl+B is tmux) |
 | `Ctrl+O`       | View selected/latest sub-agent transcript (popup) |
 | `Ctrl+I`       | (in sub-agent view) steer — composer talks to that child |
@@ -254,7 +256,7 @@ the palette under settings → theme.
 | `alpha update`       | Download and install the latest GitHub release |
 | `alpha update --check` | Query the latest release without installing |
 | `alpha sessions list`| List persisted sessions for this directory    |
-| `/sessions`        | List sessions for this directory (TUI)        |
+| `/sessions`        | Open the session tree to pick one (TUI)       |
 | `/resume`          | Resume the latest session; `/resume <id>` for a specific one |
 | `/clear`           | Start a fresh empty session (TUI)             |
 | `/image`           | Attach clipboard image; `/image <path>` for a file |
@@ -271,7 +273,13 @@ Sessions persist automatically per working directory under
 
 - `alpha sessions list` — list session id, mtime, and preview for the current
   directory
-- `/sessions` in the TUI — same, in-app
+- `/sessions` or `Ctrl+R` in the TUI — open a tree dialog of saved sessions,
+  grouped by project. The current project is expanded; the others are
+  collapsed. Type to filter by preview text, session id, or project name.
+  `↑`/`↓` move, `←`/`→` fold a project, `Enter` resumes, `Esc` closes.
+
+  Picking a session from another project resumes it and warns that the session
+  cwd differs. The working directory does not change.
 - `/resume` — continue the latest session for this directory (`/resume <id>` for a prefix/id)
 - `/clear` — start a fresh session (new id, empty transcript)
 - `alpha run --session <id>` / `alpha run --continue-last` — resume headlessly

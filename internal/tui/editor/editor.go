@@ -151,6 +151,8 @@ func NewEditor(
 		e.hookCmds.Sync,
 	)
 	e.sessions.OnAbandonAttach = e.abandonAttach
+	e.sessions.ShowPicker = e.showSessionPicker
+	e.composer.SetSessionOpener(e.sessions.Show)
 
 	var bridge *commandBridge
 	bashRunner := submit.NewBashRunner(
@@ -688,6 +690,9 @@ func (e *Editor) Draw(ctx components.DrawContext) components.Surface {
 	if pal, ok := e.composer.PaletteOverlay(ctx); ok {
 		root.Children = append(root.Children, pal)
 	}
+	if sess, ok := e.composer.SessionOverlay(ctx); ok {
+		root.Children = append(root.Children, sess)
+	}
 	if e.toast.Visible() {
 		toastSurf := e.toast.Draw(ctx)
 		root.Children = append(root.Children, components.SubSurface{
@@ -819,6 +824,19 @@ func (e *Editor) listHooks() []palette.PaletteCommand {
 
 func (e *Editor) copyLastMessage() {
 	e.transcript.CopyBlock(e.transcript.LastCopyText())
+}
+
+// showSessionPicker opens the session tree dialog. currentDir marks which
+// project the TUI is running in so it can be expanded and labeled.
+func (e *Editor) showSessionPicker(projects []session.ProjectSessions, currentDir string) {
+	e.composer.ShowSessionPicker(
+		commands.SessionPickerProjects(projects, currentDir),
+		func(file string) {
+			// Resume by file path, so a session from another project opens
+			// without switching the session directory.
+			e.sessions.Resume(file)
+		},
+	)
 }
 
 // SubmitPrompt publishes a user prompt onto the bus.

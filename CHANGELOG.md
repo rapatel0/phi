@@ -24,6 +24,13 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ### Added
 
+- Session tree dialog (`/sessions` or `Ctrl+R`). Sessions are grouped by
+  project, with the current project expanded and the others collapsed. Type to
+  filter by preview text, session id, or project name. `↑`/`↓` move, `←`/`→`
+  fold a project, `Enter` resumes, `Esc` closes. Picking a session from another
+  project resumes it and warns that the session cwd differs; the working
+  directory does not change. `/sessions` used to print a flat list into the
+  transcript.
 - Built-in `skill`, `webfetch`, and `websearch` tools. Search uses the current model's native API when available (Anthropic `web_search_20250305`, Gemini `google_search`, OpenAI/xAI Responses `web_search`) and falls back to DuckDuckGo HTML. `webfetch` is https-only with SSRF checks.
 - `mise.toml` pins Go 1.26.3 and golangci-lint 2.13.0, with tasks for build / test / fmt / lint (`mise run check`).
 - Go extension host (`internal/ext`): compiled-in plugins register tools and footer bits. Bundled: `tokenspeed`, `todo_write`, `ask_user_question`.

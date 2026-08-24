@@ -14,6 +14,7 @@ import (
 	"github.com/rapatel0/alpha/internal/components/layout"
 	"github.com/rapatel0/alpha/internal/components/mention"
 	"github.com/rapatel0/alpha/internal/components/palette"
+	"github.com/rapatel0/alpha/internal/components/sessionpicker"
 	"github.com/rapatel0/alpha/internal/components/toast"
 	"github.com/rapatel0/alpha/internal/llm"
 	"github.com/rapatel0/alpha/internal/media"
@@ -30,10 +31,11 @@ type ComposerPane struct {
 	theme components.Theme
 	cwd   string
 
-	Chat    chat.ChatInput
-	mention mention.Picker
-	slash   mention.Picker
-	palette palette.CommandPalette
+	Chat     chat.ChatInput
+	mention  mention.Picker
+	slash    mention.Picker
+	palette  palette.CommandPalette
+	sessions sessionpicker.Picker
 
 	mentionGen int
 	commands   *commands.CommandRegistry
@@ -53,6 +55,7 @@ type ComposerPane struct {
 	requestFocusEditor    func()
 	requestFocus          func(components.Widget)
 	ctrlClose             func()
+	openSessions          func()
 	onIdleEscape          func() bool
 	onNotice              func(msg string, kind toast.ToastKind)
 	images                []llm.Image
@@ -72,6 +75,9 @@ func NewComposerPane(theme components.Theme, model, cwd string) *ComposerPane {
 			Prefix: "/",
 		},
 		palette: palette.CommandPalette{
+			Theme: theme,
+		},
+		sessions: sessionpicker.Picker{
 			Theme: theme,
 		},
 	}
@@ -422,6 +428,7 @@ func (c *ComposerPane) SetTheme(th components.Theme) {
 		c.Chat.TopLeftLabel.Style = th.Warning
 	}
 	c.palette.Theme = th
+	c.sessions.Theme = th
 	c.mention.Theme = th
 	c.slash.Theme = th
 	c.SyncBashBorder(c.Chat.Value)
@@ -517,6 +524,51 @@ func (c *ComposerPane) PaletteOverlay(ctx components.DrawContext) (components.Su
 	}, true
 }
 
+// SessionOverlay returns the session tree dialog surface when open.
+func (c *ComposerPane) SessionOverlay(ctx components.DrawContext) (components.SubSurface, bool) {
+	if c == nil || !c.sessions.Open {
+		return components.SubSurface{}, false
+	}
+	return components.SubSurface{
+		Origin:  components.Point{X: 0, Y: 0},
+		Surface: c.sessions.Draw(ctx),
+		Z:       20,
+	}, true
+}
+
+// ShowSessionPicker opens the session tree dialog. onPick receives the chosen
+// session file path.
+func (c *ComposerPane) ShowSessionPicker(projects []sessionpicker.Project, onPick func(file string)) {
+	if c == nil {
+		return
+	}
+	c.HideCompleters()
+	c.palette.Hide()
+	c.sessions.OnAccept = func(s sessionpicker.Session) {
+		if onPick != nil {
+			onPick(s.File)
+		}
+	}
+	c.sessions.FocusReturn = &c.Chat
+	c.sessions.Show(projects)
+	if c.requestFocus != nil {
+		c.requestFocus(&c.sessions)
+	}
+}
+
+// SessionPickerOpen reports whether the session dialog is showing.
+func (c *ComposerPane) SessionPickerOpen() bool {
+	return c != nil && c.sessions.Open
+}
+
+// SetSessionOpener installs the Ctrl+R handler that opens the session dialog.
+// Wire already takes many parameters, so this stays a separate setter.
+func (c *ComposerPane) SetSessionOpener(open func()) {
+	if c != nil {
+		c.openSessions = open
+	}
+}
+
 // Handle dispatches keyboard/mouse input to the composer area.
 func (c *ComposerPane) Handle(ctx *components.EventContext, ev xui.Event) {
 	if c == nil {
@@ -527,6 +579,10 @@ func (c *ComposerPane) Handle(ctx *components.EventContext, ev xui.Event) {
 		if c.overlayBlocksComposer != nil && c.overlayBlocksComposer() {
 			if c.requestFocusEditor != nil {
 				c.requestFocusEditor()
+			}
+		} else if c.sessions.Open {
+			if c.requestFocus != nil {
+				c.requestFocus(&c.sessions)
 			}
 		} else if c.palette.Open {
 			if c.requestFocus != nil {
@@ -597,6 +653,18 @@ func (c *ComposerPane) Handle(ctx *components.EventContext, ev xui.Event) {
 			}
 		}
 		if ev.Press && ev.Mods.Has(xui.ModCtrl) && ev.Code == xui.KeyRune &&
+			(ev.Rune == 'r' || ev.Rune == 'R') && c.openSessions != nil {
+			// Same binding closes the dialog it opened.
+			if c.sessions.Open {
+				c.sessions.Hide()
+				c.FocusChat()
+			} else {
+				c.openSessions()
+			}
+			ctx.ConsumeAndRedraw()
+			return
+		}
+		if ev.Press && ev.Mods.Has(xui.ModCtrl) && ev.Code == xui.KeyRune &&
 			(ev.Rune == 'k' || ev.Rune == 'K') {
 			if c.palette.Open {
 				c.palette.Hide()
@@ -609,6 +677,15 @@ func (c *ComposerPane) Handle(ctx *components.EventContext, ev xui.Event) {
 				}
 			}
 			ctx.ConsumeAndRedraw()
+			return
+		}
+		// The session dialog owns every key while it is open, so plain typing
+		// filters instead of reaching the composer.
+		if c.sessions.Open {
+			c.sessions.Handle(ctx, ev)
+			if !c.sessions.Open {
+				c.FocusChat()
+			}
 			return
 		}
 		if c.palette.Open {
@@ -640,6 +717,10 @@ func (c *ComposerPane) Handle(ctx *components.EventContext, ev xui.Event) {
 		}
 		c.Chat.Handle(ctx, ev)
 	case xui.MouseEvent:
+		if c.sessions.Open {
+			c.sessions.Handle(ctx, ev)
+			return
+		}
 		if c.palette.Open {
 			c.palette.Handle(ctx, ev)
 			return
@@ -648,6 +729,10 @@ func (c *ComposerPane) Handle(ctx *components.EventContext, ev xui.Event) {
 			c.transcript.HandleMouse(ctx, ev, c.FocusChat)
 		}
 	case xui.PasteEvent:
+		if c.sessions.Open {
+			c.sessions.Handle(ctx, ev)
+			return
+		}
 		if c.palette.Open {
 			c.palette.Handle(ctx, ev)
 			return
