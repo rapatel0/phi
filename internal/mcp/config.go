@@ -8,9 +8,11 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+
+	"github.com/rapatel0/alpha/internal/brand"
 )
 
-const envDisable = "PHI_MCP"
+const envDisable = "MCP"
 
 // ServerConfig describes one MCP server.
 type ServerConfig struct {
@@ -27,25 +29,25 @@ type fileShape struct {
 	Servers map[string]ServerConfig `json:"servers"`
 }
 
-// Disabled reports whether PHI_MCP=off.
+// Disabled reports whether ALPHA_MCP=off.
 func Disabled() bool {
-	v := strings.TrimSpace(strings.ToLower(os.Getenv(envDisable)))
+	v := strings.TrimSpace(strings.ToLower(brand.Env(envDisable)))
 	return v == "0" || v == "false" || v == "off" || v == "no"
 }
 
-// UserConfigPath returns ~/.phi/mcp.json.
+// UserConfigPath returns ~/.alpha/mcp.json.
 func UserConfigPath() (string, error) {
 	home, err := os.UserHomeDir()
 	if err != nil {
 		return "", err
 	}
-	return filepath.Join(home, ".phi", "mcp.json"), nil
+	return filepath.Join(brand.HomeDir(home), "mcp.json"), nil
 }
 
-// LogDir returns ~/.phi/logs/mcp (or PHI_MCP_LOG_DIR if set).
+// LogDir returns ~/.alpha/logs/mcp (or ALPHA_MCP_LOG_DIR if set).
 func LogDir() (string, error) {
-	if override := strings.TrimSpace(os.Getenv("PHI_MCP_LOG_DIR")); override != "" {
-		//nolint:gosec // G703: PHI_MCP_LOG_DIR is an explicit user override
+	if override := strings.TrimSpace(brand.Env("MCP_LOG_DIR")); override != "" {
+		//nolint:gosec // G703: ALPHA_MCP_LOG_DIR is an explicit user override
 		if err := os.MkdirAll(override, 0o755); err != nil {
 			return "", err
 		}
@@ -55,14 +57,14 @@ func LogDir() (string, error) {
 	if err != nil {
 		return "", err
 	}
-	dir := filepath.Join(home, ".phi", "logs", "mcp")
+	dir := filepath.Join(brand.HomeDir(home), "logs", "mcp")
 	if err := os.MkdirAll(dir, 0o755); err != nil {
 		return "", err
 	}
 	return dir, nil
 }
 
-// Load merges ~/.phi/mcp.json with the project config at projectConfigPath
+// Load merges ~/.alpha/mcp.json with the project config at projectConfigPath
 // (project overrides same name). Missing files yield an empty map without error.
 func Load(projectConfigPath string) (map[string]ServerConfig, error) {
 	servers := map[string]ServerConfig{}
@@ -95,7 +97,7 @@ func mergeFile(path string, into map[string]ServerConfig) error {
 	return nil
 }
 
-// SaveUser writes servers to ~/.phi/mcp.json.
+// SaveUser writes servers to ~/.alpha/mcp.json.
 func SaveUser(servers map[string]ServerConfig) error {
 	path, err := UserConfigPath()
 	if err != nil {

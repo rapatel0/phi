@@ -3,7 +3,7 @@ package update_test
 import (
 	"testing"
 
-	"github.com/pulseaiclub/phi/internal/util/update"
+	"github.com/rapatel0/alpha/internal/util/update"
 )
 
 func TestVersionLess(t *testing.T) {

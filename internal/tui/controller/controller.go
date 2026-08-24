@@ -11,17 +11,17 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/pulseaiclub/phi/internal/agent"
-	"github.com/pulseaiclub/phi/internal/debuglog"
-	"github.com/pulseaiclub/phi/internal/ext"
-	"github.com/pulseaiclub/phi/internal/hooks"
-	"github.com/pulseaiclub/phi/internal/job"
-	"github.com/pulseaiclub/phi/internal/llm"
-	"github.com/pulseaiclub/phi/internal/llm/modellist"
-	"github.com/pulseaiclub/phi/internal/mcp"
-	"github.com/pulseaiclub/phi/internal/permission"
-	"github.com/pulseaiclub/phi/internal/project"
-	"github.com/pulseaiclub/phi/internal/session"
+	"github.com/rapatel0/alpha/internal/agent"
+	"github.com/rapatel0/alpha/internal/debuglog"
+	"github.com/rapatel0/alpha/internal/ext"
+	"github.com/rapatel0/alpha/internal/hooks"
+	"github.com/rapatel0/alpha/internal/job"
+	"github.com/rapatel0/alpha/internal/llm"
+	"github.com/rapatel0/alpha/internal/llm/modellist"
+	"github.com/rapatel0/alpha/internal/mcp"
+	"github.com/rapatel0/alpha/internal/permission"
+	"github.com/rapatel0/alpha/internal/project"
+	"github.com/rapatel0/alpha/internal/session"
 )
 
 // Controller owns agent.Engine lifecycle and stream cancellation.
@@ -306,7 +306,7 @@ func (c *Controller) ListHooks() ([]hooks.Discovered, []hooks.Warning, error) {
 	return hooks.Discover(proj.Global().HooksDir(), proj.HooksDir())
 }
 
-// loadHooksManager discovers ~/.phi/hooks and <cwd>/.phi/hooks.
+// loadHooksManager discovers ~/.alpha/hooks and <cwd>/.alpha/hooks.
 // Load errors are non-fatal (fail-open: no hooks). Child engines stay nil until spawn.
 func loadHooksManager(proj *project.Project) *hooks.Manager {
 	if proj == nil {
@@ -426,7 +426,7 @@ const modelListTTL = 2 * time.Minute
 
 // RefreshModelCatalog fetches /models from each unique provider endpoint and
 // merges IDs into the live config so the palette and SetModel share them.
-// Failures keep the config/catalog list. PHI_MODEL_LIST=0 skips the network.
+// Failures keep the config/catalog list. ALPHA_MODEL_LIST=0 skips the network.
 func (c *Controller) RefreshModelCatalog(ctx context.Context) []string {
 	if c == nil || c.proj == nil || c.proj.Config() == nil {
 		return nil

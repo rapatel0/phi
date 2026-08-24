@@ -6,8 +6,8 @@ import (
 
 	"github.com/pulseaiclub/xui"
 
-	"github.com/pulseaiclub/phi/internal/components"
-	"github.com/pulseaiclub/phi/internal/job"
+	"github.com/rapatel0/alpha/internal/components"
+	"github.com/rapatel0/alpha/internal/job"
 )
 
 func TestPaneAutoShowsWithJobs(t *testing.T) {

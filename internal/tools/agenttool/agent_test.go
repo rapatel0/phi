@@ -8,8 +8,8 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/pulseaiclub/phi/internal/job"
-	"github.com/pulseaiclub/phi/internal/tools"
+	"github.com/rapatel0/alpha/internal/job"
+	"github.com/rapatel0/alpha/internal/tools"
 )
 
 func TestAgentToolsSpawnWaitForcesDepthAndParent(t *testing.T) {

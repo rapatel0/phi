@@ -5,9 +5,9 @@ import (
 
 	"github.com/pulseaiclub/xui"
 
-	"github.com/pulseaiclub/phi/internal/components"
-	"github.com/pulseaiclub/phi/internal/permission"
-	"github.com/pulseaiclub/phi/internal/tui/controller"
+	"github.com/rapatel0/alpha/internal/components"
+	"github.com/rapatel0/alpha/internal/permission"
+	"github.com/rapatel0/alpha/internal/tui/controller"
 )
 
 func testOverlays(activity *controller.ActivityHandler) *Overlays {

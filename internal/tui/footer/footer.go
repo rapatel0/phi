@@ -7,12 +7,12 @@ import (
 
 	"github.com/pulseaiclub/xui"
 
-	"github.com/pulseaiclub/phi/internal/components"
-	"github.com/pulseaiclub/phi/internal/components/layout"
-	"github.com/pulseaiclub/phi/internal/components/status"
-	"github.com/pulseaiclub/phi/internal/ext"
-	"github.com/pulseaiclub/phi/internal/session"
-	"github.com/pulseaiclub/phi/internal/tui/controller"
+	"github.com/rapatel0/alpha/internal/components"
+	"github.com/rapatel0/alpha/internal/components/layout"
+	"github.com/rapatel0/alpha/internal/components/status"
+	"github.com/rapatel0/alpha/internal/ext"
+	"github.com/rapatel0/alpha/internal/session"
+	"github.com/rapatel0/alpha/internal/tui/controller"
 )
 
 type labelComposer interface {
@@ -183,7 +183,7 @@ func (f *FooterChrome) Apply(m controller.Msg) {
 		}
 	case controller.UpdateAvailableMsg:
 		latest := strings.TrimPrefix(msg.Latest, "v")
-		f.updateHint = latest + " available · phi update"
+		f.updateHint = latest + " available · alpha update"
 	case controller.HookSessionEffectsMsg:
 		if msg.StatusSet {
 			f.hookStatus = msg.Status

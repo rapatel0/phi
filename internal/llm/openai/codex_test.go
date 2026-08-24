@@ -8,7 +8,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/pulseaiclub/phi/internal/llm"
+	"github.com/rapatel0/alpha/internal/llm"
 )
 
 func TestUseCodexBackend(t *testing.T) {
@@ -52,7 +52,7 @@ func TestStreamCodexText(t *testing.T) {
 	if gotPath != "/responses" {
 		t.Fatalf("path %q", gotPath)
 	}
-	if gotOriginator != "phi" {
+	if gotOriginator != "alpha" {
 		t.Fatalf("originator %q", gotOriginator)
 	}
 	if gotAccount != "acct-1" {

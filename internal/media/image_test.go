@@ -9,7 +9,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/pulseaiclub/phi/internal/llm"
+	"github.com/rapatel0/alpha/internal/llm"
 )
 
 func pngBytes(t *testing.T, w, h int) []byte {

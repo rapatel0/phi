@@ -6,12 +6,12 @@ import (
 
 	"github.com/pulseaiclub/xui"
 
-	"github.com/pulseaiclub/phi/internal/components"
-	"github.com/pulseaiclub/phi/internal/llm"
+	"github.com/rapatel0/alpha/internal/components"
+	"github.com/rapatel0/alpha/internal/llm"
 )
 
 func TestUserBlockReservesKittyRows(t *testing.T) {
-	t.Setenv("PHI_KITTY_GRAPHICS", "1")
+	t.Setenv("ALPHA_KITTY_GRAPHICS", "1")
 	ub := &UserBlock{
 		Text:  "see this",
 		Theme: components.DefaultTheme(),

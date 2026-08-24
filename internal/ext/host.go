@@ -5,7 +5,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/pulseaiclub/phi/internal/tools"
+	"github.com/rapatel0/alpha/internal/tools"
 )
 
 // Plugin is a compiled-in extension.

@@ -3,7 +3,7 @@ package tree_test
 import (
 	"testing"
 
-	"github.com/pulseaiclub/phi/internal/components/tree"
+	"github.com/rapatel0/alpha/internal/components/tree"
 )
 
 func TestPrefixForSiblings(t *testing.T) {

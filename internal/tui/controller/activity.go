@@ -3,8 +3,8 @@ package controller
 import (
 	"fmt"
 
-	"github.com/pulseaiclub/phi/internal/components/status"
-	"github.com/pulseaiclub/phi/internal/session"
+	"github.com/rapatel0/alpha/internal/components/status"
+	"github.com/rapatel0/alpha/internal/session"
 )
 
 // Activity mirrors footer session status (driven by the stream pipeline).

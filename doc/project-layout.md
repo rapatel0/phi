@@ -2,7 +2,7 @@
 
 | Path                     | Purpose                                        |
 | ------------------------ | ---------------------------------------------- |
-| `cmd/`                   | Entry points (`main.go`, `phi run`, `phi update`, `phi sessions`) |
+| `cmd/`                   | Entry points (`main.go`, `alpha run`, `alpha update`, `alpha sessions`) |
 | `internal/util/update/`  | Self-update check + GitHub Releases install    |
 | `internal/agent/`        | Agent engine, executor, jobs                     |
 | `internal/agent/prompt/` | System prompt templates + Skills/MCP catalogs    |
@@ -26,7 +26,7 @@
 | `internal/tui/controller/` | Engine lifecycle, Bus/Msg, activity, sub-agent attach |
 | `internal/tui/tasks/`    | TASKS sidebar (Ctrl+B)                         |
 | `internal/tui/childview/` | Sub-agent view popup (steer is opt-in)        |
-| `internal/version/`      | Build-time `Version` (splash / `phi update`) |
+| `internal/version/`      | Build-time `Version` (splash / `alpha update`) |
 | `internal/util/`         | Shared helpers (diff, retry, SSE, file search, …) |
 | `internal/ext/`          | In-process Go extension host + bundled plugins |
 | `internal/llm/gemini/`   | Google Generative Language `streamGenerateContent` |

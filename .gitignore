@@ -1,11 +1,17 @@
 .idea/
 /dist/
-/phi
-phi
+/alpha
+alpha
 *.log
-phi-debug.log
+alpha-debug.log
 .cursor/
 
 # local lint report, not committed
 lint-report.md
+.alpha/
+
+# pre-rename artifacts
+/phi
+phi
+phi-debug.log
 .phi/

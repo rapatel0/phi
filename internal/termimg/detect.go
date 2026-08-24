@@ -3,11 +3,13 @@ package termimg
 import (
 	"os"
 	"strings"
+
+	"github.com/rapatel0/alpha/internal/brand"
 )
 
 // Supported reports whether Kitty-style inline graphics should be used.
 func Supported() bool {
-	switch os.Getenv("PHI_KITTY_GRAPHICS") {
+	switch brand.Env("KITTY_GRAPHICS") {
 	case "0", "false", "no":
 		return false
 	case "1", "true", "yes":

@@ -5,9 +5,9 @@ import (
 	"sync"
 	"time"
 
-	"github.com/pulseaiclub/phi/internal/components/mention"
-	"github.com/pulseaiclub/phi/internal/components/palette"
-	"github.com/pulseaiclub/phi/internal/components/toast"
+	"github.com/rapatel0/alpha/internal/components/mention"
+	"github.com/rapatel0/alpha/internal/components/palette"
+	"github.com/rapatel0/alpha/internal/components/toast"
 )
 
 // CommandContext is the capability surface passed to command Run / palette

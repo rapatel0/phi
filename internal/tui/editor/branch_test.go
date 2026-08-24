@@ -8,10 +8,10 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/pulseaiclub/phi/internal/components"
-	"github.com/pulseaiclub/phi/internal/job"
-	"github.com/pulseaiclub/phi/internal/tui/composer"
-	"github.com/pulseaiclub/phi/internal/tui/controller"
+	"github.com/rapatel0/alpha/internal/components"
+	"github.com/rapatel0/alpha/internal/job"
+	"github.com/rapatel0/alpha/internal/tui/composer"
+	"github.com/rapatel0/alpha/internal/tui/controller"
 )
 
 func TestResolveGitDir(t *testing.T) {

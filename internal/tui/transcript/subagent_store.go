@@ -3,10 +3,10 @@ package transcript
 import (
 	"sync"
 
-	"github.com/pulseaiclub/phi/internal/components/block"
-	"github.com/pulseaiclub/phi/internal/components/status"
-	"github.com/pulseaiclub/phi/internal/job"
-	"github.com/pulseaiclub/phi/internal/tools"
+	"github.com/rapatel0/alpha/internal/components/block"
+	"github.com/rapatel0/alpha/internal/components/status"
+	"github.com/rapatel0/alpha/internal/job"
+	"github.com/rapatel0/alpha/internal/tools"
 )
 
 // SubagentStore holds UI-only nested tool trees for agent_* rows.

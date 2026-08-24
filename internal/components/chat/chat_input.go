@@ -7,10 +7,10 @@ import (
 
 	"github.com/pulseaiclub/xui"
 
-	"github.com/pulseaiclub/phi/internal/components"
-	"github.com/pulseaiclub/phi/internal/components/layout"
-	"github.com/pulseaiclub/phi/internal/components/text"
-	"github.com/pulseaiclub/phi/internal/debuglog"
+	"github.com/rapatel0/alpha/internal/components"
+	"github.com/rapatel0/alpha/internal/components/layout"
+	"github.com/rapatel0/alpha/internal/components/text"
+	"github.com/rapatel0/alpha/internal/debuglog"
 )
 
 // ChatInput is a composer: rounded border, edge labels, multiline editor.
@@ -74,7 +74,7 @@ type ChatInput struct {
 	// SlashOpen is set while the /command picker is visible (same nav deferral).
 	SlashOpen bool
 
-	// dumpNextDraw is set on paste/insert when PHI_DEBUG=1.
+	// dumpNextDraw is set on paste/insert when ALPHA_DEBUG=1.
 	dumpNextDraw bool
 }
 

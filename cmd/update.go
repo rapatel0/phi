@@ -6,8 +6,8 @@ import (
 	"os"
 	"time"
 
-	"github.com/pulseaiclub/phi/internal/util/update"
-	"github.com/pulseaiclub/phi/internal/version"
+	"github.com/rapatel0/alpha/internal/util/update"
+	"github.com/rapatel0/alpha/internal/version"
 )
 
 func updateCmd(args []string) int {
@@ -20,7 +20,7 @@ func updateCmd(args []string) int {
 			printUpdateUsage(os.Stdout)
 			return ExitOK
 		default:
-			fmt.Fprintf(os.Stderr, "phi update: unknown flag %q\n", a)
+			fmt.Fprintf(os.Stderr, "alpha update: unknown flag %q\n", a)
 			printUpdateUsage(os.Stderr)
 			return ExitUsage
 		}
@@ -30,7 +30,7 @@ func updateCmd(args []string) int {
 		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 		defer cancel()
 		if err := update.CheckOnly(ctx, version.Version); err != nil {
-			fmt.Fprintln(os.Stderr, "phi update:", err)
+			fmt.Fprintln(os.Stderr, "alpha update:", err)
 			return ExitError
 		}
 		return ExitOK
@@ -42,21 +42,21 @@ func updateCmd(args []string) int {
 		Current: version.Version,
 		Stdout:  os.Stdout,
 	}); err != nil {
-		fmt.Fprintln(os.Stderr, "phi update:", err)
+		fmt.Fprintln(os.Stderr, "alpha update:", err)
 		return ExitError
 	}
 	return ExitOK
 }
 
 func printUpdateUsage(w *os.File) {
-	fmt.Fprintf(w, `usage: phi update [--check]
+	fmt.Fprintf(w, `usage: alpha update [--check]
 
-  phi update         download and install the latest GitHub release
-  phi update --check query the latest release without installing
+  alpha update         download and install the latest GitHub release
+  alpha update --check query the latest release without installing
 
 Environment:
-  PHI_SKIP_VERSION_CHECK  skip startup version checks in the TUI
-  PHI_OFFLINE             same as PHI_SKIP_VERSION_CHECK
+  ALPHA_SKIP_VERSION_CHECK  skip startup version checks in the TUI
+  ALPHA_OFFLINE             same as ALPHA_SKIP_VERSION_CHECK
   GITHUB_TOKEN            optional; raises GitHub API rate limits
 `)
 }

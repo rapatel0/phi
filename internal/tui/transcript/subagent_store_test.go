@@ -3,10 +3,10 @@ package transcript_test
 import (
 	"testing"
 
-	"github.com/pulseaiclub/phi/internal/components/status"
-	"github.com/pulseaiclub/phi/internal/job"
-	"github.com/pulseaiclub/phi/internal/tools"
-	"github.com/pulseaiclub/phi/internal/tui/transcript"
+	"github.com/rapatel0/alpha/internal/components/status"
+	"github.com/rapatel0/alpha/internal/job"
+	"github.com/rapatel0/alpha/internal/tools"
+	"github.com/rapatel0/alpha/internal/tui/transcript"
 )
 
 func TestSubagentStoreProgressAndResult(t *testing.T) {

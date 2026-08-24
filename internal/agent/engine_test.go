@@ -12,10 +12,10 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/pulseaiclub/phi/internal/llm"
-	"github.com/pulseaiclub/phi/internal/permission"
-	"github.com/pulseaiclub/phi/internal/session"
-	"github.com/pulseaiclub/phi/internal/tools"
+	"github.com/rapatel0/alpha/internal/llm"
+	"github.com/rapatel0/alpha/internal/permission"
+	"github.com/rapatel0/alpha/internal/session"
+	"github.com/rapatel0/alpha/internal/tools"
 )
 
 // sseToolCallChunk encodes one SSE data line carrying a full tool-call delta.

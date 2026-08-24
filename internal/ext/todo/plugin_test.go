@@ -6,7 +6,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/pulseaiclub/phi/internal/ext"
+	"github.com/rapatel0/alpha/internal/ext"
 )
 
 func TestTodoWrite(t *testing.T) {

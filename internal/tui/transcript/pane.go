@@ -6,15 +6,15 @@ import (
 
 	"github.com/pulseaiclub/xui"
 
-	"github.com/pulseaiclub/phi/internal/components"
-	"github.com/pulseaiclub/phi/internal/components/block"
-	"github.com/pulseaiclub/phi/internal/components/splash"
-	"github.com/pulseaiclub/phi/internal/components/status"
-	"github.com/pulseaiclub/phi/internal/components/toast"
-	msglist "github.com/pulseaiclub/phi/internal/components/transcript"
-	"github.com/pulseaiclub/phi/internal/job"
-	"github.com/pulseaiclub/phi/internal/session"
-	"github.com/pulseaiclub/phi/internal/tools"
+	"github.com/rapatel0/alpha/internal/components"
+	"github.com/rapatel0/alpha/internal/components/block"
+	"github.com/rapatel0/alpha/internal/components/splash"
+	"github.com/rapatel0/alpha/internal/components/status"
+	"github.com/rapatel0/alpha/internal/components/toast"
+	msglist "github.com/rapatel0/alpha/internal/components/transcript"
+	"github.com/rapatel0/alpha/internal/job"
+	"github.com/rapatel0/alpha/internal/session"
+	"github.com/rapatel0/alpha/internal/tools"
 )
 
 // textSel tracks drag selection over the transcript.

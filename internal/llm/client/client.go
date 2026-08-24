@@ -6,12 +6,12 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/pulseaiclub/phi/internal/auth"
-	"github.com/pulseaiclub/phi/internal/llm"
-	"github.com/pulseaiclub/phi/internal/llm/anthropic"
-	"github.com/pulseaiclub/phi/internal/llm/gemini"
-	"github.com/pulseaiclub/phi/internal/llm/openai"
-	"github.com/pulseaiclub/phi/internal/util"
+	"github.com/rapatel0/alpha/internal/auth"
+	"github.com/rapatel0/alpha/internal/llm"
+	"github.com/rapatel0/alpha/internal/llm/anthropic"
+	"github.com/rapatel0/alpha/internal/llm/gemini"
+	"github.com/rapatel0/alpha/internal/llm/openai"
+	"github.com/rapatel0/alpha/internal/util"
 )
 
 // Client talks to the configured LLM endpoint: the OpenAI-compatible
@@ -33,7 +33,7 @@ func NewClient(cfg llm.ModelConfig, tools []llm.ToolDefinition, systemPrompt str
 }
 
 // NewClientWithAuth is NewClient plus OAuth token refresh from authFile
-// (~/.phi/auth.json) before each request.
+// (~/.alpha/auth.json) before each request.
 func NewClientWithAuth(cfg llm.ModelConfig, tools []llm.ToolDefinition, systemPrompt, authFile string) *Client {
 	return newClient(cfg, tools, systemPrompt, authFile)
 }

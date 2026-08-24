@@ -1,6 +1,6 @@
 # TUI architecture
 
-Phi’s interactive UI follows a **panda-style** split: a thin `Editor` root widget, domain handlers that **own their state**, and dumb widgets under `internal/components`. Agent lifecycle lives in `internal/tui/controller`; session→widget projection lives in `internal/tui/transcript`.
+Alpha’s interactive UI follows a **panda-style** split: a thin `Editor` root widget, domain handlers that **own their state**, and dumb widgets under `internal/components`. Agent lifecycle lives in `internal/tui/controller`; session→widget projection lives in `internal/tui/transcript`.
 
 ## Object aggregation
 
@@ -227,7 +227,7 @@ Enter on an agent_spawn card, Ctrl+Enter on a TASKS row, or Ctrl+O
   → while steering: composer TopLeftLabel "↳ role · description"; Esc → parent
 ```
 
-The parent engine is not cancelled. Child session files stay under `~/.phi/jobs/<id>/session/`.
+The parent engine is not cancelled. Child session files stay under `~/.alpha/jobs/<id>/session/`.
 
 ### 8. Image attach
 
@@ -242,7 +242,7 @@ Ctrl+V  or  /image  or  paste/drag a .png/.jpg/.gif/.webp path
 
 Cmd+V is the terminal's paste. Image-only clipboards often send nothing; use Ctrl+V.
 
-On Kitty/Ghostty, `App.draw` collects `Surface.Graphics` after the cell blit and emits Kitty graphics (`a=t` transmit, `a=p` place). Off-screen rows are skipped. Disable with `PHI_KITTY_GRAPHICS=0`.
+On Kitty/Ghostty, `App.draw` collects `Surface.Graphics` after the cell blit and emits Kitty graphics (`a=t` transmit, `a=p` place). Off-screen rows are skipped. Disable with `ALPHA_KITTY_GRAPHICS=0`.
 
 ---
 

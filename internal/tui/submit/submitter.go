@@ -4,11 +4,11 @@ import (
 	"strings"
 	"time"
 
-	"github.com/pulseaiclub/phi/internal/session"
-	"github.com/pulseaiclub/phi/internal/tui/commands"
-	"github.com/pulseaiclub/phi/internal/tui/composer"
-	"github.com/pulseaiclub/phi/internal/tui/controller"
-	"github.com/pulseaiclub/phi/internal/tui/transcript"
+	"github.com/rapatel0/alpha/internal/session"
+	"github.com/rapatel0/alpha/internal/tui/commands"
+	"github.com/rapatel0/alpha/internal/tui/composer"
+	"github.com/rapatel0/alpha/internal/tui/controller"
+	"github.com/rapatel0/alpha/internal/tui/transcript"
 )
 
 // Submitter owns submit / cancel / slash dispatch and coordinates bash runs.

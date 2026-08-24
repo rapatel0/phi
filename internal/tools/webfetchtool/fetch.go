@@ -14,16 +14,16 @@ import (
 	"strings"
 	"time"
 
-	"github.com/pulseaiclub/phi/internal/llm"
-	"github.com/pulseaiclub/phi/internal/tools/tooldef"
-	"github.com/pulseaiclub/phi/internal/util"
+	"github.com/rapatel0/alpha/internal/llm"
+	"github.com/rapatel0/alpha/internal/tools/tooldef"
+	"github.com/rapatel0/alpha/internal/util"
 )
 
 const (
 	fetchTimeout   = 20 * time.Second
 	maxFetchBytes  = 512 << 10 // 512 KiB raw
 	maxTextRunes   = 24_000
-	fetchUserAgent = "phi/1.0 (webfetch)"
+	fetchUserAgent = "alpha/1.0 (webfetch)"
 )
 
 var (

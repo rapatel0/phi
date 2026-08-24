@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/pulseaiclub/phi/internal/llm"
+	"github.com/rapatel0/alpha/internal/llm"
 )
 
 // ItemKind classifies a projected transcript row.

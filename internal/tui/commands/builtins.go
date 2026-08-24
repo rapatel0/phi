@@ -4,11 +4,11 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/pulseaiclub/phi/internal/components"
-	"github.com/pulseaiclub/phi/internal/components/mention"
-	"github.com/pulseaiclub/phi/internal/components/palette"
-	"github.com/pulseaiclub/phi/internal/hooks"
-	"github.com/pulseaiclub/phi/internal/llm/skills"
+	"github.com/rapatel0/alpha/internal/components"
+	"github.com/rapatel0/alpha/internal/components/mention"
+	"github.com/rapatel0/alpha/internal/components/palette"
+	"github.com/rapatel0/alpha/internal/hooks"
+	"github.com/rapatel0/alpha/internal/llm/skills"
 )
 
 // NewBuiltinRegistry returns the built-in slash + palette catalog.

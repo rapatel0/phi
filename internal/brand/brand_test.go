@@ -15,8 +15,16 @@ func TestEnvPrefersCurrentName(t *testing.T) {
 	assert.Equal(t, "new", Env("MODEL"))
 }
 
+// unsetEnv clears a variable for the test and restores it afterwards.
+func unsetEnv(t *testing.T, key string) {
+	t.Helper()
+	// Setenv registers the cleanup that restores the original value.
+	t.Setenv(key, "")
+	require.NoError(t, os.Unsetenv(key))
+}
+
 func TestEnvFallsBackToLegacyName(t *testing.T) {
-	os.Unsetenv("ALPHA_MODEL")
+	unsetEnv(t, "ALPHA_MODEL")
 	t.Setenv("PHI_MODEL", "old")
 	assert.Equal(t, "old", Env("MODEL"))
 }
@@ -29,8 +37,8 @@ func TestEnvEmptyCurrentNameWins(t *testing.T) {
 }
 
 func TestEnvUnset(t *testing.T) {
-	os.Unsetenv("ALPHA_MODEL")
-	os.Unsetenv("PHI_MODEL")
+	unsetEnv(t, "ALPHA_MODEL")
+	unsetEnv(t, "PHI_MODEL")
 	assert.Empty(t, Env("MODEL"))
 }
 
@@ -42,8 +50,8 @@ func TestEnvAcceptsFullNames(t *testing.T) {
 }
 
 func TestEnvLookup(t *testing.T) {
-	os.Unsetenv("ALPHA_DEBUG")
-	os.Unsetenv("PHI_DEBUG")
+	unsetEnv(t, "ALPHA_DEBUG")
+	unsetEnv(t, "PHI_DEBUG")
 	_, ok := EnvLookup("DEBUG")
 	assert.False(t, ok)
 

@@ -80,7 +80,7 @@ func LoginAnthropic(ctx context.Context, opts LoginOpts) (Credential, error) {
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")
 		_, _ = io.WriteString(
 			w,
-			`<!doctype html><title>phi</title><p>Claude login complete. You can close this tab.</p>`,
+			`<!doctype html><title>alpha</title><p>Claude login complete. You can close this tab.</p>`,
 		)
 		select {
 		case codeCh <- code:

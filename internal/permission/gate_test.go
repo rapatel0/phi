@@ -31,7 +31,7 @@ func TestCheckWriteOutsideWorkspace(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	outside := filepath.Join(os.TempDir(), "phi-perm-test-outside")
+	outside := filepath.Join(os.TempDir(), "alpha-perm-test-outside")
 	dec, reason := g.Check(t.Context(), Request{
 		Action: ActionWrite,
 		Tool:   "write",
@@ -66,7 +66,7 @@ func TestCheckWriteSensitiveConfig(t *testing.T) {
 		t.Fatal(err)
 	}
 	home, _ := os.UserHomeDir()
-	cfgPath := filepath.Join(home, ".phi", "config.yaml")
+	cfgPath := filepath.Join(home, ".alpha", "config.yaml")
 	dec, reason := g.Check(t.Context(), Request{
 		Action: ActionWrite,
 		Tool:   "write",

@@ -5,7 +5,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/pulseaiclub/phi/internal/llm"
+	"github.com/rapatel0/alpha/internal/llm"
 )
 
 func TestSetAuthHeadersOAuth(t *testing.T) {

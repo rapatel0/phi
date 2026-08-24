@@ -14,7 +14,7 @@ func readClipboard(ctx context.Context) ([]byte, error) {
 	if data, err := runClip(ctx, "pngpaste", "-"); err == nil && DetectMIME(data) != "" {
 		return data, nil
 	}
-	dir, err := os.MkdirTemp("", "phi-clip-")
+	dir, err := os.MkdirTemp("", "alpha-clip-")
 	if err != nil {
 		return nil, err
 	}

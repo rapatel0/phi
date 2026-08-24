@@ -5,7 +5,7 @@ import (
 
 	"github.com/pulseaiclub/xui"
 
-	"github.com/pulseaiclub/phi/internal/components"
+	"github.com/rapatel0/alpha/internal/components"
 )
 
 // Screen is the splash screen: animated sphere + intro copy.
@@ -13,14 +13,14 @@ import (
 type Screen struct {
 	Sphere *Sphere
 	Theme  components.Theme
-	// Brand is the product name in the hero line (default "phi").
+	// Brand is the product name in the hero line (default "alpha").
 	Brand string
 	Hint  string // optional tip under the help line; empty uses the default
 }
 
 func (w *Screen) brand() string {
 	if w.Brand == "" {
-		return "Phi"
+		return "Alpha"
 	}
 	return w.Brand
 }

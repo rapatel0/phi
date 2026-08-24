@@ -4,6 +4,8 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+
+	"github.com/rapatel0/alpha/internal/brand"
 )
 
 func defaultSensitivePaths() []string {
@@ -11,14 +13,18 @@ func defaultSensitivePaths() []string {
 	if err != nil || home == "" {
 		return []string{
 			"/.ssh",
-			"/.phi/config.yaml",
+			"/" + brand.HomeDirName + "/config.yaml",
+			// The pre-rename directory stays protected; a stale ~/.alpha can
+			// still hold credentials after a failed migration.
+			"/" + brand.LegacyHomeDirName + "/config.yaml",
 			"/etc/shadow",
 			"/etc/passwd",
 		}
 	}
 	return []string{
 		filepath.Join(home, ".ssh"),
-		filepath.Join(home, ".phi", "config.yaml"),
+		filepath.Join(brand.HomeDir(home), "config.yaml"),
+		filepath.Join(brand.LegacyHomeDir(home), "config.yaml"),
 		filepath.Join(home, ".aws", "credentials"),
 		filepath.Join(home, ".gnupg"),
 		"/etc/shadow",

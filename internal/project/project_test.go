@@ -8,12 +8,12 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/pulseaiclub/phi/internal/auth"
-	"github.com/pulseaiclub/phi/internal/llm"
+	"github.com/rapatel0/alpha/internal/auth"
+	"github.com/rapatel0/alpha/internal/llm"
 )
 
 // discoverInTempHome runs Discover("") with HOME redirected to a temp dir so
-// tests never touch the real ~/.phi.
+// tests never touch the real ~/.alpha.
 func discoverInTempHome(t *testing.T) *Project {
 	t.Helper()
 	home := t.TempDir()
@@ -71,8 +71,8 @@ func TestLookBinFallsBackToPATH(t *testing.T) {
 
 func TestProjectDirs(t *testing.T) {
 	p := discoverInTempHome(t)
-	assert.Equal(t, filepath.Join(p.Root(), ".phi", "hooks"), p.HooksDir())
-	assert.Equal(t, filepath.Join(p.Root(), ".phi", "mcp.json"), p.MCPConfigFile())
+	assert.Equal(t, filepath.Join(p.Root(), ".alpha", "hooks"), p.HooksDir())
+	assert.Equal(t, filepath.Join(p.Root(), ".alpha", "mcp.json"), p.MCPConfigFile())
 }
 
 func TestLoadConfigDefaults(t *testing.T) {
@@ -103,10 +103,10 @@ models:
 skill_path: /from/file
 `), 0o644))
 
-	t.Setenv("PHI_MODEL", "env-model")
-	t.Setenv("PHI_API_KEY", "env-key")
-	t.Setenv("PHI_BASE_URL", "https://env.example/v1")
-	t.Setenv("PHI_SKILL_PATH", "/from/env")
+	t.Setenv("ALPHA_MODEL", "env-model")
+	t.Setenv("ALPHA_API_KEY", "env-key")
+	t.Setenv("ALPHA_BASE_URL", "https://env.example/v1")
+	t.Setenv("ALPHA_SKILL_PATH", "/from/env")
 
 	require.NoError(t, p.LoadConfig())
 	cfg := p.Config()
@@ -119,7 +119,7 @@ skill_path: /from/file
 func TestLoadConfigMissingAPIKey(t *testing.T) {
 	p := discoverInTempHome(t)
 	require.NoError(t, os.WriteFile(p.Global().ConfigFile(), []byte("models:\n  - name: x\n"), 0o644))
-	t.Setenv("PHI_API_KEY", "")
+	t.Setenv("ALPHA_API_KEY", "")
 
 	err := p.LoadConfig()
 	require.Error(t, err)
@@ -129,8 +129,8 @@ func TestLoadConfigMissingAPIKey(t *testing.T) {
 func TestLoadConfigConfigFileMissing(t *testing.T) {
 	// Env-only setup: no config file, all values from environment.
 	p := discoverInTempHome(t)
-	t.Setenv("PHI_MODEL", "env-model")
-	t.Setenv("PHI_API_KEY", "env-key")
+	t.Setenv("ALPHA_MODEL", "env-model")
+	t.Setenv("ALPHA_API_KEY", "env-key")
 
 	require.NoError(t, p.LoadConfig())
 	assert.Equal(t, "env-model", p.Config().Model().Name)
@@ -351,8 +351,8 @@ models:
 
 func TestLoadConfigOAuthOnly(t *testing.T) {
 	p := discoverInTempHome(t)
-	t.Setenv("PHI_MODEL", "")
-	t.Setenv("PHI_API_KEY", "")
+	t.Setenv("ALPHA_MODEL", "")
+	t.Setenv("ALPHA_API_KEY", "")
 	st := auth.OpenStore(p.Global().AuthFile())
 	require.NoError(t, st.Put(auth.Credential{Provider: auth.ProviderAnthropic, AccessToken: "sk-ant-oat-x"}))
 

@@ -7,8 +7,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/pulseaiclub/phi/internal/auth"
-	"github.com/pulseaiclub/phi/internal/llm"
+	"github.com/rapatel0/alpha/internal/auth"
+	"github.com/rapatel0/alpha/internal/llm"
 )
 
 // codexJWT is an unsigned Codex-shaped OAuth token with a chatgpt_account_id claim.
@@ -18,15 +18,15 @@ const codexJWT = "eyJhbGciOiJub25lIiwidHlwIjoiSldUIn0." +
 func TestDisabled(t *testing.T) {
 	cases := map[string]bool{"0": true, "false": true, "FALSE": true, "1": false, "": false}
 	for v, want := range cases {
-		t.Setenv("PHI_MODEL_LIST", v)
+		t.Setenv("ALPHA_MODEL_LIST", v)
 		if got := Disabled(); got != want {
-			t.Fatalf("PHI_MODEL_LIST=%q: Disabled()=%v want %v", v, got, want)
+			t.Fatalf("ALPHA_MODEL_LIST=%q: Disabled()=%v want %v", v, got, want)
 		}
 	}
 }
 
 func TestFetchMissingAPIKey(t *testing.T) {
-	t.Setenv("PHI_MODEL_LIST", "")
+	t.Setenv("ALPHA_MODEL_LIST", "")
 	_, err := Fetch(t.Context(), llm.ModelConfig{Name: "gpt-4o", APIKey: "  "})
 	if err == nil || !strings.Contains(err.Error(), "missing api key") {
 		t.Fatalf("err %v", err)
@@ -34,7 +34,7 @@ func TestFetchMissingAPIKey(t *testing.T) {
 }
 
 func TestFetchSortsAndDedupes(t *testing.T) {
-	t.Setenv("PHI_MODEL_LIST", "")
+	t.Setenv("ALPHA_MODEL_LIST", "")
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		_ = json.NewEncoder(w).Encode(map[string]any{
 			"data": []map[string]string{
@@ -60,7 +60,7 @@ func TestFetchSortsAndDedupes(t *testing.T) {
 }
 
 func TestFetchStatusFallsBackToStatusText(t *testing.T) {
-	t.Setenv("PHI_MODEL_LIST", "")
+	t.Setenv("ALPHA_MODEL_LIST", "")
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusForbidden)
 	}))
@@ -73,7 +73,7 @@ func TestFetchStatusFallsBackToStatusText(t *testing.T) {
 }
 
 func TestFetchInvalidJSON(t *testing.T) {
-	t.Setenv("PHI_MODEL_LIST", "")
+	t.Setenv("ALPHA_MODEL_LIST", "")
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		_, _ = w.Write([]byte("{not json"))
 	}))
@@ -103,7 +103,7 @@ func TestSetHeadersCodex(t *testing.T) {
 	if got := req.Header.Get("OpenAI-Beta"); got != "responses=experimental" {
 		t.Fatalf("beta %q", got)
 	}
-	if got := req.Header.Get("originator"); got != "phi" {
+	if got := req.Header.Get("originator"); got != "alpha" {
 		t.Fatalf("originator %q", got)
 	}
 	if got := req.Header.Get("chatgpt-account-id"); got != "acct-123" {
@@ -123,7 +123,7 @@ func TestSetHeadersCodexWithoutAccountClaim(t *testing.T) {
 }
 
 func TestFetchAnthropicAPIKeyHeader(t *testing.T) {
-	t.Setenv("PHI_MODEL_LIST", "")
+	t.Setenv("ALPHA_MODEL_LIST", "")
 	var gotKey, gotAuth string
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		gotKey = r.Header.Get("X-Api-Key")
@@ -315,7 +315,7 @@ func TestSupportsGenerate(t *testing.T) {
 }
 
 func TestListClientBlocksCrossOriginRedirect(t *testing.T) {
-	t.Setenv("PHI_MODEL_LIST", "")
+	t.Setenv("ALPHA_MODEL_LIST", "")
 	other := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		_ = json.NewEncoder(w).Encode(map[string]any{"data": []map[string]string{{"id": "leaked"}}})
 	}))
@@ -332,7 +332,7 @@ func TestListClientBlocksCrossOriginRedirect(t *testing.T) {
 }
 
 func TestListClientAllowsSameOriginRedirect(t *testing.T) {
-	t.Setenv("PHI_MODEL_LIST", "")
+	t.Setenv("ALPHA_MODEL_LIST", "")
 	var mux http.ServeMux
 	mux.HandleFunc("/v1/models", func(w http.ResponseWriter, r *http.Request) {
 		http.Redirect(w, r, "/v2/models", http.StatusFound)

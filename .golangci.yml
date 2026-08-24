@@ -29,7 +29,8 @@ linters:
     - usetesting
   settings:
     errcheck:
-      # Never-failing in-memory writers (also in errcheck defaults; keep explicit).
+      # Never-failing in-memory writers (also in errcheck
+      # defaults; keep explicit).
       exclude-functions:
         - (*bytes.Buffer).Write
         - (*bytes.Buffer).WriteByte
@@ -65,7 +66,8 @@ linters:
         - builtinShadow
         - commentedOutCode
         - dupArg
-        # Test path literals like "/tmp/..." are clearer than filepath.Join theater.
+        # Test path literals like "/tmp/..." are clearer than
+        # filepath.Join theater.
         - filepathJoin
         - hugeParam
         # Prefer readable if/else for short mutually-exclusive chains.
@@ -145,7 +147,8 @@ linters:
           disabled: true
         - name: identical-branches
         - name: if-return
-        # Shadowing an import with a param of that package's type (e.g. llm llm.Client)
+        # Shadowing an import with a param of that package's type
+        # (e.g. llm llm.Client)
         # is common and readable; ban creates worse names like "compactor".
         - name: import-shadowing
           disabled: true
@@ -185,7 +188,8 @@ linters:
             - fmt.Print
             - fmt.Printf
             - fmt.Println
-            # In-memory writers never return a non-nil error (same as errcheck defaults).
+            # In-memory writers never return a non-nil error (same
+            # as errcheck defaults).
             - strings.Builder.Write
             - strings.Builder.WriteByte
             - strings.Builder.WriteRune
@@ -227,13 +231,15 @@ linters:
           - gosec
           - perfsprint
         path: _test\.go
-      # Ignoring gosec G404: Use of weak random number generator (math/rand instead of crypto/rand)
+      # Ignoring gosec G404: Use of weak random number generator
+      # (math/rand instead of crypto/rand)
       # as we commonly use it in tests and examples.
       - linters:
           - gosec
         text: 'G404:'
       # Ignoring gosec G402: TLS MinVersion too low
-      # as the https://pkg.go.dev/crypto/tls#Config handles MinVersion default well.
+      # as the https://pkg.go.dev/crypto/tls#Config handles
+      # MinVersion default well.
       - linters:
           - gosec
         text: 'G402: TLS MinVersion too low.'
@@ -251,7 +257,7 @@ formatters:
         group-params: true
     goimports:
       local-prefixes:
-        - github.com/pulseaiclub/phi
+        - github.com/rapatel0/alpha
     golines:
       max-len: 120
   exclusions:

@@ -21,7 +21,7 @@ func TestDiscoverUserAndProjectShadow(t *testing.T) {
 	home := t.TempDir()
 	cwd := t.TempDir()
 	userDir := filepath.Join(home, "hooks")
-	projDir := filepath.Join(cwd, ".phi", "hooks")
+	projDir := filepath.Join(cwd, ".alpha", "hooks")
 
 	writePlugin(t, userDir, `{
   "hooks": [

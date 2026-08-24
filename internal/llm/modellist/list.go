@@ -9,15 +9,15 @@ import (
 	"io"
 	"net/http"
 	"net/url"
-	"os"
 	"sort"
 	"strings"
 
-	"github.com/pulseaiclub/phi/internal/auth"
-	"github.com/pulseaiclub/phi/internal/llm"
-	"github.com/pulseaiclub/phi/internal/llm/gemini"
-	"github.com/pulseaiclub/phi/internal/llm/openai"
-	"github.com/pulseaiclub/phi/internal/util"
+	"github.com/rapatel0/alpha/internal/auth"
+	"github.com/rapatel0/alpha/internal/brand"
+	"github.com/rapatel0/alpha/internal/llm"
+	"github.com/rapatel0/alpha/internal/llm/gemini"
+	"github.com/rapatel0/alpha/internal/llm/openai"
+	"github.com/rapatel0/alpha/internal/util"
 )
 
 const (
@@ -27,9 +27,9 @@ const (
 	oauthUserAgent = "claude-cli/2.1.75"
 )
 
-// Disabled reports PHI_MODEL_LIST=0 (skip live fetches; use config/catalog).
+// Disabled reports ALPHA_MODEL_LIST=0 (skip live fetches; use config/catalog).
 func Disabled() bool {
-	v := strings.TrimSpace(os.Getenv("PHI_MODEL_LIST"))
+	v := strings.TrimSpace(brand.Env("MODEL_LIST"))
 	return v == "0" || strings.EqualFold(v, "false")
 }
 
@@ -178,7 +178,7 @@ func setHeaders(req *http.Request, cfg llm.ModelConfig, kind providerKind) {
 	case kindCodex:
 		req.Header.Set("Authorization", "Bearer "+cfg.APIKey)
 		req.Header.Set("OpenAI-Beta", "responses=experimental")
-		req.Header.Set("originator", "phi")
+		req.Header.Set("originator", "alpha")
 		if id := auth.ChatGPTAccountID(cfg.APIKey); id != "" {
 			req.Header.Set("chatgpt-account-id", id)
 		}

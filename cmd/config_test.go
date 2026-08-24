@@ -16,7 +16,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/pulseaiclub/phi/internal/project"
+	"github.com/rapatel0/alpha/internal/project"
 )
 
 const configUIFixture = `models:
@@ -41,7 +41,7 @@ agents:
 
 func TestConfigHandlerGETAndRoundTrip(t *testing.T) {
 	home := t.TempDir()
-	phiDir := filepath.Join(home, ".phi")
+	phiDir := filepath.Join(home, ".alpha")
 	require.NoError(t, os.MkdirAll(phiDir, 0o755))
 	path := filepath.Join(phiDir, "config.yaml")
 	require.NoError(t, os.WriteFile(path, []byte(configUIFixture), 0o644))
@@ -153,7 +153,7 @@ func TestConfigHandlerServesPage(t *testing.T) {
 	require.Equal(t, http.StatusOK, rr.Code)
 	body := rr.Body.String()
 	assert.Contains(t, body, `id="langToggle"`)
-	assert.Contains(t, body, "phi-config-lang")
+	assert.Contains(t, body, "alpha-config-lang")
 	assert.Contains(t, body, "配置中心")
 	assert.Contains(t, body, "Config")
 	require.Contains(t, body, `type: "password"`)

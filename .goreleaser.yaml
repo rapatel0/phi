@@ -3,19 +3,23 @@
 
 version: 2
 
+# Pinned so release asset names stay in step with scripts/install.*,
+# which build the archive name from this value.
+project_name: alpha
+
 before:
   hooks:
     - go mod tidy
 
 builds:
-  - id: phi
+  - id: alpha
     main: ./cmd
-    binary: phi
+    binary: alpha
     env:
       - CGO_ENABLED=0
     ldflags:
       - -s -w
-      - -X github.com/pulseaiclub/phi/internal/version.Version=v{{.Version}}
+      - -X github.com/rapatel0/alpha/internal/version.Version=v{{.Version}}
     goos:
       - linux
       - darwin
@@ -52,7 +56,8 @@ changelog:
 release:
   draft: false
   prerelease: auto
-  # Always apply --release-notes from release.yml (replace existing body on re-runs).
+  # Always apply --release-notes from release.yml (replace existing
+  # body on re-runs).
   mode: replace
 
 # Optional Homebrew tap release (requires additional config)
@@ -60,5 +65,5 @@ release:
 #   - repository:
 #       owner: pulseaiclub
 #       name: homebrew-tap
-#     homepage: "https://github.com/pulseaiclub/phi"
-#     description: "phi - your project description"
+#     homepage: "https://github.com/rapatel0/alpha"
+#     description: "alpha - your project description"

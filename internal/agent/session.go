@@ -4,8 +4,8 @@ import (
 	"errors"
 	"strings"
 
-	"github.com/pulseaiclub/phi/internal/llm"
-	"github.com/pulseaiclub/phi/internal/session"
+	"github.com/rapatel0/alpha/internal/llm"
+	"github.com/rapatel0/alpha/internal/session"
 )
 
 // Session owns the message store for the engine loop. It wraps a
@@ -21,7 +21,7 @@ type Session struct {
 // SessionOpts configures how the engine binds a session store.
 type SessionOpts struct {
 	Cwd        string // written to SessionHeader.Cwd; usually process cwd
-	SessionDir string // ~/.phi/session; required when Persist is true
+	SessionDir string // ~/.alpha/session; required when Persist is true
 	Persist    bool   // false → in-memory (tests default)
 	ResumePath string // open this jsonl; ignores "new session"
 	ResumeID   string // resolve under SessionDir (mutually exclusive with ResumePath)

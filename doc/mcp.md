@@ -1,6 +1,6 @@
 # MCP
 
-phi connects to MCP the **mcptoon way**: configure as many servers as you want; **tool schemas never enter the model context**.
+alpha connects to MCP the **mcptoon way**: configure as many servers as you want; **tool schemas never enter the model context**.
 
 That is the main difference from hosts that dump every `tools/list` schema into the prompt — ten or a hundred servers will not burn tens of thousands of tokens before you ask a question.
 
@@ -13,7 +13,7 @@ That is the main difference from hosts that dump every `tools/list` schema into 
 
 ## Why this is a highlight
 
-| Pain | Typical MCP host | phi |
+| Pain | Typical MCP host | alpha |
 | --- | --- | --- |
 | Context | All schemas injected at startup | Model sees only three meta-tools |
 | Many servers | Uninstall / reload Tetris | Always configured; call on demand |
@@ -35,8 +35,8 @@ Typical rhythm: pick a server from the prompt → `mcp_list(server=…)` → `mc
 ## Interaction flow
 
 ```text
-Start TUI / phi run
-  → load ~/.phi/mcp.json + <cwd>/.phi/mcp.json
+Start TUI / alpha run
+  → load ~/.alpha/mcp.json + <cwd>/.alpha/mcp.json
   → build Pool (no subprocess yet)
   → tool list += mcp_list / mcp_inspect / mcp_call
   → system prompt += MCP catalog (server names only)
@@ -51,18 +51,18 @@ User prompt
 Human CLI and the agent share the same `internal/mcp` stack:
 
 ```text
-phi mcp doctor|call  ──┐
+alpha mcp doctor|call  ──┐
                        ├──► Pool ──► Client (stdio JSON-RPC)
 model mcp_* ───────────┘
 ```
 
-Sub-agents do **not** inherit MCP meta-tools by default. Disable with `PHI_MCP=off`.
+Sub-agents do **not** inherit MCP meta-tools by default. Disable with `ALPHA_MCP=off`.
 
 ---
 
 ## Quick start
 
-Config file: `~/.phi/mcp.json` (project `<cwd>/.phi/mcp.json` overrides same-named servers).
+Config file: `~/.alpha/mcp.json` (project `<cwd>/.alpha/mcp.json` overrides same-named servers).
 
 ```json
 {
@@ -84,12 +84,12 @@ Config file: `~/.phi/mcp.json` (project `<cwd>/.phi/mcp.json` overrides same-nam
 Or via CLI:
 
 ```sh
-phi mcp add browsermcp -- npx @browsermcp/mcp@latest
-phi mcp list
-phi mcp doctor
+alpha mcp add browsermcp -- npx @browsermcp/mcp@latest
+alpha mcp list
+alpha mcp doctor
 ```
 
-**Restart phi** after config changes (Pool loads at startup).
+**Restart alpha** after config changes (Pool loads at startup).
 
 ### Migrating from Claude Desktop config
 
@@ -106,7 +106,7 @@ Claude / Cursor style:
 }
 ```
 
-phi equivalent:
+alpha equivalent:
 
 ```json
 {
@@ -127,14 +127,14 @@ phi equivalent:
 ## CLI
 
 ```text
-phi mcp list                         list configured servers
-phi mcp add <name> -- <cmd> [args…]  write ~/.phi/mcp.json
-phi mcp remove <name>                remove from user config
-phi mcp call <server> <tool> [json]  call a tool directly
-phi mcp doctor                       check config + connectivity
+alpha mcp list                         list configured servers
+alpha mcp add <name> -- <cmd> [args…]  write ~/.alpha/mcp.json
+alpha mcp remove <name>                remove from user config
+alpha mcp call <server> <tool> [json]  call a tool directly
+alpha mcp doctor                       check config + connectivity
 ```
 
-Logs: `~/.phi/logs/mcp/<name>.log` (override with `PHI_MCP_LOG_DIR`).
+Logs: `~/.alpha/logs/mcp/<name>.log` (override with `ALPHA_MCP_LOG_DIR`).
 
 ---
 
@@ -154,4 +154,4 @@ Logs: `~/.phi/logs/mcp/<name>.log` (override with `PHI_MCP_LOG_DIR`).
 | `internal/mcp/` | config, Client, session, stdio/http transports, Pool |
 | `internal/tools/mcptool/` | `mcp_list` / `mcp_inspect` / `mcp_call` |
 | `internal/agent/engine.go` | `EngineOpts.MCP` wires meta-tools |
-| `cmd/mcp.go` | `phi mcp` subcommand |
+| `cmd/mcp.go` | `alpha mcp` subcommand |

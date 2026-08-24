@@ -19,9 +19,9 @@ import (
 
 	"gopkg.in/yaml.v3"
 
-	"github.com/pulseaiclub/phi/internal/llm"
-	"github.com/pulseaiclub/phi/internal/llm/modellist"
-	"github.com/pulseaiclub/phi/internal/project"
+	"github.com/rapatel0/alpha/internal/llm"
+	"github.com/rapatel0/alpha/internal/llm/modellist"
+	"github.com/rapatel0/alpha/internal/project"
 )
 
 //go:embed config.html
@@ -81,7 +81,7 @@ func configCmd(args []string) int {
 		if a == "-h" || a == "--help" {
 			fmt.Fprintln(
 				os.Stdout,
-				"usage: phi config\n\nOpen the HTML config editor (starts a local web server on 127.0.0.1).",
+				"usage: alpha config\n\nOpen the HTML config editor (starts a local web server on 127.0.0.1).",
 			)
 			return ExitOK
 		}
@@ -94,12 +94,12 @@ func configCmd(args []string) int {
 	var lc net.ListenConfig
 	ln, err := lc.Listen(ctx, "tcp", "127.0.0.1:0")
 	if err != nil {
-		fmt.Fprintln(os.Stderr, "phi config:", err)
+		fmt.Fprintln(os.Stderr, "alpha config:", err)
 		return ExitError
 	}
 	addr := ln.Addr().(*net.TCPAddr)
 	pageURL := fmt.Sprintf("http://127.0.0.1:%d/", addr.Port)
-	fmt.Fprintf(os.Stderr, "phi config: %s\n  config: %s\n  Ctrl-C to stop\n", pageURL, proj.Global().ConfigFile())
+	fmt.Fprintf(os.Stderr, "alpha config: %s\n  config: %s\n  Ctrl-C to stop\n", pageURL, proj.Global().ConfigFile())
 	openBrowser(ctx, pageURL)
 
 	srv := &http.Server{
@@ -112,7 +112,7 @@ func configCmd(args []string) int {
 	select {
 	case err := <-errc:
 		if err != nil && !errors.Is(err, http.ErrServerClosed) {
-			fmt.Fprintln(os.Stderr, "phi config:", err)
+			fmt.Fprintln(os.Stderr, "alpha config:", err)
 			return ExitError
 		}
 	case <-ctx.Done():

@@ -12,8 +12,8 @@ import (
 	"net/url"
 	"strings"
 
-	"github.com/pulseaiclub/phi/internal/llm"
-	"github.com/pulseaiclub/phi/internal/util"
+	"github.com/rapatel0/alpha/internal/llm"
+	"github.com/rapatel0/alpha/internal/util"
 )
 
 const defaultBaseURL = "https://generativelanguage.googleapis.com/v1beta"
@@ -185,7 +185,7 @@ func streamURL(cfg llm.ModelConfig) string {
 	return u.String()
 }
 
-// Stream POSTs streamGenerateContent and yields Phi stream events.
+// Stream POSTs streamGenerateContent and yields Alpha stream events.
 func Stream(
 	ctx context.Context,
 	httpClient *http.Client,

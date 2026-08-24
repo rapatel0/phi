@@ -3,7 +3,7 @@ package agenttool_test
 import (
 	"testing"
 
-	"github.com/pulseaiclub/phi/internal/tools"
+	"github.com/rapatel0/alpha/internal/tools"
 )
 
 func TestParseAgentResultSummary(t *testing.T) {

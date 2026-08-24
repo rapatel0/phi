@@ -5,7 +5,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/pulseaiclub/phi/internal/llm"
+	"github.com/rapatel0/alpha/internal/llm"
 )
 
 func TestBuildRequestToolImages(t *testing.T) {
@@ -55,7 +55,7 @@ func TestBuildRequestUserImages(t *testing.T) {
 
 func TestBuildRequestOAuthIdentityAndToolNames(t *testing.T) {
 	cfg := llm.ModelConfig{Name: "claude-sonnet-4-20250514", APIKey: "sk-ant-oat-test"}
-	req := BuildRequest(cfg, "You are phi.", []llm.Message{
+	req := BuildRequest(cfg, "You are alpha.", []llm.Message{
 		{Role: llm.RoleUser, Content: "Hi"},
 	}, []llm.ToolDefinition{{Name: "read", Description: "read a file"}})
 	if len(req.System) < 2 {

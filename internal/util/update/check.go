@@ -7,11 +7,12 @@ import (
 	"path/filepath"
 	"time"
 
-	"github.com/pulseaiclub/phi/internal/util/githubrelease"
+	"github.com/rapatel0/alpha/internal/brand"
+	"github.com/rapatel0/alpha/internal/util/githubrelease"
 )
 
-// Repo is the GitHub repository that publishes phi releases.
-const Repo = "pulseaiclub/phi"
+// Repo is the GitHub repository that publishes alpha releases.
+const Repo = "rapatel0/alpha"
 
 const (
 	updateCheckTTL  = 12 * time.Hour
@@ -37,7 +38,7 @@ type updateCache struct {
 type CheckOptions struct {
 	// Current is the running binary version (e.g. version.Version).
 	Current string
-	// CacheDir is where update-check.json is stored (typically ~/.phi).
+	// CacheDir is where update-check.json is stored (typically ~/.alpha).
 	CacheDir string
 	// Force bypasses the on-disk cache.
 	Force bool
@@ -45,7 +46,7 @@ type CheckOptions struct {
 
 // SkipCheck reports whether env vars disable network version checks.
 func SkipCheck() bool {
-	return os.Getenv("PHI_SKIP_VERSION_CHECK") != "" || os.Getenv("PHI_OFFLINE") != ""
+	return brand.Env("SKIP_VERSION_CHECK") != "" || brand.Env("OFFLINE") != ""
 }
 
 // Check returns info about a newer release, using a cached result when fresh.

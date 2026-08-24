@@ -36,7 +36,7 @@ func StartXAIDevice(ctx context.Context) (*XAIDevice, error) {
 	data := url.Values{
 		"client_id": {xaiClientID},
 		"scope":     {xaiScope},
-		"referrer":  {"phi"},
+		"referrer":  {"alpha"},
 	}
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, xaiDeviceURL, strings.NewReader(data.Encode()))
 	if err != nil {

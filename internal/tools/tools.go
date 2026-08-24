@@ -1,19 +1,19 @@
 package tools
 
 import (
-	"github.com/pulseaiclub/phi/internal/tools/agenttool"
-	"github.com/pulseaiclub/phi/internal/tools/bashtool"
-	"github.com/pulseaiclub/phi/internal/tools/findtool"
-	"github.com/pulseaiclub/phi/internal/tools/greptool"
-	"github.com/pulseaiclub/phi/internal/tools/lstool"
-	"github.com/pulseaiclub/phi/internal/tools/mcptool"
-	"github.com/pulseaiclub/phi/internal/tools/readimagetool"
-	"github.com/pulseaiclub/phi/internal/tools/readtool"
-	"github.com/pulseaiclub/phi/internal/tools/skilltool"
-	"github.com/pulseaiclub/phi/internal/tools/tooldef"
-	"github.com/pulseaiclub/phi/internal/tools/webfetchtool"
-	"github.com/pulseaiclub/phi/internal/tools/websearchtool"
-	"github.com/pulseaiclub/phi/internal/tools/writetool"
+	"github.com/rapatel0/alpha/internal/tools/agenttool"
+	"github.com/rapatel0/alpha/internal/tools/bashtool"
+	"github.com/rapatel0/alpha/internal/tools/findtool"
+	"github.com/rapatel0/alpha/internal/tools/greptool"
+	"github.com/rapatel0/alpha/internal/tools/lstool"
+	"github.com/rapatel0/alpha/internal/tools/mcptool"
+	"github.com/rapatel0/alpha/internal/tools/readimagetool"
+	"github.com/rapatel0/alpha/internal/tools/readtool"
+	"github.com/rapatel0/alpha/internal/tools/skilltool"
+	"github.com/rapatel0/alpha/internal/tools/tooldef"
+	"github.com/rapatel0/alpha/internal/tools/webfetchtool"
+	"github.com/rapatel0/alpha/internal/tools/websearchtool"
+	"github.com/rapatel0/alpha/internal/tools/writetool"
 )
 
 type (

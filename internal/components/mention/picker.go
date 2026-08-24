@@ -3,8 +3,8 @@ package mention
 import (
 	"github.com/pulseaiclub/xui"
 
-	"github.com/pulseaiclub/phi/internal/components"
-	"github.com/pulseaiclub/phi/internal/components/layout"
+	"github.com/rapatel0/alpha/internal/components"
+	"github.com/rapatel0/alpha/internal/components/layout"
 )
 
 // Item is one row in the mention / slash picker.

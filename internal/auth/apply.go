@@ -4,10 +4,10 @@ import (
 	"context"
 	"strings"
 
-	"github.com/pulseaiclub/phi/internal/llm"
+	"github.com/rapatel0/alpha/internal/llm"
 )
 
-// Apply fills cfg.APIKey from ~/.phi/auth.json when the config has no key.
+// Apply fills cfg.APIKey from ~/.alpha/auth.json when the config has no key.
 // Expired tokens are refreshed in place. Existing API keys are left alone.
 func Apply(ctx context.Context, cfg *llm.ModelConfig, storePath string) error {
 	if cfg == nil || strings.TrimSpace(cfg.APIKey) != "" {

@@ -3,7 +3,7 @@ package auth
 import (
 	"strings"
 
-	"github.com/pulseaiclub/phi/internal/llm"
+	"github.com/rapatel0/alpha/internal/llm"
 )
 
 const (

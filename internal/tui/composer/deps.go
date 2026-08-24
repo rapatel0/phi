@@ -3,10 +3,10 @@ package composer
 import (
 	"github.com/pulseaiclub/xui"
 
-	"github.com/pulseaiclub/phi/internal/components"
-	"github.com/pulseaiclub/phi/internal/components/layout"
-	"github.com/pulseaiclub/phi/internal/components/palette"
-	"github.com/pulseaiclub/phi/internal/llm"
+	"github.com/rapatel0/alpha/internal/components"
+	"github.com/rapatel0/alpha/internal/components/layout"
+	"github.com/rapatel0/alpha/internal/components/palette"
+	"github.com/rapatel0/alpha/internal/llm"
 )
 
 // Input is the composer surface Submitter and BashRunner use.

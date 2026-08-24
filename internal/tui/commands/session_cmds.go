@@ -5,11 +5,11 @@ import (
 	"strings"
 	"time"
 
-	"github.com/pulseaiclub/phi/internal/components/toast"
-	"github.com/pulseaiclub/phi/internal/session"
-	"github.com/pulseaiclub/phi/internal/tui/controller"
-	"github.com/pulseaiclub/phi/internal/tui/footer"
-	"github.com/pulseaiclub/phi/internal/tui/transcript"
+	"github.com/rapatel0/alpha/internal/components/toast"
+	"github.com/rapatel0/alpha/internal/session"
+	"github.com/rapatel0/alpha/internal/tui/controller"
+	"github.com/rapatel0/alpha/internal/tui/footer"
+	"github.com/rapatel0/alpha/internal/tui/transcript"
 )
 
 // SessionCommands owns /sessions, /resume, and /clear UI side effects.

@@ -6,8 +6,8 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/pulseaiclub/phi/internal/media"
-	"github.com/pulseaiclub/phi/internal/tools/tooldef"
+	"github.com/rapatel0/alpha/internal/media"
+	"github.com/rapatel0/alpha/internal/tools/tooldef"
 )
 
 // classifyPrefix decides whether bytes should be shown as text, or refused

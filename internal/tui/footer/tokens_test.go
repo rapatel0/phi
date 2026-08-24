@@ -3,7 +3,7 @@ package footer
 import (
 	"testing"
 
-	"github.com/pulseaiclub/phi/internal/session"
+	"github.com/rapatel0/alpha/internal/session"
 )
 
 func TestFormatTokens(t *testing.T) {

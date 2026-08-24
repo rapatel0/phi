@@ -5,7 +5,7 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/pulseaiclub/phi/internal/llm"
+	"github.com/rapatel0/alpha/internal/llm"
 )
 
 // TestManagerConcurrentAccess guards the mutex: concurrent append/read

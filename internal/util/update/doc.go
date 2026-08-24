@@ -1,2 +1,2 @@
-// Package update checks for new phi releases and reports them.
+// Package update checks for new alpha releases and reports them.
 package update

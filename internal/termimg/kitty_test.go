@@ -4,16 +4,16 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/pulseaiclub/phi/internal/llm"
+	"github.com/rapatel0/alpha/internal/llm"
 )
 
 func TestSupportedEnv(t *testing.T) {
-	t.Setenv("PHI_KITTY_GRAPHICS", "0")
+	t.Setenv("ALPHA_KITTY_GRAPHICS", "0")
 	t.Setenv("KITTY_WINDOW_ID", "1")
 	if Supported() {
 		t.Fatal("explicit off")
 	}
-	t.Setenv("PHI_KITTY_GRAPHICS", "1")
+	t.Setenv("ALPHA_KITTY_GRAPHICS", "1")
 	t.Setenv("TMUX", "1")
 	if !Supported() {
 		t.Fatal("explicit on")
@@ -21,7 +21,7 @@ func TestSupportedEnv(t *testing.T) {
 }
 
 func TestSupportedKitty(t *testing.T) {
-	t.Setenv("PHI_KITTY_GRAPHICS", "")
+	t.Setenv("ALPHA_KITTY_GRAPHICS", "")
 	t.Setenv("TMUX", "")
 	t.Setenv("KITTY_WINDOW_ID", "42")
 	t.Setenv("GHOSTTY_RESOURCES_DIR", "")

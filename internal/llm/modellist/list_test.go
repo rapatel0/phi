@@ -8,11 +8,11 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/pulseaiclub/phi/internal/llm"
+	"github.com/rapatel0/alpha/internal/llm"
 )
 
 func TestFetchOpenAI(t *testing.T) {
-	t.Setenv("PHI_MODEL_LIST", "")
+	t.Setenv("ALPHA_MODEL_LIST", "")
 	var gotAuth, gotPath string
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		gotAuth = r.Header.Get("Authorization")
@@ -39,7 +39,7 @@ func TestFetchOpenAI(t *testing.T) {
 }
 
 func TestFetchAnthropicOAuth(t *testing.T) {
-	t.Setenv("PHI_MODEL_LIST", "")
+	t.Setenv("ALPHA_MODEL_LIST", "")
 	var gotKey, gotAuth, gotVer string
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		gotKey = r.Header.Get("X-Api-Key")
@@ -65,7 +65,7 @@ func TestFetchAnthropicOAuth(t *testing.T) {
 }
 
 func TestFetchGemini(t *testing.T) {
-	t.Setenv("PHI_MODEL_LIST", "")
+	t.Setenv("ALPHA_MODEL_LIST", "")
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Query().Get("key") != "gem-k" {
 			w.WriteHeader(http.StatusUnauthorized)
@@ -92,7 +92,7 @@ func TestFetchGemini(t *testing.T) {
 }
 
 func TestFetchDisabled(t *testing.T) {
-	t.Setenv("PHI_MODEL_LIST", "0")
+	t.Setenv("ALPHA_MODEL_LIST", "0")
 	ids, err := Fetch(t.Context(), llm.ModelConfig{Name: "x", APIKey: "k", BaseURL: "http://127.0.0.1:1"})
 	if err != nil || ids != nil {
 		t.Fatalf("got %v %v", ids, err)
@@ -100,7 +100,7 @@ func TestFetchDisabled(t *testing.T) {
 }
 
 func TestFetchHTTPError(t *testing.T) {
-	t.Setenv("PHI_MODEL_LIST", "")
+	t.Setenv("ALPHA_MODEL_LIST", "")
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusUnauthorized)
 		_, _ = io.WriteString(w, `{"error":"nope"}`)

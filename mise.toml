@@ -10,29 +10,29 @@ golangci-lint = "2.13.0"
 CGO_ENABLED = "0"
 
 [tasks.build]
-description = "Build ./phi (CGO off, stripped)"
-run = "go build -ldflags='-s -w' -o phi ./cmd"
+description = "Build ./alpha (CGO off, stripped)"
+run = "go build -ldflags='-s -w' -o alpha ./cmd"
 
 [tasks.install]
-description = "Build and install phi into GOBIN"
+description = "Build and install alpha into GOBIN"
 depends = ["build"]
 run = '''
 set -euo pipefail
 bin="$(go env GOBIN)"
 [ -n "$bin" ] || bin="$(go env GOPATH)/bin"
 mkdir -p "$bin"
-mv -f phi "$bin/phi"
-echo "installed phi -> $bin/phi"
+mv -f alpha "$bin/alpha"
+echo "installed alpha -> $bin/alpha"
 '''
 
 [tasks.run]
 description = "Build and start the TUI"
 depends = ["build"]
-run = "./phi"
+run = "./alpha"
 
 [tasks.clean]
 description = "Remove the local binary and Go cache artifacts"
-run = ["rm -f phi", "go clean"]
+run = ["rm -f alpha", "go clean"]
 
 [tasks.test]
 description = "Run all Go tests"

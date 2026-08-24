@@ -6,13 +6,13 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/pulseaiclub/phi/internal/components"
-	"github.com/pulseaiclub/phi/internal/components/status"
-	"github.com/pulseaiclub/phi/internal/llm"
-	"github.com/pulseaiclub/phi/internal/session"
-	"github.com/pulseaiclub/phi/internal/tui/commands"
-	"github.com/pulseaiclub/phi/internal/tui/controller"
-	"github.com/pulseaiclub/phi/internal/tui/transcript"
+	"github.com/rapatel0/alpha/internal/components"
+	"github.com/rapatel0/alpha/internal/components/status"
+	"github.com/rapatel0/alpha/internal/llm"
+	"github.com/rapatel0/alpha/internal/session"
+	"github.com/rapatel0/alpha/internal/tui/commands"
+	"github.com/rapatel0/alpha/internal/tui/controller"
+	"github.com/rapatel0/alpha/internal/tui/transcript"
 )
 
 type stubComposer struct {
@@ -32,7 +32,7 @@ func (stubComposer) SetBashBorderActive(bool)   {}
 func TestSubmitter_IsBusy(t *testing.T) {
 	th := components.DefaultTheme()
 	spin := status.NewSpinner(th.ToolName)
-	transcript := transcript.NewTranscriptPane(th, spin, "Phi test")
+	transcript := transcript.NewTranscriptPane(th, spin, "Alpha test")
 	bash := NewBashRunner(transcript, stubComposer{}, nil, nil)
 
 	sub := NewSubmitter(nil, nil, transcript, nil, stubComposer{}, bash, nil, nil, nil, nil, nil, nil)
@@ -49,7 +49,7 @@ func TestSubmitter_StreamActive_activity(t *testing.T) {
 	sub := NewSubmitter(
 		nil,
 		nil,
-		transcript.NewTranscriptPane(th, spin, "Phi test"),
+		transcript.NewTranscriptPane(th, spin, "Alpha test"),
 		activity,
 		stubComposer{},
 		nil,
@@ -70,7 +70,7 @@ func TestSubmitter_StreamActive_activity(t *testing.T) {
 func TestSubmitter_Submit_unknownSlashFallsThroughToAgent(t *testing.T) {
 	th := components.DefaultTheme()
 	spin := status.NewSpinner(th.ToolName)
-	tp := transcript.NewTranscriptPane(th, spin, "Phi test")
+	tp := transcript.NewTranscriptPane(th, spin, "Alpha test")
 	sub := NewSubmitter(
 		nil,
 		commands.NewBuiltinRegistry(),
@@ -95,7 +95,7 @@ func TestSubmitter_Submit_unknownSlashFallsThroughToAgent(t *testing.T) {
 func TestSubmitter_Submit_bareBangFallsThroughToAgent(t *testing.T) {
 	th := components.DefaultTheme()
 	spin := status.NewSpinner(th.ToolName)
-	tp := transcript.NewTranscriptPane(th, spin, "Phi test")
+	tp := transcript.NewTranscriptPane(th, spin, "Alpha test")
 	sub := NewSubmitter(
 		nil,
 		nil,

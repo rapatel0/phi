@@ -9,18 +9,18 @@ import (
 	"strings"
 	"time"
 
-	"github.com/pulseaiclub/phi/internal/agent/prompt"
-	"github.com/pulseaiclub/phi/internal/ext"
-	"github.com/pulseaiclub/phi/internal/hooks"
-	"github.com/pulseaiclub/phi/internal/job"
-	"github.com/pulseaiclub/phi/internal/llm"
-	llmclient "github.com/pulseaiclub/phi/internal/llm/client"
-	"github.com/pulseaiclub/phi/internal/llm/skills"
-	"github.com/pulseaiclub/phi/internal/mcp"
-	"github.com/pulseaiclub/phi/internal/permission"
-	"github.com/pulseaiclub/phi/internal/session"
-	"github.com/pulseaiclub/phi/internal/session/compaction"
-	"github.com/pulseaiclub/phi/internal/tools"
+	"github.com/rapatel0/alpha/internal/agent/prompt"
+	"github.com/rapatel0/alpha/internal/ext"
+	"github.com/rapatel0/alpha/internal/hooks"
+	"github.com/rapatel0/alpha/internal/job"
+	"github.com/rapatel0/alpha/internal/llm"
+	llmclient "github.com/rapatel0/alpha/internal/llm/client"
+	"github.com/rapatel0/alpha/internal/llm/skills"
+	"github.com/rapatel0/alpha/internal/mcp"
+	"github.com/rapatel0/alpha/internal/permission"
+	"github.com/rapatel0/alpha/internal/session"
+	"github.com/rapatel0/alpha/internal/session/compaction"
+	"github.com/rapatel0/alpha/internal/tools"
 )
 
 // ErrMaxRounds is returned (wrapped) by Loop when the model exceeds the
@@ -68,7 +68,7 @@ type EngineOpts struct {
 	Jobs        *job.Manager       // if set, register agent_* tools on this engine
 	Hooks       *hooks.Manager     // nil = no hooks; child engines inherit parent Manager
 	MCP         *mcp.Pool          // if set, register mcp_list/inspect/call meta-tools
-	AuthFile    string             // ~/.phi/auth.json; OAuth refresh when set
+	AuthFile    string             // ~/.alpha/auth.json; OAuth refresh when set
 }
 
 // NewEngine wires an LLM client, tool executor, and session store.

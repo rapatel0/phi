@@ -5,7 +5,7 @@ import (
 	"maps"
 	"slices"
 
-	"github.com/pulseaiclub/phi/internal/llm"
+	"github.com/rapatel0/alpha/internal/llm"
 )
 
 // Apply returns a new snapshot with ev applied (immutable reducer).

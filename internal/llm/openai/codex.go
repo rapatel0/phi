@@ -10,9 +10,9 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/pulseaiclub/phi/internal/auth"
-	"github.com/pulseaiclub/phi/internal/llm"
-	"github.com/pulseaiclub/phi/internal/util"
+	"github.com/rapatel0/alpha/internal/auth"
+	"github.com/rapatel0/alpha/internal/llm"
+	"github.com/rapatel0/alpha/internal/util"
 )
 
 const codexResponsesPath = "/responses"
@@ -53,7 +53,7 @@ type responsesTool struct {
 	Parameters  json.RawMessage `json:"parameters,omitempty"`
 }
 
-// BuildResponsesRequest converts Phi messages into the Codex Responses body.
+// BuildResponsesRequest converts Alpha messages into the Codex Responses body.
 func BuildResponsesRequest(
 	cfg llm.ModelConfig,
 	system string,
@@ -123,7 +123,7 @@ func setCodexHeaders(req *http.Request, apiKey string) {
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("Accept", util.ContentEventStream)
 	req.Header.Set("OpenAI-Beta", "responses=experimental")
-	req.Header.Set("originator", "phi")
+	req.Header.Set("originator", "alpha")
 	if id := auth.ChatGPTAccountID(apiKey); id != "" {
 		req.Header.Set("chatgpt-account-id", id)
 	}

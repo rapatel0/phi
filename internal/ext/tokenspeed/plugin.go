@@ -6,7 +6,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/pulseaiclub/phi/internal/ext"
+	"github.com/rapatel0/alpha/internal/ext"
 )
 
 func init() { ext.Register(Plugin{}) }

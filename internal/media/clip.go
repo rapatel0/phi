@@ -7,7 +7,7 @@ import (
 	"os/exec"
 	"time"
 
-	"github.com/pulseaiclub/phi/internal/llm"
+	"github.com/rapatel0/alpha/internal/llm"
 )
 
 const clipTimeout = 2 * time.Second

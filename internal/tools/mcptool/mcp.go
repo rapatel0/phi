@@ -6,9 +6,9 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/pulseaiclub/phi/internal/llm"
-	"github.com/pulseaiclub/phi/internal/mcp"
-	"github.com/pulseaiclub/phi/internal/tools/tooldef"
+	"github.com/rapatel0/alpha/internal/llm"
+	"github.com/rapatel0/alpha/internal/mcp"
+	"github.com/rapatel0/alpha/internal/tools/tooldef"
 )
 
 // Tools returns the three MCP meta-tools bound to pool.

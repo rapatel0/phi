@@ -1,8 +1,8 @@
 package agent
 
 import (
-	"github.com/pulseaiclub/phi/internal/job"
-	"github.com/pulseaiclub/phi/internal/session"
+	"github.com/rapatel0/alpha/internal/job"
+	"github.com/rapatel0/alpha/internal/session"
 )
 
 // ChildHub is optional TUI wiring for live sub-agent attach.

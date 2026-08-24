@@ -6,10 +6,10 @@ import (
 
 	"github.com/pulseaiclub/xui"
 
-	"github.com/pulseaiclub/phi/internal/components"
-	"github.com/pulseaiclub/phi/internal/components/layout"
-	"github.com/pulseaiclub/phi/internal/permission"
-	"github.com/pulseaiclub/phi/internal/tui/controller"
+	"github.com/rapatel0/alpha/internal/components"
+	"github.com/rapatel0/alpha/internal/components/layout"
+	"github.com/rapatel0/alpha/internal/permission"
+	"github.com/rapatel0/alpha/internal/tui/controller"
 )
 
 type overlayComposer interface {
@@ -745,7 +745,7 @@ func (st *permAskState) feedbackLines(
 	out = append(out, components.WrapSpans([]components.Span{
 		{Text: "✗ ", Style: th.Destructive},
 		{Text: "Denied", Style: xui.Style{Bold: true, Fg: th.Destructive.Fg}},
-		{Text: " — tell Phi what to do instead", Style: th.Muted},
+		{Text: " — tell Alpha what to do instead", Style: th.Muted},
 	}, innerW, method)...)
 	out = append(out, components.WrapSpans([]components.Span{
 		{Text: "› ", Style: xui.Style{Bold: true, Fg: primary.Fg}},

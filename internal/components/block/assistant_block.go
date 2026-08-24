@@ -3,9 +3,9 @@ package block
 import (
 	"github.com/pulseaiclub/xui"
 
-	"github.com/pulseaiclub/phi/internal/components"
-	"github.com/pulseaiclub/phi/internal/components/text"
-	"github.com/pulseaiclub/phi/internal/session"
+	"github.com/rapatel0/alpha/internal/components"
+	"github.com/rapatel0/alpha/internal/components/text"
+	"github.com/rapatel0/alpha/internal/session"
 )
 
 // AssistantBlock renders assistant Markdown (GFM) with themed typography,

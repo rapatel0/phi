@@ -16,7 +16,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/pulseaiclub/phi/internal/tools/tooldef"
+	"github.com/rapatel0/alpha/internal/tools/tooldef"
 )
 
 func pngBytes(t *testing.T) []byte {

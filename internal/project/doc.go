@@ -1,6 +1,6 @@
-// Package project provides the phi workspace layout and configuration.
+// Package project provides the alpha workspace layout and configuration.
 //
-// Discover creates the global phi home (~/.phi) with its standard
+// Discover creates the global alpha home (~/.alpha) with its standard
 // subdirectories (bin, skills, hooks, session, jobs) so downloaded tool
 // binaries, SKILL.md files, hook manifests, and persisted sessions have a
 // known home. This mirrors panda's internal/project: startup ensures the

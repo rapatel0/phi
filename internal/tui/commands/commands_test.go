@@ -8,8 +8,8 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/pulseaiclub/phi/internal/components/palette"
-	"github.com/pulseaiclub/phi/internal/hooks"
+	"github.com/rapatel0/alpha/internal/components/palette"
+	"github.com/rapatel0/alpha/internal/hooks"
 )
 
 func TestThemeCommand_Submenu(t *testing.T) {

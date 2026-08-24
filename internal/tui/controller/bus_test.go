@@ -3,9 +3,9 @@ package controller_test
 import (
 	"testing"
 
-	"github.com/pulseaiclub/phi/internal/job"
-	"github.com/pulseaiclub/phi/internal/session"
-	"github.com/pulseaiclub/phi/internal/tui/controller"
+	"github.com/rapatel0/alpha/internal/job"
+	"github.com/rapatel0/alpha/internal/session"
+	"github.com/rapatel0/alpha/internal/tui/controller"
 )
 
 func TestBusOnWakeOnceUntilDrain(t *testing.T) {

@@ -5,7 +5,7 @@ import (
 
 	"github.com/pulseaiclub/xui"
 
-	"github.com/pulseaiclub/phi/internal/components"
+	"github.com/rapatel0/alpha/internal/components"
 )
 
 // rowStub is a fixed-height Widget used to exercise MessageList without

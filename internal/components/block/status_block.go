@@ -3,7 +3,7 @@ package block
 import (
 	"github.com/pulseaiclub/xui"
 
-	"github.com/pulseaiclub/phi/internal/components"
+	"github.com/rapatel0/alpha/internal/components"
 )
 
 // StatusBlock renders activity chrome: "✓ Thinking ▸".

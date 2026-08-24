@@ -3,8 +3,8 @@ package ext
 import (
 	"testing"
 
-	"github.com/pulseaiclub/phi/internal/llm"
-	"github.com/pulseaiclub/phi/internal/tools"
+	"github.com/rapatel0/alpha/internal/llm"
+	"github.com/rapatel0/alpha/internal/tools"
 )
 
 type stubPlugin struct{}

@@ -3,7 +3,7 @@ package openai
 import (
 	"encoding/base64"
 
-	"github.com/pulseaiclub/phi/internal/llm"
+	"github.com/rapatel0/alpha/internal/llm"
 )
 
 type apiChatMessage struct {

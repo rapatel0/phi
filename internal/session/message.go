@@ -3,7 +3,7 @@ package session
 import (
 	"strings"
 
-	"github.com/pulseaiclub/phi/internal/llm"
+	"github.com/rapatel0/alpha/internal/llm"
 )
 
 // Role is the speaker of a transcript message.

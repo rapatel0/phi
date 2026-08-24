@@ -8,8 +8,8 @@ import (
 	"os/signal"
 	"strings"
 
-	"github.com/pulseaiclub/phi/internal/auth"
-	"github.com/pulseaiclub/phi/internal/project"
+	"github.com/rapatel0/alpha/internal/auth"
+	"github.com/rapatel0/alpha/internal/project"
 )
 
 func loginCmd(args []string) int {
@@ -30,7 +30,7 @@ func loginCmd(args []string) int {
 
 	proj, err := project.Discover("")
 	if err != nil {
-		fmt.Fprintln(os.Stderr, "phi login:", err)
+		fmt.Fprintln(os.Stderr, "alpha login:", err)
 		return ExitError
 	}
 	store := auth.OpenStore(proj.Global().AuthFile())
@@ -54,7 +54,7 @@ func loginCmd(args []string) int {
 	case "xai", "grok", "supergrok":
 		sess, startErr := auth.StartXAIDevice(ctx)
 		if startErr != nil {
-			fmt.Fprintln(os.Stderr, "phi login:", startErr)
+			fmt.Fprintln(os.Stderr, "alpha login:", startErr)
 			return ExitError
 		}
 		fmt.Fprintln(os.Stderr, "SuperGrok / X Premium login. Open this URL and enter the code:")
@@ -69,19 +69,19 @@ func loginCmd(args []string) int {
 		fmt.Fprint(os.Stderr, "key: ")
 		sc := bufio.NewScanner(os.Stdin)
 		if !sc.Scan() {
-			fmt.Fprintln(os.Stderr, "phi login: no key")
+			fmt.Fprintln(os.Stderr, "alpha login: no key")
 			return ExitError
 		}
 		key := strings.TrimSpace(sc.Text())
 		if key == "" {
-			fmt.Fprintln(os.Stderr, "phi login: empty key")
+			fmt.Fprintln(os.Stderr, "alpha login: empty key")
 			return ExitError
 		}
 		cred = auth.Credential{Provider: auth.ProviderGemini, AccessToken: key}
 	case "codex", "chatgpt", "openai":
 		sess, startErr := auth.StartCodexDevice(ctx)
 		if startErr != nil {
-			fmt.Fprintln(os.Stderr, "phi login:", startErr)
+			fmt.Fprintln(os.Stderr, "alpha login:", startErr)
 			return ExitError
 		}
 		fmt.Fprintln(os.Stderr, "ChatGPT Codex login. Open this URL and enter the code:")
@@ -92,15 +92,15 @@ func loginCmd(args []string) int {
 		_ = auth.OpenBrowser(sess.VerificationURL)
 		cred, err = auth.CompleteCodexDevice(ctx, sess)
 	default:
-		fmt.Fprintf(os.Stderr, "phi login: unknown provider %q (want anthropic, codex, xai, gemini)\n", provider)
+		fmt.Fprintf(os.Stderr, "alpha login: unknown provider %q (want anthropic, codex, xai, gemini)\n", provider)
 		return ExitUsage
 	}
 	if err != nil {
-		fmt.Fprintln(os.Stderr, "phi login:", err)
+		fmt.Fprintln(os.Stderr, "alpha login:", err)
 		return ExitError
 	}
 	if err := store.Put(cred); err != nil {
-		fmt.Fprintln(os.Stderr, "phi login:", err)
+		fmt.Fprintln(os.Stderr, "alpha login:", err)
 		return ExitError
 	}
 	fmt.Fprintf(os.Stderr, "saved %s credentials to %s\n", cred.Provider, proj.Global().AuthFile())
@@ -125,14 +125,14 @@ func stdinLines(ctx context.Context) <-chan string {
 }
 
 func printLoginUsage(w *os.File) {
-	fmt.Fprintf(w, `usage: phi login <provider>
+	fmt.Fprintf(w, `usage: alpha login <provider>
 
-  phi login anthropic   Claude Pro/Max (browser OAuth)
-  phi login codex       ChatGPT Codex (device code)
-  phi login xai         SuperGrok / X Premium (device code)
-  phi login gemini      Google Gemini API key (AI Studio)
+  alpha login anthropic   Claude Pro/Max (browser OAuth)
+  alpha login codex       ChatGPT Codex (device code)
+  alpha login xai         SuperGrok / X Premium (device code)
+  alpha login gemini      Google Gemini API key (AI Studio)
 
-Credentials are stored in ~/.phi/auth.json (mode 0600).
+Credentials are stored in ~/.alpha/auth.json (mode 0600).
 Config models[].api_key still wins when set.
 `)
 }

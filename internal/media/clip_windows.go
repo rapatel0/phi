@@ -10,7 +10,7 @@ import (
 )
 
 func readClipboard(ctx context.Context) ([]byte, error) {
-	dir, err := os.MkdirTemp("", "phi-clip-")
+	dir, err := os.MkdirTemp("", "alpha-clip-")
 	if err != nil {
 		return nil, err
 	}

@@ -4,8 +4,8 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/pulseaiclub/phi/internal/auth"
-	"github.com/pulseaiclub/phi/internal/llm"
+	"github.com/rapatel0/alpha/internal/auth"
+	"github.com/rapatel0/alpha/internal/llm"
 )
 
 const (

@@ -9,8 +9,8 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/pulseaiclub/phi/internal/llm"
-	"github.com/pulseaiclub/phi/internal/tools/tooldef"
+	"github.com/rapatel0/alpha/internal/llm"
+	"github.com/rapatel0/alpha/internal/tools/tooldef"
 )
 
 // writeSkill creates <dir>/<name>/SKILL.md with front matter and a body.
@@ -78,7 +78,7 @@ func TestLoadAllDedupesAcrossDirs(t *testing.T) {
 	writeSkill(t, first, "shared", "From the model path", "First wins.")
 	writeSkill(t, second, "shared", "From the env path", "Second loses.")
 	writeSkill(t, second, "extra", "Only in env path", "Extra body.")
-	t.Setenv("PHI_SKILL_PATH", second)
+	t.Setenv("ALPHA_SKILL_PATH", second)
 
 	ctx := tooldef.WithModel(t.Context(), llm.ModelConfig{SkillPath: first})
 	list, err := loadAll(ctx)
@@ -94,7 +94,7 @@ func TestLoadAllDedupesAcrossDirs(t *testing.T) {
 
 func TestSkillDirsOrderAndSources(t *testing.T) {
 	modelDir, envDir, cwd := t.TempDir(), t.TempDir(), t.TempDir()
-	t.Setenv("PHI_SKILL_PATH", envDir)
+	t.Setenv("ALPHA_SKILL_PATH", envDir)
 
 	ctx := tooldef.WithModel(t.Context(), llm.ModelConfig{SkillPath: modelDir})
 	ctx = tooldef.WithCwd(ctx, cwd)
@@ -102,12 +102,12 @@ func TestSkillDirsOrderAndSources(t *testing.T) {
 
 	require.GreaterOrEqual(t, len(dirs), 3)
 	assert.Equal(t, modelDir, dirs[0], "model skill_path comes first")
-	assert.Equal(t, envDir, dirs[1], "PHI_SKILL_PATH comes second")
-	assert.Contains(t, dirs, filepath.Join(cwd, ".phi", "skills"))
+	assert.Equal(t, envDir, dirs[1], "ALPHA_SKILL_PATH comes second")
+	assert.Contains(t, dirs, filepath.Join(cwd, ".alpha", "skills"))
 }
 
 func TestSkillDirsSkipsBlankPaths(t *testing.T) {
-	t.Setenv("PHI_SKILL_PATH", "")
+	t.Setenv("ALPHA_SKILL_PATH", "")
 	ctx := tooldef.WithModel(t.Context(), llm.ModelConfig{SkillPath: "   "})
 	for _, d := range skillDirs(ctx) {
 		assert.NotEmpty(t, d)

@@ -3,7 +3,7 @@ package session
 import (
 	"testing"
 
-	"github.com/pulseaiclub/phi/internal/llm"
+	"github.com/rapatel0/alpha/internal/llm"
 )
 
 func TestSnapshotFromEntriesReplaysTools(t *testing.T) {

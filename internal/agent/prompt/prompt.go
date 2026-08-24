@@ -9,7 +9,7 @@ import (
 	"strings"
 	"text/template"
 
-	"github.com/pulseaiclub/phi/internal/llm/skills"
+	"github.com/rapatel0/alpha/internal/llm/skills"
 )
 
 var (
@@ -53,7 +53,7 @@ func Build(skillPath string, agentsEnabled bool, mcpServers []string) string {
 		panic(fmt.Sprintf("system prompt: %v", err))
 	}
 	parts := []string{buf.String()}
-	if ctx := formatProjectContext(loadProjectContextFiles(currentDir(), phiAgentDir())); ctx != "" {
+	if ctx := formatProjectContext(loadProjectContextFiles(currentDir(), agentHomeDir())); ctx != "" {
 		parts = append(parts, ctx)
 	}
 	if skillBlock := skillsBlock(skillPath); skillBlock != "" {

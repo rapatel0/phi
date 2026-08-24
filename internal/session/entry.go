@@ -3,7 +3,7 @@ package session
 import (
 	"time"
 
-	"github.com/pulseaiclub/phi/internal/llm"
+	"github.com/rapatel0/alpha/internal/llm"
 )
 
 // MessageEntry is one node in the session tree. Entries are linked by

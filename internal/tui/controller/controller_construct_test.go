@@ -6,7 +6,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/pulseaiclub/phi/internal/project"
+	"github.com/rapatel0/alpha/internal/project"
 )
 
 func TestNewController_RequiresCollaborators(t *testing.T) {
@@ -22,9 +22,9 @@ func TestNewController_ReadyEngine(t *testing.T) {
 	home := t.TempDir()
 	t.Setenv("HOME", home)
 	t.Setenv("USERPROFILE", home)
-	t.Setenv("PHI_MODEL", "test-model")
-	t.Setenv("PHI_API_KEY", "test-key")
-	t.Setenv("PHI_BASE_URL", "http://127.0.0.1:9")
+	t.Setenv("ALPHA_MODEL", "test-model")
+	t.Setenv("ALPHA_API_KEY", "test-key")
+	t.Setenv("ALPHA_BASE_URL", "http://127.0.0.1:9")
 
 	cwd := t.TempDir()
 	proj, err := project.Discover(cwd)

@@ -5,10 +5,10 @@ import (
 
 	"github.com/pulseaiclub/xui"
 
-	"github.com/pulseaiclub/phi/internal/components"
-	"github.com/pulseaiclub/phi/internal/components/status"
-	"github.com/pulseaiclub/phi/internal/components/text"
-	"github.com/pulseaiclub/phi/internal/components/tree"
+	"github.com/rapatel0/alpha/internal/components"
+	"github.com/rapatel0/alpha/internal/components/status"
+	"github.com/rapatel0/alpha/internal/components/text"
+	"github.com/rapatel0/alpha/internal/components/tree"
 )
 
 // ChildTool is one nested tool row under an AgentBlock (sub-agent tree).

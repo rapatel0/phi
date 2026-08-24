@@ -5,7 +5,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/pulseaiclub/phi/internal/llm"
+	"github.com/rapatel0/alpha/internal/llm"
 )
 
 func TestToAPIMessagesPlainString(t *testing.T) {
@@ -36,7 +36,7 @@ func TestToAPIMessagesImages(t *testing.T) {
 		t.Fatal(err)
 	}
 	if strings.Contains(string(raw), `"images"`) {
-		t.Fatalf("api body must not leak Phi images field: %s", raw)
+		t.Fatalf("api body must not leak Alpha images field: %s", raw)
 	}
 }
 

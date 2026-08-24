@@ -13,9 +13,9 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/pulseaiclub/phi/internal/llm"
-	"github.com/pulseaiclub/phi/internal/media"
-	"github.com/pulseaiclub/phi/internal/tools/tooldef"
+	"github.com/rapatel0/alpha/internal/llm"
+	"github.com/rapatel0/alpha/internal/media"
+	"github.com/rapatel0/alpha/internal/tools/tooldef"
 )
 
 const maxRawBytes = 20 << 20 // 20 MB before compress; stolen from pi-go

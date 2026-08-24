@@ -8,12 +8,12 @@ import (
 
 	"github.com/pulseaiclub/xui"
 
-	"github.com/pulseaiclub/phi/internal/components"
-	"github.com/pulseaiclub/phi/internal/components/app"
-	"github.com/pulseaiclub/phi/internal/project"
-	"github.com/pulseaiclub/phi/internal/tui/commands"
-	"github.com/pulseaiclub/phi/internal/tui/controller"
-	"github.com/pulseaiclub/phi/internal/tui/editor"
+	"github.com/rapatel0/alpha/internal/components"
+	"github.com/rapatel0/alpha/internal/components/app"
+	"github.com/rapatel0/alpha/internal/project"
+	"github.com/rapatel0/alpha/internal/tui/commands"
+	"github.com/rapatel0/alpha/internal/tui/controller"
+	"github.com/rapatel0/alpha/internal/tui/editor"
 )
 
 func main() {
@@ -37,7 +37,7 @@ func main() {
 			printMainUsage(os.Stdout)
 			return
 		default:
-			fmt.Fprintf(os.Stderr, "phi: unknown command %q (try 'phi run --help' or 'phi tui')\n", os.Args[1])
+			fmt.Fprintf(os.Stderr, "alpha: unknown command %q (try 'alpha run --help' or 'alpha tui')\n", os.Args[1])
 			os.Exit(ExitUsage)
 		}
 	}
@@ -49,11 +49,11 @@ func main() {
 func runTUI() error {
 	proj := project.GetDefaultProject()
 	if err := proj.LoadConfig(); err != nil {
-		fmt.Fprintln(os.Stderr, "phi:", err)
+		fmt.Fprintln(os.Stderr, "alpha:", err)
 		fmt.Fprintln(os.Stderr, "")
 		fmt.Fprintln(os.Stderr, "Configure a model first, then restart:")
-		fmt.Fprintln(os.Stderr, "  phi config")
-		fmt.Fprintln(os.Stderr, "or set PHI_MODEL and PHI_API_KEY.")
+		fmt.Fprintln(os.Stderr, "  alpha config")
+		fmt.Fprintln(os.Stderr, "or set ALPHA_MODEL and ALPHA_API_KEY.")
 		return &exitError{code: ExitUsage, err: err}
 	}
 	cfg := proj.Config().Model()
@@ -68,7 +68,7 @@ func runTUI() error {
 
 	vx, err := xui.New(xui.Options{Mouse: true, BracketedPaste: true})
 	if err != nil {
-		fmt.Fprintln(os.Stderr, "phi: terminal UI:", err)
+		fmt.Fprintln(os.Stderr, "alpha: terminal UI:", err)
 		return &exitError{code: ExitError, err: err}
 	}
 	defer func(vx *xui.XUI) {
@@ -80,7 +80,7 @@ func runTUI() error {
 
 	cwd, err := os.Getwd()
 	if err != nil {
-		fmt.Fprintln(os.Stderr, "phi: getwd:", err)
+		fmt.Fprintln(os.Stderr, "alpha: getwd:", err)
 		return &exitError{code: ExitError, err: err}
 	}
 	th := components.DefaultTheme()
@@ -97,7 +97,7 @@ func runTUI() error {
 	bus := controller.NewBus(redraw.Fire)
 	ctrl, err := controller.NewController(bus, proj, cwd)
 	if err != nil {
-		fmt.Fprintln(os.Stderr, "phi:", err)
+		fmt.Fprintln(os.Stderr, "alpha:", err)
 		return &exitError{code: ExitError, err: err}
 	}
 	cmds := commands.NewBuiltinRegistry()
@@ -118,7 +118,7 @@ func runTUI() error {
 	ui.StartUpdateCheck(proj.Global().Root())
 	ui.StartBranchWatch()
 	if err := application.Run(ui); err != nil {
-		fmt.Fprintln(os.Stderr, "phi:", err)
+		fmt.Fprintln(os.Stderr, "alpha:", err)
 		return &exitError{code: ExitError, err: err}
 	}
 	return nil
@@ -146,15 +146,15 @@ func runTUIExit(err error) int {
 }
 
 func printMainUsage(w *os.File) {
-	fmt.Fprintf(w, `usage: phi [COMMAND]
+	fmt.Fprintf(w, `usage: alpha [COMMAND]
 
-  phi                start the interactive TUI
-  phi tui            start the interactive TUI
-  phi config         open the HTML config editor (local web server)
-  phi update         install the latest release (see 'phi update --help')
-  phi run -p "..."   run one agent loop headlessly (see 'phi run --help')
-  phi login …        Claude Pro/Max or ChatGPT Codex OAuth (see 'phi login --help')
-  phi sessions list  list persisted sessions for this directory
-  phi mcp …          manage MCP servers (see 'phi mcp --help')
+  alpha                start the interactive TUI
+  alpha tui            start the interactive TUI
+  alpha config         open the HTML config editor (local web server)
+  alpha update         install the latest release (see 'alpha update --help')
+  alpha run -p "..."   run one agent loop headlessly (see 'alpha run --help')
+  alpha login …        Claude Pro/Max or ChatGPT Codex OAuth (see 'alpha login --help')
+  alpha sessions list  list persisted sessions for this directory
+  alpha mcp …          manage MCP servers (see 'alpha mcp --help')
 `)
 }

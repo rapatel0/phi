@@ -9,9 +9,10 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/pulseaiclub/phi/internal/llm"
-	"github.com/pulseaiclub/phi/internal/llm/skills"
-	"github.com/pulseaiclub/phi/internal/tools/tooldef"
+	"github.com/rapatel0/alpha/internal/brand"
+	"github.com/rapatel0/alpha/internal/llm"
+	"github.com/rapatel0/alpha/internal/llm/skills"
+	"github.com/rapatel0/alpha/internal/tools/tooldef"
 )
 
 // SkillTool returns a tool that loads a SKILL.md by name and returns its body.
@@ -108,14 +109,14 @@ func skillDirs(ctx context.Context) []string {
 	if cfg := tooldef.Model(ctx); cfg.SkillPath != "" {
 		add(cfg.SkillPath)
 	}
-	if v := os.Getenv("PHI_SKILL_PATH"); v != "" {
+	if v := brand.Env("SKILL_PATH"); v != "" {
 		add(v)
 	}
 	if home, err := os.UserHomeDir(); err == nil {
-		add(filepath.Join(home, ".phi", "skills"))
+		add(filepath.Join(brand.HomeDir(home), "skills"))
 	}
 	if cwd, err := tooldef.Cwd(ctx); err == nil && cwd != "" {
-		add(filepath.Join(cwd, ".phi", "skills"))
+		add(filepath.Join(brand.ProjectDir(cwd), "skills"))
 	}
 	return dirs
 }

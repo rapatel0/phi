@@ -16,13 +16,13 @@ import (
 	"strings"
 	"time"
 
-	"github.com/pulseaiclub/phi/internal/media"
-	"github.com/pulseaiclub/phi/internal/util"
+	"github.com/rapatel0/alpha/internal/media"
+	"github.com/rapatel0/alpha/internal/util"
 )
 
 const (
 	imageFetchTimeout  = 30 * time.Second
-	readImageUserAgent = "phi/1.0"
+	readImageUserAgent = "alpha/1.0"
 )
 
 var allowedImageSchemes = map[string]bool{"https": true}
@@ -65,7 +65,7 @@ func fetchImageToCache(ctx context.Context, rawURL string) (string, error) {
 func cachedImagePath(rawURL string, u *url.URL) string {
 	sum := sha256.Sum256([]byte(rawURL))
 	name := hex.EncodeToString(sum[:]) + extFromURL(u)
-	return filepath.Join(os.TempDir(), "phi-read-image", name)
+	return filepath.Join(os.TempDir(), "alpha-read-image", name)
 }
 
 func extFromURL(u *url.URL) string {

@@ -16,7 +16,7 @@ type ModelConfig struct {
 	APIKey  string
 	BaseURL string
 	// SkillPath is the directory to scan for SKILL.md files.
-	// Defaults to ~/.phi/skills if empty.
+	// Defaults to ~/.alpha/skills if empty.
 	SkillPath string
 	// ContextWindow is the model's context window in tokens.
 	// Zero disables session compaction (safe default).
@@ -68,7 +68,7 @@ func (img Image) Label() string {
 }
 
 // Message is one chat turn (OpenAI-compatible shape, normalized across
-// providers). Images are Phi-only; provider clients expand them into native
+// providers). Images are Alpha-only; provider clients expand them into native
 // content parts and must not marshal this struct as an API body.
 type Message struct {
 	Role             Role       `json:"role"`

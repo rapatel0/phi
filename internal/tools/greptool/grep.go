@@ -13,11 +13,11 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/pulseaiclub/phi/internal/tools/tooldef"
+	"github.com/rapatel0/alpha/internal/tools/tooldef"
 
-	"github.com/pulseaiclub/phi/internal/llm"
-	"github.com/pulseaiclub/phi/internal/project"
-	"github.com/pulseaiclub/phi/internal/util"
+	"github.com/rapatel0/alpha/internal/llm"
+	"github.com/rapatel0/alpha/internal/project"
+	"github.com/rapatel0/alpha/internal/util"
 )
 
 // ---------------------------------------------------------------------------

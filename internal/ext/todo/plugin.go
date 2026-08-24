@@ -9,9 +9,9 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/pulseaiclub/phi/internal/ext"
-	"github.com/pulseaiclub/phi/internal/llm"
-	"github.com/pulseaiclub/phi/internal/tools"
+	"github.com/rapatel0/alpha/internal/ext"
+	"github.com/rapatel0/alpha/internal/llm"
+	"github.com/rapatel0/alpha/internal/tools"
 )
 
 func init() { ext.Register(Plugin{}) }

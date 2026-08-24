@@ -1,4 +1,4 @@
-module github.com/pulseaiclub/phi
+module github.com/rapatel0/alpha
 
 go 1.26.3
 

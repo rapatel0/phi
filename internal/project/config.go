@@ -9,12 +9,13 @@ import (
 
 	"gopkg.in/yaml.v3"
 
-	"github.com/pulseaiclub/phi/internal/auth"
-	"github.com/pulseaiclub/phi/internal/llm"
-	"github.com/pulseaiclub/phi/internal/permission"
+	"github.com/rapatel0/alpha/internal/auth"
+	"github.com/rapatel0/alpha/internal/brand"
+	"github.com/rapatel0/alpha/internal/llm"
+	"github.com/rapatel0/alpha/internal/permission"
 )
 
-// Config is the project-level configuration loaded from ~/.phi/config.yaml.
+// Config is the project-level configuration loaded from ~/.alpha/config.yaml.
 // All models live in one flat list under the models key; DefaultModel names
 // the entry used to start sessions (empty → the first entry).
 type Config struct {
@@ -136,7 +137,7 @@ func (c *Config) ConnectionForName(name string) llm.ModelConfig {
 
 // defaultEntry returns the default model entry (DefaultModel by name, else
 // the first entry), creating one if the config has no models yet so env-only
-// setups can still apply PHI_* overrides.
+// setups can still apply ALPHA_* overrides.
 func (c *Config) defaultEntry() *llm.ModelConfig {
 	if c.DefaultModel != "" {
 		for i := range c.Models {
@@ -164,18 +165,22 @@ func loadConfig(global GlobalLayout) (*Config, error) {
 	applyProviderEnvKeys(cfg)
 
 	if len(cfg.Models) == 0 {
-		return nil, fmt.Errorf("missing models (add at least one model in %s, or run phi login)", global.ConfigFile())
+		return nil, fmt.Errorf("missing models (add at least one model in %s, or run alpha login)", global.ConfigFile())
 	}
 	def := cfg.defaultEntry()
 	if def.Name == "" {
-		return nil, fmt.Errorf("missing model name (set PHI_MODEL or models[].name in %s)", global.ConfigFile())
+		return nil, fmt.Errorf(
+			"missing model name (set %s or models[].name in %s)",
+			brand.EnvName("MODEL"), global.ConfigFile(),
+		)
 	}
 	if err := applyOAuthKeys(cfg, global.AuthFile()); err != nil {
 		return nil, err
 	}
 	if def.APIKey == "" {
 		return nil, fmt.Errorf(
-			"missing api_key (set PHI_API_KEY or models[].api_key in %s, or run phi login anthropic / phi login codex)",
+			"missing api_key (set "+brand.EnvName("API_KEY")+" or models[].api_key in %s, "+
+				"or run "+brand.Name+" login anthropic / "+brand.Name+" login codex)",
 			global.ConfigFile(),
 		)
 	}
@@ -250,7 +255,7 @@ func modelEntryToConfig(m modelEntry) llm.ModelConfig {
 	return cfg
 }
 
-// fileConfig mirrors the YAML keys in ~/.phi/config.yaml.
+// fileConfig mirrors the YAML keys in ~/.alpha/config.yaml.
 type fileConfig struct {
 	Models      []modelEntry  `yaml:"models"`
 	SkillPath   *string       `yaml:"skill_path"`
@@ -407,17 +412,17 @@ func injectAuthModels(c *Config, authFile string) {
 }
 
 func applyEnvOverrides(c *Config) {
-	if v := firstEnv("PHI_API_KEY"); v != "" {
+	if v := brand.Env("API_KEY"); v != "" {
 		c.defaultEntry().APIKey = v
 	}
-	if v := firstEnv("PHI_BASE_URL"); v != "" {
+	if v := brand.Env("BASE_URL"); v != "" {
 		c.defaultEntry().BaseURL = v
 	}
-	if v := firstEnv("PHI_MODEL"); v != "" {
+	if v := brand.Env("MODEL"); v != "" {
 		c.defaultEntry().Name = v
 		c.DefaultModel = v
 	}
-	if v := firstEnv("PHI_SKILL_PATH"); v != "" {
+	if v := brand.Env("SKILL_PATH"); v != "" {
 		c.SkillPath = v
 	}
 	applyProviderEnvKeys(c)

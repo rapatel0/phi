@@ -11,24 +11,24 @@ import (
 
 	"github.com/pulseaiclub/xui"
 
-	"github.com/pulseaiclub/phi/internal/components"
-	"github.com/pulseaiclub/phi/internal/components/app"
-	"github.com/pulseaiclub/phi/internal/components/palette"
-	"github.com/pulseaiclub/phi/internal/components/toast"
-	"github.com/pulseaiclub/phi/internal/job"
-	"github.com/pulseaiclub/phi/internal/session"
-	"github.com/pulseaiclub/phi/internal/tui/childview"
-	"github.com/pulseaiclub/phi/internal/tui/commands"
-	"github.com/pulseaiclub/phi/internal/tui/composer"
-	"github.com/pulseaiclub/phi/internal/tui/controller"
-	"github.com/pulseaiclub/phi/internal/tui/footer"
-	"github.com/pulseaiclub/phi/internal/tui/overlays"
-	"github.com/pulseaiclub/phi/internal/tui/pathutil"
-	"github.com/pulseaiclub/phi/internal/tui/submit"
-	"github.com/pulseaiclub/phi/internal/tui/tasks"
-	"github.com/pulseaiclub/phi/internal/tui/transcript"
-	"github.com/pulseaiclub/phi/internal/util/update"
-	"github.com/pulseaiclub/phi/internal/version"
+	"github.com/rapatel0/alpha/internal/components"
+	"github.com/rapatel0/alpha/internal/components/app"
+	"github.com/rapatel0/alpha/internal/components/palette"
+	"github.com/rapatel0/alpha/internal/components/toast"
+	"github.com/rapatel0/alpha/internal/job"
+	"github.com/rapatel0/alpha/internal/session"
+	"github.com/rapatel0/alpha/internal/tui/childview"
+	"github.com/rapatel0/alpha/internal/tui/commands"
+	"github.com/rapatel0/alpha/internal/tui/composer"
+	"github.com/rapatel0/alpha/internal/tui/controller"
+	"github.com/rapatel0/alpha/internal/tui/footer"
+	"github.com/rapatel0/alpha/internal/tui/overlays"
+	"github.com/rapatel0/alpha/internal/tui/pathutil"
+	"github.com/rapatel0/alpha/internal/tui/submit"
+	"github.com/rapatel0/alpha/internal/tui/tasks"
+	"github.com/rapatel0/alpha/internal/tui/transcript"
+	"github.com/rapatel0/alpha/internal/util/update"
+	"github.com/rapatel0/alpha/internal/version"
 )
 
 // Editor is the TUI root widget: layout composition and the UI-goroutine
@@ -99,7 +99,7 @@ func NewEditor(
 		composer:   composer.NewComposerPane(theme, model, cwd),
 		footer:     footer.NewFooterChrome(theme, contextWindow),
 	}
-	e.transcript = transcript.NewTranscriptPane(theme, e.footer.Spinner(), "Phi "+version.Version)
+	e.transcript = transcript.NewTranscriptPane(theme, e.footer.Spinner(), "Alpha "+version.Version)
 	e.transcript.SetUsageCallback(e.footer.UpdateTokenDisplay)
 	e.tasks = &tasks.Pane{Theme: theme, OnOpen: e.viewChild}
 	e.transcript.SetOnOpenJob(e.viewChild)
