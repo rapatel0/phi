@@ -69,6 +69,34 @@ func TestBuildRequestOAuthIdentityAndToolNames(t *testing.T) {
 	}
 }
 
+func TestBuildRequestOAuthToolNamesUnique(t *testing.T) {
+	cfg := llm.ModelConfig{Name: "claude-sonnet-5", APIKey: "sk-ant-oat-test"}
+	req := BuildRequest(cfg, "", []llm.Message{
+		{Role: llm.RoleUser, Content: "go"},
+	}, []llm.ToolDefinition{
+		{Name: "agent_spawn", Description: "spawn"},
+		{Name: "agent_wait", Description: "wait"},
+		{Name: "agent_list", Description: "list"},
+		{Name: "agent_cancel", Description: "cancel"},
+		{Name: "read", Description: "read"},
+	})
+	seen := map[string]struct{}{}
+	for _, tdef := range req.Tools {
+		if tdef.Name == "" {
+			t.Fatal("empty tool name")
+		}
+		if _, ok := seen[tdef.Name]; ok {
+			t.Fatalf("duplicate tool name %q", tdef.Name)
+		}
+		seen[tdef.Name] = struct{}{}
+	}
+	for _, want := range []string{"Task", "TaskOutput", "TaskList", "KillShell", "Read"} {
+		if _, ok := seen[want]; !ok {
+			t.Fatalf("missing %q in %+v", want, seen)
+		}
+	}
+}
+
 func TestBuildRequestSystemIsArray(t *testing.T) {
 	cfg := llm.ModelConfig{Name: "claude-sonnet-4-20250514", APIKey: "k", BaseURL: "https://api.anthropic.com"}
 	req := BuildRequest(cfg, "You are helpful.", []llm.Message{

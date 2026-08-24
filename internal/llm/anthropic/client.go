@@ -153,20 +153,24 @@ func BuildRequest(
 		}
 	}
 
-	for i, t := range tools {
+	usedNames := make(map[string]struct{}, len(tools))
+	for _, t := range tools {
+		name := uniqueOutboundName(t.Name, oauth, usedNames)
+		if name == "" {
+			continue
+		}
 		params, _ := json.Marshal(t.Params)
 		if len(params) == 0 || bytes.Equal(bytes.TrimSpace(params), []byte("null")) {
 			params = json.RawMessage("{}")
 		}
-		tool := anthropicTool{
-			Name:        outboundToolName(t.Name, oauth),
+		req.Tools = append(req.Tools, anthropicTool{
+			Name:        name,
 			Description: t.Description,
 			InputSchema: params,
-		}
-		if i == len(tools)-1 {
-			tool.CacheControl = cc
-		}
-		req.Tools = append(req.Tools, tool)
+		})
+	}
+	if n := len(req.Tools); n > 0 {
+		req.Tools[n-1].CacheControl = cc
 	}
 
 	return req

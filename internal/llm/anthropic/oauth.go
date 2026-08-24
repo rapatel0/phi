@@ -16,28 +16,39 @@ const (
 
 // Claude Code 2.x names. Anthropic's OAuth billing classifier keys off these.
 var toClaudeCodeName = map[string]string{
-	"read":         "Read",
-	"write":        "Write",
-	"edit":         "Edit",
-	"bash":         "Bash",
-	"grep":         "Grep",
-	"find":         "Glob",
-	"agent_spawn":  "Task",
-	"agent_wait":   "TaskOutput",
-	"agent_list":   "TaskOutput",
-	"agent_cancel": "KillShell",
+	"read":              "Read",
+	"write":             "Write",
+	"edit":              "Edit",
+	"bash":              "Bash",
+	"grep":              "Grep",
+	"find":              "Glob",
+	"agent_spawn":       "Task",
+	"agent_wait":        "TaskOutput",
+	"agent_list":        "TaskList",
+	"agent_cancel":      "KillShell",
+	"skill":             "Skill",
+	"webfetch":          "WebFetch",
+	"websearch":         "WebSearch",
+	"ask_user_question": "AskUserQuestion",
+	"todo_write":        "TodoWrite",
 }
 
 var fromClaudeCodeName = map[string]string{
-	"Read":       "read",
-	"Write":      "write",
-	"Edit":       "edit",
-	"Bash":       "bash",
-	"Grep":       "grep",
-	"Glob":       "find",
-	"Task":       "agent_spawn",
-	"TaskOutput": "agent_wait",
-	"KillShell":  "agent_cancel",
+	"Read":            "read",
+	"Write":           "write",
+	"Edit":            "edit",
+	"Bash":            "bash",
+	"Grep":            "grep",
+	"Glob":            "find",
+	"Task":            "agent_spawn",
+	"TaskOutput":      "agent_wait",
+	"TaskList":        "agent_list",
+	"KillShell":       "agent_cancel",
+	"Skill":           "skill",
+	"WebFetch":        "webfetch",
+	"WebSearch":       "websearch",
+	"AskUserQuestion": "ask_user_question",
+	"TodoWrite":       "todo_write",
 }
 
 func isOAuth(cfg llm.ModelConfig) bool {
@@ -64,6 +75,23 @@ func outboundToolName(name string, oauth bool) string {
 		return mapped
 	}
 	return name
+}
+
+// uniqueOutboundName maps name for OAuth, then falls back to the original if
+// the mapped name is already used (Anthropic requires unique tool names).
+func uniqueOutboundName(name string, oauth bool, used map[string]struct{}) string {
+	out := outboundToolName(name, oauth)
+	if _, ok := used[out]; !ok {
+		used[out] = struct{}{}
+		return out
+	}
+	if out != name {
+		if _, ok := used[name]; !ok {
+			used[name] = struct{}{}
+			return name
+		}
+	}
+	return ""
 }
 
 func inboundToolName(name string, oauth bool) string {
