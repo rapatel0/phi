@@ -72,6 +72,17 @@ type Surface struct {
 	Widget   Widget // identity for focus/hit-test
 	// Cursor is an optional screen-local cursor hint (set by leaf widgets).
 	Cursor *Point
+	// Graphics are Kitty-protocol image boxes in this surface's local coords.
+	Graphics []Graphic
+}
+
+// Graphic is one inline image reserved in the cell grid.
+type Graphic struct {
+	X, Y       int
+	Cols, Rows int
+	MIME       string
+	Data       []byte
+	Filename   string
 }
 
 // SubSurface places a child surface inside a parent.
@@ -206,6 +217,31 @@ func renderSurface(s Surface, win xui.Window, ox, oy int) *Point {
 		}
 	}
 	return cursor
+}
+
+// CollectGraphics flattens inline images to screen coordinates.
+// Placements that are not fully on-screen are dropped (Kitty CUP cannot clip).
+func CollectGraphics(s Surface, ox, oy, screenW, screenH int) []Graphic {
+	var out []Graphic
+	collectGraphics(s, ox, oy, screenW, screenH, &out)
+	return out
+}
+
+func collectGraphics(s Surface, ox, oy, screenW, screenH int, out *[]Graphic) {
+	for _, g := range s.Graphics {
+		x, y := ox+g.X, oy+g.Y
+		if x < 0 || y < 0 || g.Cols < 1 || g.Rows < 1 {
+			continue
+		}
+		if x+g.Cols > screenW || y+g.Rows > screenH {
+			continue
+		}
+		g.X, g.Y = x, y
+		*out = append(*out, g)
+	}
+	for _, ch := range s.Children {
+		collectGraphics(ch.Surface, ox+ch.Origin.X, oy+ch.Origin.Y, screenW, screenH, out)
+	}
 }
 
 // HitTest finds the deepest widget at (x,y) in surface-local coords.

@@ -14,11 +14,12 @@ import (
 
 // SessionCommands owns /sessions, /resume, and /clear UI side effects.
 type SessionCommands struct {
-	Ctrl       *controller.Controller
-	Transcript *transcript.TranscriptPane
-	Footer     *footer.FooterChrome
-	Toast      toast.Toast
-	SyncHooks  func()
+	Ctrl            *controller.Controller
+	Transcript      *transcript.TranscriptPane
+	Footer          *footer.FooterChrome
+	Toast           toast.Toast
+	SyncHooks       func()
+	OnAbandonAttach func() // drop sub-agent focus before resume/clear
 }
 
 // NewSessionCommands builds session command handlers.
@@ -72,7 +73,7 @@ func (s *SessionCommands) Show() {
 			}
 			fmt.Fprintf(&b, "  %s  %s  %s\n", short, m.Mtime.Format("01-02 15:04"), preview)
 		}
-		b.WriteString("Resume with /resume <id>")
+		b.WriteString("Resume with /resume or /resume <id>")
 	}
 	s.Transcript.ApplySession(session.AssistantMessageUpdate{Message: session.Message{
 		ID:    fmt.Sprintf("sessions-%d", time.Now().UnixNano()),
@@ -86,10 +87,13 @@ func (s *SessionCommands) Show() {
 	s.Transcript.StickToBottom()
 }
 
-// Resume loads a prior session by id into the UI.
+// Resume loads a prior session into the UI. Empty id resumes the latest.
 func (s *SessionCommands) Resume(id string) {
 	if s == nil {
 		return
+	}
+	if s.OnAbandonAttach != nil {
+		s.OnAbandonAttach()
 	}
 	warn, err := s.Ctrl.Resume(id)
 	if err != nil {
@@ -99,9 +103,19 @@ func (s *SessionCommands) Resume(id string) {
 	if s.SyncHooks != nil {
 		s.SyncHooks()
 	}
+	s.Transcript.ResetSubagents()
 	s.Transcript.LoadReplay(s.Ctrl.ReplaySnapshot())
 	s.Transcript.Sync()
 	s.Transcript.StickToBottom()
+	if s.Footer != nil {
+		s.Footer.Activity().Apply(controller.ActivityIdle)
+		s.Footer.ClearTokenDisplay()
+		snap := s.Transcript.Snapshot()
+		s.Footer.SyncFromSnap(snap)
+		if u := lastReportedUsage(snap); u.Reported() {
+			s.Footer.UpdateTokenDisplay(u)
+		}
+	}
 	msg := "Resumed " + shortSessionID(s.Ctrl.SessionID())
 	if warn != "" {
 		s.Toast.Show(msg+": "+warn, toast.ToastWarning, 5*time.Second)
@@ -115,6 +129,9 @@ func (s *SessionCommands) Resume(id string) {
 func (s *SessionCommands) Clear() {
 	if s == nil {
 		return
+	}
+	if s.OnAbandonAttach != nil {
+		s.OnAbandonAttach()
 	}
 	if err := s.Ctrl.Clear(); err != nil {
 		s.Toast.Show(err.Error(), toast.ToastError, 4*time.Second)
@@ -134,4 +151,13 @@ func shortSessionID(id string) string {
 		return id[:8]
 	}
 	return id
+}
+
+func lastReportedUsage(snap session.Snapshot) session.TokenUsage {
+	for i := len(snap.Messages) - 1; i >= 0; i-- {
+		if snap.Messages[i].Role == session.RoleAssistant && snap.Messages[i].Usage.Reported() {
+			return snap.Messages[i].Usage
+		}
+	}
+	return session.TokenUsage{}
 }

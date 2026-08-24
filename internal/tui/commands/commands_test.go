@@ -4,13 +4,11 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
-	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"github.com/pulseaiclub/phi/internal/components/palette"
-	"github.com/pulseaiclub/phi/internal/components/toast"
 	"github.com/pulseaiclub/phi/internal/hooks"
 )
 
@@ -128,7 +126,7 @@ func TestSkillsCommand_Empty(t *testing.T) {
 
 func TestFilterSlashCommands(t *testing.T) {
 	all := FilterSlashCommands("")
-	require.Len(t, all, 3)
+	require.Len(t, all, 4)
 
 	resu := FilterSlashCommands("resu")
 	require.Len(t, resu, 1)
@@ -142,24 +140,21 @@ func TestFilterSlashCommands(t *testing.T) {
 	none := FilterSlashCommands("zzz")
 	assert.Empty(t, none)
 
-	assert.Equal(t, "/resume ", LookupSlashInsert("resume"))
+	assert.Equal(t, "/resume", LookupSlashInsert("resume"))
 	assert.Equal(t, "/sessions", LookupSlashInsert("sessions"))
 	assert.Equal(t, "/clear", LookupSlashInsert("clear"))
+	assert.Equal(t, "/image", LookupSlashInsert("image"))
 }
 
 func TestCommandRegistry_DispatchSlash(t *testing.T) {
 	r := NewBuiltinRegistry()
 	var sessions, cleared int
 	var resumeID string
-	var toastMsg string
 
 	ctx := CommandContext{
 		ShowSessions:  func() { sessions++ },
 		ResumeSession: func(id string) { resumeID = id },
 		ClearSession:  func() { cleared++ },
-		Toast: func(msg string, _ toast.ToastKind, _ time.Duration) {
-			toastMsg = msg
-		},
 	}
 
 	assert.True(t, r.DispatchSlash("/sessions", ctx))
@@ -169,10 +164,18 @@ func TestCommandRegistry_DispatchSlash(t *testing.T) {
 	assert.Equal(t, "abc", resumeID)
 
 	assert.True(t, r.DispatchSlash("/resume", ctx))
-	assert.Contains(t, toastMsg, "Usage:")
+	assert.Equal(t, "", resumeID)
 
 	assert.True(t, r.DispatchSlash("/clear", ctx))
 	assert.Equal(t, 1, cleared)
+
+	var pasted, attached string
+	ctx.PasteImage = func() { pasted = "clip" }
+	ctx.AttachImagePath = func(p string) { attached = p }
+	assert.True(t, r.DispatchSlash("/image", ctx))
+	assert.Equal(t, "clip", pasted)
+	assert.True(t, r.DispatchSlash("/image ~/Desktop/a.png", ctx))
+	assert.Equal(t, "~/Desktop/a.png", attached)
 
 	assert.False(t, r.DispatchSlash("/unknown", ctx))
 	assert.False(t, r.DispatchSlash("not-slash", ctx))

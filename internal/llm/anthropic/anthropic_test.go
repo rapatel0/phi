@@ -8,6 +8,67 @@ import (
 	"github.com/pulseaiclub/phi/internal/llm"
 )
 
+func TestBuildRequestToolImages(t *testing.T) {
+	req := BuildRequest(llm.ModelConfig{Name: "claude-sonnet-4-20250514", APIKey: "k"}, "", []llm.Message{
+		{Role: llm.RoleAssistant, ToolCalls: []llm.ToolCall{{ID: "c1", Function: llm.Function{Name: "read_image"}}}},
+		{
+			Role:       llm.RoleTool,
+			ToolCallID: "c1",
+			Content:    `{"path":"shot.png"}`,
+			Images:     []llm.Image{{MIME: "image/png", Data: []byte{0x89, 'P'}}},
+		},
+	}, nil)
+	requireLastUser := req.Messages[len(req.Messages)-1]
+	blocks, ok := requireLastUser.Content.([]anthropicContentBlock)
+	if !ok {
+		t.Fatalf("type %T", requireLastUser.Content)
+	}
+	var kinds []string
+	for _, b := range blocks {
+		kinds = append(kinds, b.Type)
+	}
+	if len(kinds) < 2 || kinds[0] != "tool_result" || kinds[len(kinds)-1] != "image" {
+		t.Fatalf("kinds %v", kinds)
+	}
+}
+
+func TestBuildRequestUserImages(t *testing.T) {
+	req := BuildRequest(llm.ModelConfig{Name: "claude-sonnet-4-20250514", APIKey: "k"}, "", []llm.Message{{
+		Role:    llm.RoleUser,
+		Content: "what is this?",
+		Images:  []llm.Image{{MIME: "image/png", Data: []byte{0x89, 'P', 'N', 'G'}}},
+	}}, nil)
+	if len(req.Messages) != 1 {
+		t.Fatalf("msgs %d", len(req.Messages))
+	}
+	blocks, ok := req.Messages[0].Content.([]anthropicContentBlock)
+	if !ok {
+		t.Fatalf("content type %T", req.Messages[0].Content)
+	}
+	if len(blocks) != 2 || blocks[0].Type != "text" || blocks[1].Type != "image" {
+		t.Fatalf("blocks %+v", blocks)
+	}
+	if blocks[1].Source == nil || blocks[1].Source.MediaType != "image/png" || blocks[1].Source.Data == "" {
+		t.Fatalf("source %+v", blocks[1].Source)
+	}
+}
+
+func TestBuildRequestOAuthIdentityAndToolNames(t *testing.T) {
+	cfg := llm.ModelConfig{Name: "claude-sonnet-4-20250514", APIKey: "sk-ant-oat-test"}
+	req := BuildRequest(cfg, "You are phi.", []llm.Message{
+		{Role: llm.RoleUser, Content: "Hi"},
+	}, []llm.ToolDefinition{{Name: "read", Description: "read a file"}})
+	if len(req.System) < 2 {
+		t.Fatalf("oauth system should prepend Claude Code identity, got %d blocks", len(req.System))
+	}
+	if req.System[0].Text != oauthIdentity {
+		t.Fatalf("first system block = %q", req.System[0].Text)
+	}
+	if len(req.Tools) != 1 || req.Tools[0].Name != "Read" {
+		t.Fatalf("oauth tool name = %+v, want Read", req.Tools)
+	}
+}
+
 func TestBuildRequestSystemIsArray(t *testing.T) {
 	cfg := llm.ModelConfig{Name: "claude-sonnet-4-20250514", APIKey: "k", BaseURL: "https://api.anthropic.com"}
 	req := BuildRequest(cfg, "You are helpful.", []llm.Message{
@@ -250,7 +311,7 @@ func TestNormalizeBaseURL(t *testing.T) {
 // processForTest runs processStream and returns the yielded events.
 func processForTest(sse string) []llm.StreamEvent {
 	var events []llm.StreamEvent
-	processStream(strings.NewReader(sse), func(ev llm.StreamEvent, err error) bool {
+	processStream(strings.NewReader(sse), false, func(ev llm.StreamEvent, err error) bool {
 		if err != nil {
 			events = append(events, llm.StreamEvent{Type: llm.StreamEventTypeError, Err: err.Error()})
 			return false

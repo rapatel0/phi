@@ -30,6 +30,7 @@ func TestNewEngineRegistersJobs(t *testing.T) {
 	require.NoError(t, err)
 	assert.Same(t, mgr, eng.Jobs())
 	assert.True(t, eng.HasTool("agent_spawn"))
+	assert.True(t, eng.HasTool("read_image"))
 
 	require.NoError(t, eng.SetModel(llm.ModelConfig{Name: "fake2", BaseURL: "http://127.0.0.1:9", APIKey: "x"}))
 	assert.Same(t, mgr, eng.Jobs())
@@ -75,6 +76,7 @@ func TestChildToolsAreReadonly(t *testing.T) {
 		names[tool.Definition.Name] = true
 	}
 	assert.True(t, names["read"])
+	assert.True(t, names["read_image"])
 	assert.True(t, names["grep"])
 	assert.True(t, names["bash"])
 	assert.False(t, names["write"])

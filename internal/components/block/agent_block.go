@@ -22,7 +22,10 @@ type ChildTool struct {
 // nested tool tree and a terminal markdown summary (not raw JSON).
 type AgentBlock struct {
 	Name     string
+	Title    string // human label (spawn description); falls back to Name
+	Meta     string // role · duration
 	Detail   string
+	JobID    string
 	Status   status.ToolStatus
 	Children []ChildTool
 	Summary  string // markdown; shown only when set
@@ -31,6 +34,7 @@ type AgentBlock struct {
 	Theme    components.Theme
 	Spinner  *status.Spinner
 	OnToggle func(expanded bool)
+	OnOpen   func(jobID string)
 
 	titleH int
 }
@@ -46,13 +50,18 @@ func (a *AgentBlock) hasBody() bool {
 	return len(a.Children) > 0 || strings.TrimSpace(a.Summary) != "" || strings.TrimSpace(a.Error) != ""
 }
 
-// Handle toggles expansion on Enter/space or a left-click on the title row.
+// Handle opens the job view on Enter/click when JobID is set; otherwise toggles expansion.
 func (a *AgentBlock) Handle(ctx *components.EventContext, ev xui.Event) {
-	if !a.hasBody() {
-		return
-	}
 	switch e := ev.(type) {
 	case xui.KeyEvent:
+		if e.Code == xui.KeyEnter && a.JobID != "" && a.OnOpen != nil {
+			a.OnOpen(a.JobID)
+			ctx.ConsumeAndRedraw()
+			return
+		}
+		if !a.hasBody() {
+			return
+		}
 		if e.Code == xui.KeyEnter || (e.Code == xui.KeyRune && e.Rune == ' ') {
 			a.Expanded = !a.Expanded
 			if a.OnToggle != nil {
@@ -62,6 +71,14 @@ func (a *AgentBlock) Handle(ctx *components.EventContext, ev xui.Event) {
 		}
 	case xui.MouseEvent:
 		if e.Action == xui.MousePress && e.Button == xui.MouseLeft && e.Y >= 0 && e.Y < a.titleH {
+			if a.JobID != "" && a.OnOpen != nil {
+				a.OnOpen(a.JobID)
+				ctx.ConsumeAndRedraw()
+				return
+			}
+			if !a.hasBody() {
+				return
+			}
 			a.Expanded = !a.Expanded
 			if a.OnToggle != nil {
 				a.OnToggle(a.Expanded)
@@ -113,11 +130,17 @@ func (a *AgentBlock) Draw(ctx components.DrawContext) components.Surface {
 	}
 
 	icon, iconSt := toolIcon(a.Status, th, a.Spinner)
+	title := a.Title
+	if title == "" {
+		title = a.Name
+	}
 	spans := []components.Span{
 		{Text: icon + " ", Style: iconSt},
-		{Text: a.Name, Style: th.ToolName},
+		{Text: title, Style: th.ToolName},
 	}
-	if a.Detail != "" {
+	if a.Meta != "" {
+		spans = append(spans, components.Span{Text: " · " + a.Meta, Style: th.Muted})
+	} else if a.Detail != "" && a.Title == "" {
 		spans = append(spans, components.Span{Text: " " + a.Detail, Style: th.Muted})
 	}
 	switch a.Status {

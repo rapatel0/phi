@@ -2,6 +2,7 @@
 package editor
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -14,6 +15,9 @@ import (
 	"github.com/pulseaiclub/phi/internal/components/app"
 	"github.com/pulseaiclub/phi/internal/components/palette"
 	"github.com/pulseaiclub/phi/internal/components/toast"
+	"github.com/pulseaiclub/phi/internal/job"
+	"github.com/pulseaiclub/phi/internal/session"
+	"github.com/pulseaiclub/phi/internal/tui/childview"
 	"github.com/pulseaiclub/phi/internal/tui/commands"
 	"github.com/pulseaiclub/phi/internal/tui/composer"
 	"github.com/pulseaiclub/phi/internal/tui/controller"
@@ -21,6 +25,7 @@ import (
 	"github.com/pulseaiclub/phi/internal/tui/overlays"
 	"github.com/pulseaiclub/phi/internal/tui/pathutil"
 	"github.com/pulseaiclub/phi/internal/tui/submit"
+	"github.com/pulseaiclub/phi/internal/tui/tasks"
 	"github.com/pulseaiclub/phi/internal/tui/transcript"
 	"github.com/pulseaiclub/phi/internal/util/update"
 	"github.com/pulseaiclub/phi/internal/version"
@@ -30,6 +35,7 @@ import (
 // message loop. Cross-component work goes through controller.Bus — producers Publish,
 // Draw drains and Update applies. Agent lifecycle lives in controller.Controller;
 // session→widget projection lives in TranscriptPane (Mapper/SubagentStore).
+// Sub-agent attach swaps the main transcript/composer onto that child's engine.
 //
 // Construction: cmd assembles App, controller.Bus, controller.Controller, CommandRegistry and passes
 // them into NewEditor. Editor does not create controller.Controller or fetch the project singleton.
@@ -45,8 +51,14 @@ type Editor struct {
 	footer     *footer.FooterChrome
 	overlays   *overlays.Overlays
 	toast      toast.Toast
+	tasks      *tasks.Pane
+	child      *childview.View
 
 	ctrl *controller.Controller
+
+	parentSnap  session.Snapshot
+	parentStore *transcript.SubagentStore
+	parentMsgs  []controller.Msg
 
 	commands   *commands.CommandRegistry
 	modelNames []string
@@ -89,6 +101,8 @@ func NewEditor(
 	}
 	e.transcript = transcript.NewTranscriptPane(theme, e.footer.Spinner(), "Phi "+version.Version)
 	e.transcript.SetUsageCallback(e.footer.UpdateTokenDisplay)
+	e.tasks = &tasks.Pane{Theme: theme, OnOpen: e.viewChild}
+	e.transcript.SetOnOpenJob(e.viewChild)
 	e.footer.BindComposer(e.composer)
 	e.footer.SetLabelContext(e.transcript.Snapshot)
 	e.footer.SetLiveJobs(func() int {
@@ -136,6 +150,7 @@ func NewEditor(
 		e.toast,
 		e.hookCmds.Sync,
 	)
+	e.sessions.OnAbandonAttach = e.abandonAttach
 
 	var bridge *commandBridge
 	bashRunner := submit.NewBashRunner(
@@ -200,6 +215,7 @@ func NewEditor(
 		e.overlays.BlocksComposer,
 		e.overlays.HandlePermissionKey,
 		e.overlays.HandleContinueKey,
+		e.overlays.HandleQuestionKey,
 		e.handleCopyKey,
 		func() {
 			if e.App != nil {
@@ -217,6 +233,10 @@ func NewEditor(
 			}
 		},
 	)
+	e.composer.SetOnIdleEscape(e.idleDetach)
+	e.composer.SetOnNotice(func(msg string, kind toast.ToastKind) {
+		e.toast.Show(msg, kind, 3*time.Second)
+	})
 
 	e.hookCmds.Sync()
 	return e
@@ -240,7 +260,8 @@ func (e *Editor) Update(m controller.Msg) {
 	case controller.MentionResultsMsg:
 		e.composer.ApplyMentionResults(msg)
 	case controller.PermissionAskMsg, controller.PermissionDismissMsg,
-		controller.ContinueAskMsg, controller.ContinueDismissMsg:
+		controller.ContinueAskMsg, controller.ContinueDismissMsg,
+		controller.QuestionAskMsg, controller.QuestionDismissMsg:
 		e.overlays.Apply(m)
 	case controller.SetActivityMsg, controller.ClearIfActivityMsg, controller.UpdateAvailableMsg:
 		e.footer.Apply(m)
@@ -272,15 +293,40 @@ func (e *Editor) drainBus() {
 	}
 	atBottom := e.transcript.AtBottom()
 	agentEvent := false
+	attached := ""
+	if e.ctrl != nil {
+		attached = e.ctrl.AttachedID()
+	}
 	for _, m := range batch {
 		switch msg := m.(type) {
 		case controller.SessionEventMsg:
+			if e.child != nil && msg.JobID == e.child.JobID() {
+				e.child.Apply(msg.Event)
+				continue
+			}
+			if attached != "" {
+				if msg.JobID != attached {
+					e.parentMsgs = append(e.parentMsgs, m)
+					continue
+				}
+			} else if msg.JobID != "" {
+				continue
+			}
 			agentEvent = true
 			e.transcript.ApplySession(msg.Event)
 		case controller.JobProgressMsg:
+			if attached != "" {
+				e.parentMsgs = append(e.parentMsgs, m)
+				continue
+			}
 			if e.transcript.ApplyJobProgress(msg.Progress) {
 				agentEvent = true
 			}
+		case controller.SetActivityMsg:
+			if attached != "" {
+				continue
+			}
+			e.Update(m)
 		default:
 			e.Update(m)
 		}
@@ -288,6 +334,7 @@ func (e *Editor) drainBus() {
 	if agentEvent {
 		e.transcript.Sync()
 		e.footer.SyncFromSnap(e.transcript.Snapshot())
+		e.refreshTasks()
 		if atBottom {
 			e.transcript.StickToBottom()
 		}
@@ -295,7 +342,251 @@ func (e *Editor) drainBus() {
 }
 
 func (e *Editor) Handle(ctx *components.EventContext, ev xui.Event) {
+	if e.child != nil {
+		if ke, ok := ev.(xui.KeyEvent); ok && ke.CtrlC() {
+			e.composer.Handle(ctx, ev)
+			return
+		}
+		keep, steer := e.child.Handle(ctx, ev)
+		if steer {
+			id := e.child.JobID()
+			e.closeChildView()
+			e.attachChild(id)
+			return
+		}
+		if !keep {
+			e.closeChildView()
+			ctx.ConsumeAndRedraw()
+			return
+		}
+		if ctx.Consume {
+			return
+		}
+		// Unhandled keys (Ctrl+B/K, typing, …) fall through to the parent UI.
+	}
+	if ke, ok := ev.(xui.KeyEvent); ok && ke.Press {
+		if ke.Mods.Has(xui.ModCtrl) && ke.Code == xui.KeyRune &&
+			(ke.Rune == 'b' || ke.Rune == 'B' || ke.Rune == 't' || ke.Rune == 'T') {
+			if e.tasks != nil {
+				e.tasks.Toggle()
+			}
+			ctx.ConsumeAndRedraw()
+			return
+		}
+		if ke.Mods.Has(xui.ModCtrl) && ke.Code == xui.KeyEnter {
+			if id := e.peekJobID(); id != "" {
+				e.viewChild(id)
+			}
+			ctx.ConsumeAndRedraw()
+			return
+		}
+		if ke.Mods.Has(xui.ModCtrl) && ke.Code == xui.KeyRune && (ke.Rune == 'o' || ke.Rune == 'O') {
+			if id := e.peekJobID(); id == "" {
+				e.toast.Show("No sub-agent jobs", toast.ToastWarning, 2*time.Second)
+			} else {
+				e.viewChild(id)
+			}
+			ctx.ConsumeAndRedraw()
+			return
+		}
+	}
+	if e.tasks != nil && e.tasks.Visible {
+		if e.tasks.Handle(ctx, ev) {
+			return
+		}
+	}
 	e.composer.Handle(ctx, ev)
+}
+
+func (e *Editor) viewChild(jobID string) {
+	if e == nil || e.ctrl == nil || strings.TrimSpace(jobID) == "" {
+		return
+	}
+	if e.ctrl.AttachedID() != "" {
+		e.toast.Show("Already steering a sub-agent — esc first", toast.ToastWarning, 2*time.Second)
+		return
+	}
+	if e.child != nil && e.child.JobID() == jobID {
+		e.closeChildView()
+		return
+	}
+	snap, info, err := e.ctrl.ChildSnapshot(jobID)
+	if err != nil {
+		e.toast.Show(err.Error(), toast.ToastWarning, 3*time.Second)
+		return
+	}
+	e.child = childview.Open(e.theme, info, snap, e.footer.Spinner())
+	if e.footer != nil {
+		e.footer.SetAttachHint("esc close · ctrl+i steer")
+	}
+	e.requestRedraw()
+}
+
+func (e *Editor) closeChildView() {
+	if e == nil {
+		return
+	}
+	e.child = nil
+	if e.ctrl != nil && e.ctrl.AttachedID() == "" && e.footer != nil {
+		e.footer.SetAttachHint("")
+	}
+}
+
+func (e *Editor) peekJobID() string {
+	if e.tasks != nil {
+		if id := e.tasks.SelectedID(); id != "" {
+			return id
+		}
+	}
+	if e.ctrl == nil {
+		return ""
+	}
+	if live := e.ctrl.LiveJobs(); len(live) > 0 {
+		return live[0].ID
+	}
+	recent, _ := e.ctrl.ListJobs(context.Background())
+	if len(recent) > 0 {
+		return recent[0].ID
+	}
+	return ""
+}
+
+func (e *Editor) attachChild(jobID string) {
+	if e == nil || e.ctrl == nil || strings.TrimSpace(jobID) == "" {
+		return
+	}
+	e.closeChildView()
+	if e.ctrl.AttachedID() == jobID {
+		return
+	}
+	if e.ctrl.AttachedID() != "" {
+		e.restoreParent()
+	}
+	e.freezeParent()
+	snap, info, err := e.ctrl.Attach(jobID)
+	if err != nil {
+		e.restoreParent()
+		e.toast.Show(err.Error(), toast.ToastWarning, 3*time.Second)
+		return
+	}
+	e.transcript.LoadReplay(snap)
+	e.transcript.Sync()
+	e.transcript.StickToBottom()
+	if e.footer != nil {
+		e.footer.SyncFromSnap(snap)
+	}
+	e.setAttachChrome(info)
+	e.toast.Show("Steering sub-agent · esc parent", toast.ToastSuccess, 2*time.Second)
+	e.requestRedraw()
+}
+
+func (e *Editor) idleDetach() bool {
+	if e == nil || e.ctrl == nil || e.ctrl.AttachedID() == "" {
+		return false
+	}
+	e.restoreParent()
+	e.toast.Show("Back to parent", toast.ToastSuccess, 2*time.Second)
+	return true
+}
+
+func (e *Editor) abandonAttach() {
+	if e == nil {
+		return
+	}
+	e.closeChildView()
+	if e.ctrl != nil {
+		e.ctrl.Detach()
+	}
+	e.parentSnap = session.Snapshot{}
+	e.parentStore = nil
+	e.parentMsgs = nil
+	e.setAttachChrome(job.Info{})
+}
+
+func (e *Editor) freezeParent() {
+	if e == nil || e.transcript == nil {
+		return
+	}
+	e.parentSnap = e.transcript.Snapshot()
+	e.parentStore = e.transcript.TakeSubagents()
+	e.parentMsgs = nil
+}
+
+func (e *Editor) restoreParent() {
+	if e == nil {
+		return
+	}
+	if e.ctrl != nil {
+		e.ctrl.Detach()
+	}
+	if e.transcript != nil {
+		e.transcript.LoadReplay(e.parentSnap)
+		e.transcript.RestoreSubagents(e.parentStore)
+		for _, m := range e.parentMsgs {
+			switch msg := m.(type) {
+			case controller.SessionEventMsg:
+				e.transcript.ApplySession(msg.Event)
+			case controller.JobProgressMsg:
+				e.transcript.ApplyJobProgress(msg.Progress)
+			}
+		}
+		e.transcript.Sync()
+		e.transcript.StickToBottom()
+		if e.footer != nil {
+			e.footer.SyncFromSnap(e.transcript.Snapshot())
+		}
+	}
+	e.parentSnap = session.Snapshot{}
+	e.parentStore = nil
+	e.parentMsgs = nil
+	e.setAttachChrome(job.Info{})
+}
+
+func (e *Editor) setAttachChrome(info job.Info) {
+	label := attachChromeLabel(info)
+	if e.composer != nil {
+		e.composer.SetAttachLabel(label)
+	}
+	if e.footer != nil {
+		if info.ID == "" {
+			e.footer.SetAttachHint("")
+		} else {
+			e.footer.SetAttachHint("esc parent")
+		}
+	}
+	if e.tasks != nil {
+		e.tasks.Attached = info.ID
+	}
+}
+
+func attachChromeLabel(info job.Info) string {
+	if info.ID == "" {
+		return ""
+	}
+	title := strings.TrimSpace(info.Description)
+	if title == "" {
+		title = string(info.Role)
+	}
+	if title == "" {
+		title = info.ID
+		if len(title) > 8 {
+			title = title[:8]
+		}
+	}
+	if info.Role != "" && title != string(info.Role) {
+		return "↳ " + string(info.Role) + " · " + title
+	}
+	return "↳ " + title
+}
+
+func (e *Editor) refreshTasks() {
+	if e == nil || e.tasks == nil || e.ctrl == nil {
+		return
+	}
+	live := e.ctrl.LiveJobs()
+	recent, _ := e.ctrl.ListJobs(context.Background())
+	e.tasks.SetJobs(live, recent)
+	e.tasks.Attached = e.ctrl.AttachedID()
 }
 
 func (e *Editor) handleCopyKey(ctx *components.EventContext, ke xui.KeyEvent) bool {
@@ -331,6 +622,9 @@ func (e *Editor) Draw(ctx components.DrawContext) components.Surface {
 		if len(e.composer.Chat.PendingSkills) > 0 {
 			minChatH++
 		}
+		if len(e.composer.Chat.PendingImages) > 0 {
+			minChatH++
+		}
 		if chatH < minChatH {
 			chatH = minChatH
 		}
@@ -347,8 +641,25 @@ func (e *Editor) Draw(ctx components.DrawContext) components.Surface {
 		chatH = max(chatH, 5)
 	}
 
-	listSurf := e.transcript.Draw(ctx, maxSize.Width, listH)
+	e.refreshTasks()
+	sideW := 0
+	if e.tasks != nil {
+		sideW = e.tasks.Width()
+	}
+	listW := maxSize.Width - sideW
+	if listW < 20 {
+		listW = maxSize.Width
+		sideW = 0
+	}
+
+	listSurf := e.transcript.Draw(ctx, listW, listH)
 	listH = e.transcript.ListHeight()
+	if e.child != nil {
+		if _, info, err := e.ctrl.ChildSnapshot(e.child.JobID()); err == nil {
+			e.child.SetInfo(info)
+		}
+		listSurf = e.child.Draw(ctx, listW, listH)
+	}
 
 	var chatSurf components.Surface
 	if surf, ok := e.overlays.DrawBottom(ctx, maxSize.Width, chatH); ok {
@@ -362,6 +673,14 @@ func (e *Editor) Draw(ctx components.DrawContext) components.Surface {
 		{Origin: components.Point{X: 0, Y: 0}, Surface: listSurf},
 		{Origin: components.Point{X: 0, Y: listH}, Surface: chatSurf, Z: 1},
 		{Origin: components.Point{X: 0, Y: maxSize.Height - footerH}, Surface: footerSurf, Z: 2},
+	}
+	if sideW > 0 && e.tasks != nil {
+		side := e.tasks.Draw(ctx, listH)
+		root.Children = append(root.Children, components.SubSurface{
+			Origin:  components.Point{X: listW, Y: 0},
+			Surface: side,
+			Z:       1,
+		})
 	}
 	if !e.overlays.Active() {
 		root.Children = append(root.Children, e.composer.PickerOverlays(ctx, listH, maxSize.Width)...)
@@ -586,13 +905,23 @@ func (b *commandBridge) context() commands.CommandContext {
 			}
 			b.sessions.Clear()
 		},
-		SetModel:        b.setModel,
-		ApplyTheme:      b.applyTheme,
-		SetPermissions:  b.setPermissions,
-		SetAgents:       b.setAgents,
-		ReloadHooks:     b.reloadHooks,
-		ListHooks:       b.listHooks,
-		AddSkill:        b.addSkill,
+		SetModel:       b.setModel,
+		ApplyTheme:     b.applyTheme,
+		SetPermissions: b.setPermissions,
+		SetAgents:      b.setAgents,
+		ReloadHooks:    b.reloadHooks,
+		ListHooks:      b.listHooks,
+		AddSkill:       b.addSkill,
+		PasteImage: func() {
+			if b.composer != nil {
+				b.composer.AttachClipboard()
+			}
+		},
+		AttachImagePath: func(path string) {
+			if b.composer != nil {
+				b.composer.AttachPath(path)
+			}
+		},
 		CopyLastMessage: b.copyLastMessage,
 		ModelNames:      b.modelNames,
 		SkillPath:       b.skillPath,

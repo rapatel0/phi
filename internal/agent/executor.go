@@ -195,7 +195,7 @@ func (e *Executor) runOne(ctx context.Context, call llm.ToolCall, emit func(sess
 		return e.toolMessage(call.ID, modelContent)
 	}
 	_ = emit(session.ToolData{Run: e.toolRun(call, session.ToolDone, detail, "", output)})
-	return e.toolMessage(call.ID, modelContent)
+	return e.toolMessage(call.ID, modelContent, result.Images...)
 }
 
 func (e *Executor) checkPermission(
@@ -282,11 +282,12 @@ func (*Executor) toolRun(
 	}
 }
 
-func (*Executor) toolMessage(id, content string) llm.Message {
+func (*Executor) toolMessage(id, content string, images ...llm.Image) llm.Message {
 	return llm.Message{
 		Role:       llm.RoleTool,
 		ToolCallID: id,
 		Content:    content,
+		Images:     images,
 	}
 }
 

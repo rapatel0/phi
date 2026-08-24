@@ -4,6 +4,8 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/pulseaiclub/xui"
+
 	"github.com/pulseaiclub/phi/internal/components"
 	"github.com/pulseaiclub/phi/internal/components/block"
 	"github.com/pulseaiclub/phi/internal/components/status"
@@ -83,4 +85,23 @@ func TestAgentBlockRendersTreeAndMarkdown(t *testing.T) {
 
 func TestUserBlockImplementsWidget(_ *testing.T) {
 	var _ components.Widget = &block.UserBlock{Text: "x", Theme: components.DefaultTheme()}
+}
+
+func TestAgentBlockOpenWithoutBody(t *testing.T) {
+	var opened string
+	a := &block.AgentBlock{
+		Name:   "agent_spawn",
+		JobID:  "job-1",
+		Status: status.ToolRunning,
+		Theme:  components.DefaultTheme(),
+		OnOpen: func(id string) { opened = id },
+	}
+	ctx := &components.EventContext{}
+	a.Handle(ctx, xui.KeyEvent{Code: xui.KeyEnter, Press: true})
+	if opened != "job-1" {
+		t.Fatalf("opened=%q want job-1 (attach must work before child tools exist)", opened)
+	}
+	if !ctx.Consume {
+		t.Fatal("expected consume")
+	}
 }

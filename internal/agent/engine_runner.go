@@ -33,6 +33,8 @@ type EngineRunner struct {
 	MaxRounds int                    // 0 → Engine default
 	Hooks     *hooks.Manager         // shared with parent; nil = no hooks
 	HooksFn   func() *hooks.Manager  // if set, preferred over Hooks
+	AuthFile  string
+	Hub       ChildHub // optional; TUI live-attach. nil in headless runs
 }
 
 // Run implements [job.Runner].
@@ -82,6 +84,7 @@ func (r EngineRunner) Run(ctx context.Context, env job.RunEnv) (string, error) {
 		Tools:     toolList,
 		MaxRounds: r.MaxRounds,
 		Hooks:     hookMgr,
+		AuthFile:  r.AuthFile,
 		SessionOpts: SessionOpts{
 			Cwd:        cwd,
 			SessionDir: sessionDir,
@@ -93,6 +96,11 @@ func (r EngineRunner) Run(ctx context.Context, env job.RunEnv) (string, error) {
 		return "", err
 	}
 
+	if r.Hub != nil {
+		r.Hub.BindChild(env.Job, engine)
+		defer r.Hub.FinishChild(env.Job.ID)
+	}
+
 	env.Log(fmt.Sprintf("sub-agent role=%s session=%s parent=%s", spec.Role, engine.SessionID(), env.Job.ParentID))
 
 	prompt := env.Job.Prompt
@@ -100,6 +108,10 @@ func (r EngineRunner) Run(ctx context.Context, env job.RunEnv) (string, error) {
 		prompt = env.Job.Description + "\n\n" + prompt
 	}
 	prompt = prompt + "\n\n" + spec.Hint
+
+	if r.Hub != nil {
+		r.Hub.EmitChild(env.Job.ID, session.UserAppend{Text: prompt})
+	}
 
 	var (
 		lastText string
@@ -110,6 +122,9 @@ func (r EngineRunner) Run(ctx context.Context, env job.RunEnv) (string, error) {
 			lastErr = loopErr
 			env.Log("error: " + loopErr.Error())
 			break
+		}
+		if r.Hub != nil && ev != nil {
+			r.Hub.EmitChild(env.Job.ID, ev)
 		}
 		switch e := ev.(type) {
 		case session.AssistantMessageUpdate:

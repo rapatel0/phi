@@ -135,6 +135,9 @@ func findCoalesceSession(pending []Msg, te SessionEventMsg) (int, bool) {
 			if !ok {
 				continue
 			}
+			if prev.JobID != te.JobID {
+				continue
+			}
 			if _, ok := prev.Event.(session.AssistantMessageUpdate); ok {
 				return i, true
 			}
@@ -151,7 +154,7 @@ func findCoalesceSession(pending []Msg, te SessionEventMsg) (int, bool) {
 			continue
 		}
 		prevTD, ok := prev.Event.(session.ToolData)
-		if ok && prevTD.Run.ToolUseID == td.Run.ToolUseID {
+		if ok && prev.JobID == te.JobID && prevTD.Run.ToolUseID == td.Run.ToolUseID {
 			return i, true
 		}
 	}

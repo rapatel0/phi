@@ -8,6 +8,7 @@ import (
 
 	"github.com/pulseaiclub/phi/internal/components"
 	"github.com/pulseaiclub/phi/internal/components/status"
+	"github.com/pulseaiclub/phi/internal/llm"
 	"github.com/pulseaiclub/phi/internal/session"
 	"github.com/pulseaiclub/phi/internal/tui/commands"
 	"github.com/pulseaiclub/phi/internal/tui/controller"
@@ -18,13 +19,15 @@ type stubComposer struct {
 	skills []string
 }
 
-func (stubComposer) HideCompleters()           {}
-func (stubComposer) ClearInput()               {}
-func (s stubComposer) PendingSkills() []string { return s.skills }
-func (stubComposer) ClearPendingSkills()       {}
-func (stubComposer) SyncBashBorder(string)     {}
-func (stubComposer) CloseMentionSlash()        {}
-func (stubComposer) SetBashBorderActive(bool)  {}
+func (stubComposer) HideCompleters()            {}
+func (stubComposer) ClearInput()                {}
+func (s stubComposer) PendingSkills() []string  { return s.skills }
+func (stubComposer) ClearPendingSkills()        {}
+func (stubComposer) PendingImages() []llm.Image { return nil }
+func (stubComposer) ClearPendingImages()        {}
+func (stubComposer) SyncBashBorder(string)      {}
+func (stubComposer) CloseMentionSlash()         {}
+func (stubComposer) SetBashBorderActive(bool)   {}
 
 func TestSubmitter_IsBusy(t *testing.T) {
 	th := components.DefaultTheme()

@@ -7,6 +7,7 @@ import (
 	"github.com/pulseaiclub/phi/internal/tools/greptool"
 	"github.com/pulseaiclub/phi/internal/tools/lstool"
 	"github.com/pulseaiclub/phi/internal/tools/mcptool"
+	"github.com/pulseaiclub/phi/internal/tools/readimagetool"
 	"github.com/pulseaiclub/phi/internal/tools/readtool"
 	"github.com/pulseaiclub/phi/internal/tools/tooldef"
 	"github.com/pulseaiclub/phi/internal/tools/writetool"
@@ -72,6 +73,7 @@ func DefaultTools() []Tool {
 	return []Tool{
 		bashtool.BashTool(),
 		readtool.ReadTool(),
+		readimagetool.ReadImageTool(),
 		writetool.WriteTool(),
 		greptool.GrepTool(),
 		lstool.LsTool(),
@@ -87,6 +89,7 @@ func ReadonlyTools() []Tool {
 	return []Tool{
 		bashtool.BashTool(),
 		readtool.ReadTool(),
+		readimagetool.ReadImageTool(),
 		greptool.GrepTool(),
 		lstool.LsTool(),
 		findtool.FindTool(),

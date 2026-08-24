@@ -11,8 +11,13 @@ cmd/main.go
        ├─ ComposerPane     chat, @/slash pickers, palette (input only)
        ├─ FooterChrome     activity, spinner, tokens, update hint, hook status
        ├─ Overlays         permission ask, continue ask
+       ├─ Tasks pane       live/recent jobs (Ctrl+B)
+       ├─ Child view       popup transcript (Ctrl+O); i to steer
        └─ Submitter        submit / cancel / slash / bash → Controller
 ```
+
+Sub-agent **view** is a popup (parent composer stays put). **Steer** (`i` in the
+popup) swaps the composer onto the child. Esc undoes one layer.
 
 ### Aggregation rules
 
@@ -41,7 +46,9 @@ internal/tui/
 ├── overlays/               # permission + continue ask
 ├── submit/                 # Submitter, BashRunner
 ├── commands/               # registry, builtins, SessionCommands, HookCommands
-└── pathutil/               # short path + git branch labels
+├── pathutil/               # short path + git branch labels
+├── tasks/                  # persistent TASKS sidebar
+└── childview/              # sub-agent transcript popup
 ```
 
 | Package | Role |
@@ -55,6 +62,8 @@ internal/tui/
 | `submit` | User submit path: agent prompt, slash commands, `!bash`, cancel |
 | `commands` | Slash/palette registry; session load/clear; hook command bridge |
 | `pathutil` | Cwd shortening and git branch labels for composer chrome |
+| `tasks` | Persistent TASKS sidebar (Ctrl+B) |
+| `childview` | Sub-agent transcript popup (view; `i` steers) |
 
 Dumb rendering widgets stay in `internal/components/` (chat, input, palette, mention, transcript blocks, …).
 
@@ -126,7 +135,7 @@ app frame
 
 | `controller.Msg` | Handler |
 | ---------------- | ------- |
-| `SessionEventMsg`, `JobProgressMsg` | `TranscriptPane` (in `drainBus`) |
+| `SessionEventMsg`, `JobProgressMsg` | `TranscriptPane` (in `drainBus`; child `JobID` only while attached) |
 | `SubmitMsg`, `CancelStreamMsg` | `Submitter` |
 | `PermissionAskMsg`, `PermissionDismissMsg`, `ContinueAskMsg`, `ContinueDismissMsg` | `Overlays` |
 | `SetActivityMsg`, `ClearIfActivityMsg`, `UpdateAvailableMsg`, `HookSessionEffectsMsg` | `FooterChrome` |
@@ -206,6 +215,34 @@ Composer input is blocked while an overlay is active (`OverlayBlocksComposer`).
 | `StartBranchWatch` | `BranchLabelMsg` | composer bottom-right label |
 | `StartUpdateCheck` | `UpdateAvailableMsg` | footer update hint |
 | Hook session lifecycle | `HookSessionEffectsMsg` | footer status + toast |
+
+### 7. Sub-agent attach
+
+```text
+Enter on an agent_spawn card, Ctrl+Enter on a TASKS row, or Ctrl+O
+  → childview popup (live transcript, PgUp/PgDn / j k / wheel)
+  → composer stays on the parent
+  → Ctrl+I → Controller.Attach (steer)
+  → Esc → close popup
+  → while steering: composer TopLeftLabel "↳ role · description"; Esc → parent
+```
+
+The parent engine is not cancelled. Child session files stay under `~/.phi/jobs/<id>/session/`.
+
+### 8. Image attach
+
+```text
+Ctrl+V  or  /image  or  paste/drag a .png/.jpg/.gif/.webp path
+  → media.ReadClipboard / LoadFile (sniff, downscale, JPEG/PNG ≤4MB)
+  → composer Images: chip (backspace pops)
+  → Submitter StartPrompt(..., images)
+  → Engine.Loop appends llm.Message{Content, Images}
+  → provider BuildRequest expands to native image parts
+```
+
+Cmd+V is the terminal's paste. Image-only clipboards often send nothing; use Ctrl+V.
+
+On Kitty/Ghostty, `App.draw` collects `Surface.Graphics` after the cell blit and emits Kitty graphics (`a=t` transmit, `a=p` place). Off-screen rows are skipped. Disable with `PHI_KITTY_GRAPHICS=0`.
 
 ---
 

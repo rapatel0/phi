@@ -119,6 +119,22 @@ func truncatePreview(s string, n int) string {
 	return s[:n] + "…"
 }
 
+// LatestSessionID returns the newest session id under dir, skipping exceptID
+// when set (typically the live TUI session). Empty exceptID skips nothing.
+func LatestSessionID(dir, exceptID string) (string, error) {
+	list, err := ListSessions(dir)
+	if err != nil {
+		return "", err
+	}
+	for _, m := range list {
+		if m.ID == "" || m.ID == exceptID {
+			continue
+		}
+		return m.ID, nil
+	}
+	return "", errors.New("session: no sessions to resume")
+}
+
 // FindSessionFile resolves id to a unique jsonl path under dir.
 // id may be exact or a unique prefix of the session id.
 func FindSessionFile(dir, id string) (string, error) {

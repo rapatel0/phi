@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"path/filepath"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -12,6 +13,7 @@ import (
 
 	"github.com/pulseaiclub/phi/internal/agent"
 	"github.com/pulseaiclub/phi/internal/debuglog"
+	"github.com/pulseaiclub/phi/internal/ext"
 	"github.com/pulseaiclub/phi/internal/hooks"
 	"github.com/pulseaiclub/phi/internal/job"
 	"github.com/pulseaiclub/phi/internal/llm"
@@ -52,6 +54,10 @@ type Controller struct {
 
 	// lastJobProgress dedupes identical Progress publishes (key → signature).
 	lastJobProgress sync.Map
+
+	children     *childRegistry
+	attachedID   string   // guarded by streamMu; empty = parent focused
+	attachedInfo job.Info // guarded by streamMu
 }
 
 // NewController wires bus + project into a ready Controller with a live Engine.
@@ -95,9 +101,10 @@ func NewController(bus *Bus, proj *project.Project, cwd string) (*Controller, er
 	hooksManager := loadHooksManager(proj)
 	c.hooksManager.Store(hooksManager)
 
+	c.children = newChildRegistry()
 	jobs, err := agent.NewJobManager(proj.JobsDir(), c.modelCfg, func() llm.ModelConfig {
 		return c.modelCfg
-	}, c.Hooks)
+	}, c.Hooks, proj.Global().AuthFile(), c)
 	if err != nil {
 		return nil, err
 	}
@@ -122,14 +129,37 @@ func NewController(bus *Bus, proj *project.Project, cwd string) (*Controller, er
 		Jobs:        c.engineJobs(),
 		Hooks:       hooksManager,
 		MCP:         c.mcpPool,
+		AuthFile:    proj.Global().AuthFile(),
 	})
 	if err != nil {
 		return nil, err
 	}
 	c.engine = eng
 	c.startJobProgress()
+	ext.Default().SetQuestionAsker(c.askQuestion)
 	c.emitSessionStart("startup", eng.SessionID(), "")
 	return c, nil
+}
+
+func (c *Controller) askQuestion(ctx context.Context, q ext.Question) (ext.Answer, error) {
+	reply := make(chan QuestionReply, 1)
+	c.publish(QuestionAskMsg{Header: q.Header, Prompt: q.Prompt, Options: q.Options, Reply: reply})
+	timeout := time.Duration(c.askTimeoutSec) * time.Second
+	if timeout <= 0 {
+		timeout = 120 * time.Second
+	}
+	timer := time.NewTimer(timeout)
+	defer timer.Stop()
+	select {
+	case r := <-reply:
+		return ext.Answer{Index: r.Index, Label: r.Label}, nil
+	case <-ctx.Done():
+		c.publish(QuestionDismissMsg{})
+		return ext.Answer{Index: -1}, ctx.Err()
+	case <-timer.C:
+		c.publish(QuestionDismissMsg{})
+		return ext.Answer{Index: -1}, nil
+	}
 }
 
 func (c *Controller) startJobProgress() {
@@ -403,6 +433,13 @@ func (c *Controller) SessionDir() string {
 }
 
 // LiveJobCount returns in-flight sub-agent jobs (0 if jobs disabled).
+func (c *Controller) authFile() string {
+	if c == nil || c.proj == nil {
+		return ""
+	}
+	return c.proj.Global().AuthFile()
+}
+
 func (c *Controller) LiveJobCount() int {
 	if c == nil || c.jobs == nil {
 		return 0
@@ -422,14 +459,19 @@ func (c *Controller) SessionFile() string {
 // On success the engine session is replaced; caller should refresh the UI transcript.
 // If the resumed session cwd differs from the process cwd, cwdWarning is non-empty.
 func (c *Controller) Resume(id string) (cwdWarning string, err error) {
-	id = strings.TrimSpace(id)
-	if id == "" {
-		return "", errors.New("empty session id")
-	}
 	if c.sessionDir == "" {
 		return "", errors.New("session directory not configured")
 	}
+	id = strings.TrimSpace(id)
+	if id == "" {
+		latest, err := session.LatestSessionID(c.sessionDir, c.SessionID())
+		if err != nil {
+			return "", err
+		}
+		id = latest
+	}
 
+	c.Detach()
 	prevID := c.SessionID()
 	if out := c.sessionBeforeSwitch("resume", prevID, id); out.Denied {
 		c.publishSessionEffects(out)
@@ -470,6 +512,7 @@ func (c *Controller) Resume(id string) (cwdWarning string, err error) {
 		Jobs:        c.engineJobs(),
 		Hooks:       mgr,
 		MCP:         c.mcpPool,
+		AuthFile:    c.authFile(),
 	})
 	if err != nil {
 		return "", err
@@ -491,6 +534,7 @@ func (c *Controller) Clear() error {
 		return errors.New("session directory not configured")
 	}
 
+	c.Detach()
 	prevID := c.SessionID()
 	if out := c.sessionBeforeSwitch("new", prevID, ""); out.Denied {
 		c.publishSessionEffects(out)
@@ -527,6 +571,7 @@ func (c *Controller) Clear() error {
 		Jobs:        c.engineJobs(),
 		Hooks:       hooksMgr,
 		MCP:         c.mcpPool,
+		AuthFile:    c.authFile(),
 	})
 	if err != nil {
 		return err
@@ -541,45 +586,68 @@ func (c *Controller) Clear() error {
 // ReplaySnapshot builds a UI transcript snapshot from the engine session
 // (user/assistant text; tool rows simplified away).
 func (c *Controller) ReplaySnapshot() session.Snapshot {
-	var snap session.Snapshot
 	if c.engine == nil || c.engine.Session() == nil {
-		return snap
+		return session.Snapshot{}
 	}
-	for _, entry := range c.engine.Session().PathEntries() {
-		switch entry.GetType() {
-		case session.EntryCompaction:
-			snap = session.Apply(snap, session.CompactionComplete{ID: entry.GetID()})
-		case session.EntryMessage:
-			msg := entry.(session.SessionMessageEntry).Message
-			switch msg.Role {
-			case llm.RoleUser:
-				snap = session.Apply(snap, session.UserAppend{ID: entry.GetID(), Text: msg.Content})
-			case llm.RoleAssistant:
-				text := msg.Content
-				var blocks []session.ContentBlock
-				if strings.TrimSpace(msg.ReasoningContent) != "" {
-					blocks = append(
-						blocks,
-						session.ContentBlock{Type: session.BlockThinking, Text: msg.ReasoningContent},
-					)
-				}
-				if text != "" {
-					blocks = append(blocks, session.ContentBlock{Type: session.BlockText, Text: text})
-				}
-				snap = session.Apply(snap, session.AssistantMessageUpdate{Message: session.Message{
-					ID:      entry.GetID(),
-					State:   session.StateComplete,
-					Text:    text,
-					Content: blocks,
-				}})
-			}
+	return session.SnapshotFromEntries(c.engine.Session().PathEntries())
+}
+
+// ListJobs returns recent jobs (disk), newest first.
+func (c *Controller) ListJobs(ctx context.Context) ([]job.Info, error) {
+	if c == nil || c.jobs == nil {
+		return nil, nil
+	}
+	return c.jobs.List(ctx)
+}
+
+// LiveJobs returns in-process sub-agent jobs.
+func (c *Controller) LiveJobs() []job.Info {
+	if c == nil || c.jobs == nil {
+		return nil
+	}
+	return c.jobs.Live()
+}
+
+// ChildSnapshot loads a sub-agent's persisted session as a UI snapshot.
+func (c *Controller) ChildSnapshot(jobID string) (session.Snapshot, job.Info, error) {
+	var info job.Info
+	if c == nil || c.jobs == nil {
+		return session.Snapshot{}, info, errors.New("jobs disabled")
+	}
+	info, err := c.jobs.Get(context.Background(), jobID)
+	if err != nil {
+		return session.Snapshot{}, info, err
+	}
+	if slot := c.children.get(info.ID); slot != nil {
+		if snap := slot.snapshot(); len(snap.Messages) > 0 {
+			return snap, info, nil
+		}
+		if slot.engine != nil && slot.engine.Session() != nil {
+			return session.SnapshotFromEntries(slot.engine.Session().PathEntries()), info, nil
 		}
 	}
-	return snap
+	sessDir := filepath.Join(info.Dir, "session")
+	list, err := session.ListSessions(sessDir)
+	if err != nil {
+		return session.Snapshot{}, info, err
+	}
+	if len(list) == 0 {
+		return session.Snapshot{}, info, nil
+	}
+	mgr, err := session.OpenSession(list[0].File)
+	if err != nil {
+		return session.Snapshot{}, info, err
+	}
+	return session.SnapshotFromEntries(mgr.BuildContext()), info, nil
 }
 
 // StartPrompt cancels any in-flight stream and starts a new agent loop.
-func (c *Controller) StartPrompt(text string, pendingSkills []string) {
+// When a sub-agent is attached, the prompt is queued onto that child instead.
+func (c *Controller) StartPrompt(text string, pendingSkills []string, images []llm.Image) {
+	if c.AttachedID() != "" {
+		c.submitChild(text, pendingSkills, images)
+		return
+	}
 	ctx, cancel := context.WithCancel(context.Background())
 	c.streamMu.Lock()
 	if c.streamCancel != nil {
@@ -590,11 +658,16 @@ func (c *Controller) StartPrompt(text string, pendingSkills []string) {
 	gen := c.streamGen
 	c.streamMu.Unlock()
 
-	go c.runLoop(ctx, gen, text, pendingSkills)
+	go c.runLoop(ctx, gen, text, pendingSkills, images)
 }
 
 // Cancel aborts the current stream context (if any).
+// When a sub-agent is attached, only that child's current turn is cancelled.
 func (c *Controller) Cancel() {
+	if c.AttachedID() != "" {
+		c.cancelChild()
+		return
+	}
 	c.streamMu.Lock()
 	cancel := c.streamCancel
 	c.streamMu.Unlock()
@@ -605,6 +678,10 @@ func (c *Controller) Cancel() {
 
 // Close cancels the stream and shuts down the job manager.
 func (c *Controller) Close() {
+	c.Detach()
+	if c.children != nil {
+		c.children.cancelAll()
+	}
 	c.sessionShutdown("quit", c.SessionID())
 	c.Cancel()
 	if c.unsubJobs != nil {
@@ -740,7 +817,7 @@ func (c *Controller) publish(m Msg) {
 	}
 }
 
-func (c *Controller) runLoop(ctx context.Context, gen int, prompt string, pendingSkills []string) {
+func (c *Controller) runLoop(ctx context.Context, gen int, prompt string, pendingSkills []string, images []llm.Image) {
 	if !c.waitOrDone(ctx, gen, 120*time.Millisecond) {
 		return
 	}
@@ -762,7 +839,7 @@ func (c *Controller) runLoop(ctx context.Context, gen int, prompt string, pendin
 		return
 	}
 
-	for ev, err := range c.engine.Loop(ctx, prompt, agent.LoopOpts{PendingSkills: pendingSkills}) {
+	for ev, err := range c.engine.Loop(ctx, prompt, agent.LoopOpts{PendingSkills: pendingSkills, Images: images}) {
 		if !c.Alive(gen) {
 			return
 		}

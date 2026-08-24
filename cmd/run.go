@@ -93,8 +93,9 @@ func runCmd(args []string) int {
 		// Ask is nil: in headless mode any Ask decision is denied, so no
 		// approval UI is ever reachable (Ask≡Deny even if the config mode
 		// does not fold Ask).
-		Ask:   nil,
-		Hooks: loadRunHooks(bs),
+		Ask:      nil,
+		Hooks:    loadRunHooks(bs),
+		AuthFile: bs.Proj.Global().AuthFile(),
 	}
 	if pool, err := mcp.LoadPool(bs.Proj.MCPConfigFile()); err != nil {
 		fmt.Fprintln(os.Stderr, "warning: mcp:", err)
@@ -106,7 +107,7 @@ func runCmd(args []string) int {
 		hooksMgr := engineOpts.Hooks
 		jobs, jobErr := agent.NewJobManager(bs.Proj.JobsDir(), bs.Config.Model(), nil, func() *hooks.Manager {
 			return hooksMgr
-		})
+		}, bs.Proj.Global().AuthFile(), nil)
 		if jobErr != nil {
 			fmt.Fprintln(os.Stderr, "phi run:", jobErr)
 			return ExitUsage

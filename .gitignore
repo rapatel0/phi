@@ -1,5 +1,7 @@
 .idea/
 /dist/
+/phi
+phi
 *.log
 phi-debug.log
 .cursor/

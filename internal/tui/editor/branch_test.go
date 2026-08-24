@@ -9,6 +9,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/pulseaiclub/phi/internal/components"
+	"github.com/pulseaiclub/phi/internal/job"
 	"github.com/pulseaiclub/phi/internal/tui/composer"
 	"github.com/pulseaiclub/phi/internal/tui/controller"
 )
@@ -38,9 +39,19 @@ func TestBranchState(t *testing.T) {
 	assert.Equal(t, "abc123", branchState(dir))
 }
 
+func TestAttachChromeLabel(t *testing.T) {
+	assert.Empty(t, attachChromeLabel(job.Info{}))
+	assert.Equal(t, "↳ explore · Find auth", attachChromeLabel(job.Info{Meta: job.Meta{
+		ID: "j1", Role: job.RoleExplore, Description: "Find auth",
+	}}))
+	assert.Equal(t, "↳ explore", attachChromeLabel(job.Info{Meta: job.Meta{
+		ID: "j1", Role: job.RoleExplore,
+	}}))
+}
+
 func TestEditorAppliesBranchLabel(t *testing.T) {
 	e := &Editor{composer: composer.NewComposerPane(components.DefaultTheme(), "m", "/tmp")}
-	e.composer.Wire(nil, nil, nil, "", nil, nil, nil, nil, nil, nil, nil, nil, nil, nil)
+	e.composer.Wire(nil, nil, nil, "", nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil)
 	e.composer.Chat.BottomRightLabel.Text = "~ (old)"
 	e.Update(controller.BranchLabelMsg{Text: "~ (new)"})
 	assert.Equal(t, "~ (new)", e.composer.Chat.BottomRightLabel.Text)

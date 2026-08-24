@@ -24,7 +24,12 @@ type CancelStreamMsg struct{}
 func (CancelStreamMsg) isMsg() {}
 
 // SessionEventMsg carries a session model event from the agent pipeline.
-type SessionEventMsg struct{ Event session.Event }
+// JobID is empty for the parent engine; a child id means the event belongs to
+// that attached sub-agent (ignored by the parent transcript).
+type SessionEventMsg struct {
+	Event session.Event
+	JobID string
+}
 
 func (SessionEventMsg) isMsg() {}
 
@@ -82,6 +87,27 @@ func (ContinueAskMsg) isMsg() {}
 type ContinueDismissMsg struct{}
 
 func (ContinueDismissMsg) isMsg() {}
+
+// QuestionAskMsg asks the user a multiple-choice question from ask_user_question.
+type QuestionAskMsg struct {
+	Header  string
+	Prompt  string
+	Options []string
+	Reply   chan QuestionReply
+}
+
+func (QuestionAskMsg) isMsg() {}
+
+// QuestionDismissMsg clears a pending question overlay.
+type QuestionDismissMsg struct{}
+
+func (QuestionDismissMsg) isMsg() {}
+
+// QuestionReply is the user's choice. Index -1 = cancelled.
+type QuestionReply struct {
+	Index int
+	Label string
+}
 
 // UpdateAvailableMsg delivers a startup version-check result to the UI.
 type UpdateAvailableMsg struct {

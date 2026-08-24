@@ -1,6 +1,7 @@
 package transcript
 
 import (
+	"encoding/json"
 	"strings"
 
 	"github.com/pulseaiclub/phi/internal/components"
@@ -21,6 +22,8 @@ type Mapper struct {
 	Children func(parentToolUseID string) []block.ChildTool
 	// ChildrenByJob returns nested rows keyed by job id (fallback for spawn/task).
 	ChildrenByJob func(jobID string) []block.ChildTool
+	// OnOpenJob opens the view popup for that job id.
+	OnOpenJob func(jobID string)
 }
 
 // NewMapper builds a Mapper with the given theme, spinner, and invalidation callback.
@@ -102,8 +105,9 @@ func (m *Mapper) patchItem(w components.Widget, it session.Item) (ok, dirty bool
 		if !ok {
 			return false, false
 		}
-		dirty = u.Text != it.Text
+		dirty = u.Text != it.Text || len(u.Images) != len(it.ImageData)
 		u.Text = it.Text
+		u.Images = it.ImageData
 		u.Theme = m.theme
 		return true, dirty
 	case session.ItemAssistant:
@@ -257,7 +261,7 @@ func (m *Mapper) widgetFor(it session.Item) components.Widget {
 	id := it.ID
 	switch it.Kind {
 	case session.ItemUser:
-		return &block.UserBlock{Text: it.Text, Theme: m.theme}
+		return &block.UserBlock{Text: it.Text, Images: it.ImageData, Theme: m.theme}
 	case session.ItemThinking:
 		return &block.ThinkingBlock{
 			Text:        it.Thinking,
@@ -364,8 +368,14 @@ func (m *Mapper) fillAgentBlock(a *block.AgentBlock, it session.Item) {
 	a.Theme = m.theme
 	a.Spinner = m.spinner
 	a.Error = it.ToolRun.Error
+	a.OnOpen = m.OnOpenJob
+
+	title, meta := agentCardLabel(it.ToolName, it.ToolInput, detail)
+	a.Title = title
+	a.Meta = meta
 
 	parsed := tools.ParseAgentResult(it.ToolRun.Output)
+	a.JobID = parsed.JobID
 	if sum := parsed.RenderableSummary(); sum != "" {
 		a.Summary = sum
 	} else {
@@ -384,9 +394,64 @@ func (m *Mapper) fillAgentBlock(a *block.AgentBlock, it session.Item) {
 
 	if exp, ok := m.expanded[it.ID]; ok {
 		a.Expanded = exp
-	} else if a.Status == status.ToolRunning || len(a.Children) > 0 || a.Summary != "" {
+	} else if a.Status == status.ToolRunning {
 		a.Expanded = true
+	} else if strings.EqualFold(it.ToolName, "agent_wait") && a.Summary != "" {
+		a.Expanded = true
+	} else {
+		a.Expanded = false
 	}
+}
+
+func agentCardLabel(toolName, input, detail string) (title, meta string) {
+	role, desc := parseSpawnLabel(input)
+	if desc == "" {
+		desc = strings.TrimSpace(detail)
+	}
+	switch strings.ToLower(toolName) {
+	case "agent_wait":
+		title = "Wait"
+		if desc != "" {
+			meta = desc
+		}
+		return title, meta
+	case "agent_spawn":
+		if desc == "" {
+			desc = "Sub-agent"
+		}
+		title = desc
+		if role != "" && role != "explore" {
+			meta = role
+		} else if role == "explore" {
+			meta = "explore"
+		}
+		return title, meta
+	default:
+		return toolName, ""
+	}
+}
+
+func parseSpawnLabel(raw string) (role, desc string) {
+	raw = strings.TrimSpace(raw)
+	if raw == "" || raw[0] != '{' {
+		return "", raw
+	}
+	var in struct {
+		Description string `json:"description"`
+		Prompt      string `json:"prompt"`
+		Role        string `json:"role"`
+	}
+	if json.Unmarshal([]byte(raw), &in) != nil {
+		return "", raw
+	}
+	desc = strings.TrimSpace(in.Description)
+	if desc == "" {
+		desc = strings.TrimSpace(in.Prompt)
+		if len(desc) > 60 {
+			desc = desc[:60] + "…"
+		}
+	}
+	return strings.TrimSpace(in.Role), desc
 }
 
 func bashStatus(s session.ToolStatus) block.BashStatus {

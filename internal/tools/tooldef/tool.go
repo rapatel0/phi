@@ -15,6 +15,9 @@ type Result struct {
 	Detail string
 	// Output is the display body for the TUI (may equal Content).
 	Output string
+	// Images are vision parts attached to the tool message (read_image).
+	// They are not inlined in Content so they do not bloat the text channel.
+	Images []llm.Image
 }
 
 // Handler runs a tool given raw JSON arguments.

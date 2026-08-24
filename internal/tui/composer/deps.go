@@ -6,6 +6,7 @@ import (
 	"github.com/pulseaiclub/phi/internal/components"
 	"github.com/pulseaiclub/phi/internal/components/layout"
 	"github.com/pulseaiclub/phi/internal/components/palette"
+	"github.com/pulseaiclub/phi/internal/llm"
 )
 
 // Input is the composer surface Submitter and BashRunner use.
@@ -14,6 +15,8 @@ type Input interface {
 	ClearInput()
 	PendingSkills() []string
 	ClearPendingSkills()
+	PendingImages() []llm.Image
+	ClearPendingImages()
 	SyncBashBorder(text string)
 	CloseMentionSlash()
 	SetBashBorderActive(active bool)

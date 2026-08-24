@@ -48,19 +48,43 @@ type Function struct {
 	Arguments string `json:"arguments"`
 }
 
+// Image is a user-attached raster (clipboard paste, drag-drop, /image).
+// Data is raw file bytes; encoding/json stores it as base64.
+type Image struct {
+	MIME     string `json:"mime"`
+	Data     []byte `json:"data"`
+	Filename string `json:"filename,omitempty"`
+}
+
+// Label is a short UI name (filename, else mime).
+func (img Image) Label() string {
+	if img.Filename != "" {
+		return img.Filename
+	}
+	if img.MIME != "" {
+		return img.MIME
+	}
+	return "image"
+}
+
 // Message is one chat turn (OpenAI-compatible shape, normalized across
-// providers).
+// providers). Images are Phi-only; provider clients expand them into native
+// content parts and must not marshal this struct as an API body.
 type Message struct {
 	Role             Role       `json:"role"`
 	Content          string     `json:"content"`
 	ReasoningContent string     `json:"reasoning_content,omitempty"`
 	ToolCalls        []ToolCall `json:"tool_calls,omitempty"`
 	ToolCallID       string     `json:"tool_call_id,omitempty"`
+	Images           []Image    `json:"images,omitempty"`
 
 	// Usage tracks token consumption for the turn. Excluded from the API
 	// request body; used by the session manager for compaction decisions.
 	Usage Usage `json:"-"`
 }
+
+// HasImages reports a non-empty image attachment list.
+func (m Message) HasImages() bool { return len(m.Images) > 0 }
 
 // PromptTokensDetails holds breakdown details for prompt token usage
 // (OpenAI-compatible prompt_tokens_details).

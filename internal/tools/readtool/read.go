@@ -105,9 +105,12 @@ func runRead(ctx context.Context, input json.RawMessage) (tooldef.Result, error)
 	if err != nil {
 		return tooldef.Result{}, err
 	}
+	display := tooldef.RelToCwd(ctx, path)
+	if kind := classifyPrefix(raw); kind != "" {
+		return refuseNonText(kind, display, raw, st.Size()), nil
+	}
 	text := util.NormalizeLF(string(raw))
 	tag := util.ComputeFileHash(text)
-	display := tooldef.RelToCwd(ctx, path)
 	header := util.FormatFileHeader(display, tag)
 
 	startLine := in.Offset

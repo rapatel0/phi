@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -154,6 +155,33 @@ func TestFindSessionFilePrefix(t *testing.T) {
 	assert.Equal(t, p1, got)
 
 	_, err = FindSessionFile(dir, "nope")
+	require.Error(t, err)
+}
+
+func TestLatestSessionID(t *testing.T) {
+	dir := t.TempDir()
+	write := func(id string, mtime time.Time) {
+		path := filepath.Join(dir, "2026-01-01T00-00-00_"+id+".jsonl")
+		header := SessionHeader{Type: EntrySession, ID: id, Timestamp: "t", Cwd: dir}
+		f, err := os.Create(path)
+		require.NoError(t, err)
+		require.NoError(t, jsonEncode(f, header))
+		require.NoError(t, f.Close())
+		require.NoError(t, os.Chtimes(path, mtime, mtime))
+	}
+	old := time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)
+	write("aaaa1111aaaa1111", old)
+	write("bbbb2222bbbb2222", old.Add(time.Hour))
+
+	got, err := LatestSessionID(dir, "")
+	require.NoError(t, err)
+	assert.Equal(t, "bbbb2222bbbb2222", got)
+
+	got, err = LatestSessionID(dir, "bbbb2222bbbb2222")
+	require.NoError(t, err)
+	assert.Equal(t, "aaaa1111aaaa1111", got)
+
+	_, err = LatestSessionID(t.TempDir(), "")
 	require.Error(t, err)
 }
 

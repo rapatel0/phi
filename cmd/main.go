@@ -29,6 +29,8 @@ func main() {
 			os.Exit(configCmd(os.Args[2:]))
 		case "update":
 			os.Exit(updateCmd(os.Args[2:]))
+		case "login":
+			os.Exit(loginCmd(os.Args[2:]))
 		case "tui":
 			os.Exit(runTUIExit(runTUI()))
 		case "-h", "--help", "help":
@@ -151,6 +153,7 @@ func printMainUsage(w *os.File) {
   phi config         open the HTML config editor (local web server)
   phi update         install the latest release (see 'phi update --help')
   phi run -p "..."   run one agent loop headlessly (see 'phi run --help')
+  phi login …        Claude Pro/Max or ChatGPT Codex OAuth (see 'phi login --help')
   phi sessions list  list persisted sessions for this directory
   phi mcp …          manage MCP servers (see 'phi mcp --help')
 `)

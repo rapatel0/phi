@@ -3,6 +3,8 @@ package session
 import (
 	"fmt"
 	"strings"
+
+	"github.com/pulseaiclub/phi/internal/llm"
 )
 
 // ItemKind classifies a projected transcript row.
@@ -33,20 +35,35 @@ type Item struct {
 	ToolInput string
 	ToolUseID string
 	ToolRun   ToolRun
+
+	ImageData []llm.Image
 }
 
 // Project flattens Snapshot into list items in content order:
 // user → thinking / assistant text / tool rows.
+func userDisplayText(text string, images []string) string {
+	if len(images) == 0 {
+		return text
+	}
+	label := "🖼 " + strings.Join(images, ", ")
+	if strings.TrimSpace(text) == "" {
+		return label
+	}
+	return label + "\n" + text
+}
+
 func Project(s Snapshot) []Item {
 	var items []Item
 	for _, m := range s.Messages {
 		switch m.Role {
 		case RoleUser:
-			if strings.TrimSpace(m.Text) != "" {
+			text := userDisplayText(m.Text, m.Images)
+			if strings.TrimSpace(text) != "" {
 				items = append(items, Item{
-					ID:   m.ID,
-					Kind: ItemUser,
-					Text: m.Text,
+					ID:        m.ID,
+					Kind:      ItemUser,
+					Text:      text,
+					ImageData: m.ImageData,
 				})
 			}
 		case RoleAssistant:

@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/pulseaiclub/phi/internal/agent/prompt"
+	"github.com/pulseaiclub/phi/internal/ext"
 	"github.com/pulseaiclub/phi/internal/hooks"
 	"github.com/pulseaiclub/phi/internal/job"
 	"github.com/pulseaiclub/phi/internal/llm"
@@ -67,6 +68,7 @@ type EngineOpts struct {
 	Jobs        *job.Manager       // if set, register agent_* tools on this engine
 	Hooks       *hooks.Manager     // nil = no hooks; child engines inherit parent Manager
 	MCP         *mcp.Pool          // if set, register mcp_list/inspect/call meta-tools
+	AuthFile    string             // ~/.phi/auth.json; OAuth refresh when set
 }
 
 // NewEngine wires an LLM client, tool executor, and session store.
@@ -93,7 +95,12 @@ func NewEngine(opts EngineOpts) (*Engine, error) {
 		engine.maxRounds = opts.MaxRounds
 	}
 	toolList := engine.buildToolList(opts.Tools)
-	engine.client = llmclient.NewClient(cfg, tools.Definitions(toolList), engine.systemPrompt())
+	defs := tools.Definitions(toolList)
+	if opts.AuthFile != "" {
+		engine.client = llmclient.NewClientWithAuth(cfg, defs, engine.systemPrompt(), opts.AuthFile)
+	} else {
+		engine.client = llmclient.NewClient(cfg, defs, engine.systemPrompt())
+	}
 	engine.bindExecutor(tools.NewRegistry(toolList))
 	return engine, nil
 }
@@ -103,6 +110,12 @@ func (engine *Engine) buildToolList(base []tools.Tool) []tools.Tool {
 		base = tools.DefaultTools()
 	}
 	out := base
+	if extra := ext.Default().Tools(); len(extra) > 0 {
+		merged := make([]tools.Tool, 0, len(out)+len(extra))
+		merged = append(merged, out...)
+		merged = append(merged, extra...)
+		out = merged
+	}
 	if engine.mcp != nil {
 		mcpTools := tools.MCPTools(engine.mcp)
 		if len(mcpTools) > 0 {
@@ -284,6 +297,8 @@ type LoopOpts struct {
 	// PendingSkills are skill names the user selected in the composer.
 	// When set, the model is instructed to read those SKILL.md files first.
 	PendingSkills []string
+	// Images are clipboard / file attachments for this user turn.
+	Images []llm.Image
 }
 
 // Loop appends the user prompt and runs inference + tool rounds until the
@@ -304,6 +319,7 @@ func (engine *Engine) Loop(ctx context.Context, prompt string, opts LoopOpts) it
 		if err := engine.session.Append(llm.Message{
 			Role:    llm.RoleUser,
 			Content: content,
+			Images:  opts.Images,
 		}); err != nil {
 			yield(nil, err)
 			return

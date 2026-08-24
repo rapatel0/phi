@@ -6,8 +6,10 @@ import (
 	"net/http"
 	"strings"
 
+	"github.com/pulseaiclub/phi/internal/auth"
 	"github.com/pulseaiclub/phi/internal/llm"
 	"github.com/pulseaiclub/phi/internal/llm/anthropic"
+	"github.com/pulseaiclub/phi/internal/llm/gemini"
 	"github.com/pulseaiclub/phi/internal/llm/openai"
 	"github.com/pulseaiclub/phi/internal/util"
 )
@@ -21,25 +23,61 @@ type Client struct {
 	tools      []llm.ToolDefinition
 	system     string
 	anthropic  bool
+	gemini     bool
+	authFile   string
 }
 
 // NewClient builds a streaming chat client.
 func NewClient(cfg llm.ModelConfig, tools []llm.ToolDefinition, systemPrompt string) *Client {
+	return newClient(cfg, tools, systemPrompt, "")
+}
+
+// NewClientWithAuth is NewClient plus OAuth token refresh from authFile
+// (~/.phi/auth.json) before each request.
+func NewClientWithAuth(cfg llm.ModelConfig, tools []llm.ToolDefinition, systemPrompt, authFile string) *Client {
+	return newClient(cfg, tools, systemPrompt, authFile)
+}
+
+func newClient(cfg llm.ModelConfig, tools []llm.ToolDefinition, systemPrompt, authFile string) *Client {
 	return &Client{
 		httpClient: util.DefaultHTTPClient(),
 		cfg:        cfg,
 		tools:      tools,
 		system:     systemPrompt,
 		anthropic:  isAnthropicProvider(cfg),
+		gemini:     gemini.IsProvider(cfg),
+		authFile:   authFile,
 	}
 }
 
 // Stream runs a streaming chat completion over messages (+ optional system prompt / tools).
 func (c *Client) Stream(ctx context.Context, messages []llm.Message) iter.Seq2[llm.StreamEvent, error] {
 	return func(yield func(llm.StreamEvent, error) bool) {
+		if err := c.refresh(ctx); err != nil {
+			yield(llm.StreamEvent{}, err)
+			return
+		}
 		if c.anthropic {
 			req := anthropic.BuildRequest(c.cfg, c.system, messages, c.tools)
 			for ev, err := range anthropic.Stream(ctx, c.httpClient, c.cfg, &req) {
+				if !yield(ev, err) {
+					return
+				}
+			}
+			return
+		}
+		if c.gemini {
+			req := gemini.BuildRequest(c.cfg, c.system, messages, c.tools)
+			for ev, err := range gemini.Stream(ctx, c.httpClient, c.cfg, req) {
+				if !yield(ev, err) {
+					return
+				}
+			}
+			return
+		}
+		if openai.UseCodexBackend(c.cfg) {
+			req := openai.BuildResponsesRequest(c.cfg, c.system, messages, c.tools)
+			for ev, err := range openai.StreamCodex(ctx, c.httpClient, c.cfg, req) {
 				if !yield(ev, err) {
 					return
 				}
@@ -58,10 +96,23 @@ func (c *Client) Stream(ctx context.Context, messages []llm.Message) iter.Seq2[l
 // Compact sends a single non-streaming chat request and returns the
 // assistant text. It satisfies llm.Compactor for session compaction.
 func (c *Client) Compact(ctx context.Context, prompt string) (string, error) {
+	if err := c.refresh(ctx); err != nil {
+		return "", err
+	}
 	if c.anthropic {
 		return anthropic.Compact(ctx, c.httpClient, c.cfg, prompt)
 	}
+	if c.gemini {
+		return gemini.Compact(ctx, c.httpClient, c.cfg, prompt)
+	}
 	return openai.Compact(ctx, c.httpClient, c.cfg, prompt)
+}
+
+func (c *Client) refresh(ctx context.Context) error {
+	if c.authFile == "" {
+		return nil
+	}
+	return auth.EnsureAccess(ctx, &c.cfg, c.authFile)
 }
 
 // isAnthropicProvider reports whether the config targets the Anthropic

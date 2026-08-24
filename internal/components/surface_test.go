@@ -87,3 +87,26 @@ func TestSurfaceRenderClipsChildren(t *testing.T) {
 		}
 	}
 }
+
+func TestCollectGraphicsScreenClip(t *testing.T) {
+	child := Surface{
+		Size: Size{Width: 10, Height: 8},
+		Graphics: []Graphic{
+			{X: 1, Y: 1, Cols: 4, Rows: 3, MIME: "image/png", Data: []byte{1}},
+			{X: 0, Y: 20, Cols: 4, Rows: 3, MIME: "image/png", Data: []byte{2}}, // off-screen
+		},
+	}
+	root := Surface{
+		Size: Size{Width: 20, Height: 12},
+		Children: []SubSurface{
+			{Origin: Point{X: 2, Y: 2}, Surface: child},
+		},
+	}
+	got := CollectGraphics(root, 0, 0, 20, 12)
+	if len(got) != 1 {
+		t.Fatalf("got %d", len(got))
+	}
+	if got[0].X != 3 || got[0].Y != 3 {
+		t.Fatalf("abs %+v", got[0])
+	}
+}

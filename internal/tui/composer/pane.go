@@ -2,6 +2,8 @@ package composer
 
 import (
 	"context"
+	"fmt"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -12,6 +14,9 @@ import (
 	"github.com/pulseaiclub/phi/internal/components/layout"
 	"github.com/pulseaiclub/phi/internal/components/mention"
 	"github.com/pulseaiclub/phi/internal/components/palette"
+	"github.com/pulseaiclub/phi/internal/components/toast"
+	"github.com/pulseaiclub/phi/internal/llm"
+	"github.com/pulseaiclub/phi/internal/media"
 	"github.com/pulseaiclub/phi/internal/tui/commands"
 	"github.com/pulseaiclub/phi/internal/tui/controller"
 	"github.com/pulseaiclub/phi/internal/tui/footer"
@@ -43,10 +48,14 @@ type ComposerPane struct {
 	overlayBlocksComposer func() bool
 	handlePermissionKey   WireKeyHandler
 	handleContinueKey     WireKeyHandler
+	handleQuestionKey     WireKeyHandler
 	handleCopyKey         WireKeyHandler
 	requestFocusEditor    func()
 	requestFocus          func(components.Widget)
 	ctrlClose             func()
+	onIdleEscape          func() bool
+	onNotice              func(msg string, kind toast.ToastKind)
+	images                []llm.Image
 }
 
 // NewComposerPane builds composer widgets; call Wire before use.
@@ -80,6 +89,7 @@ func (c *ComposerPane) Wire(
 	overlayBlocksComposer func() bool,
 	handlePermissionKey WireKeyHandler,
 	handleContinueKey WireKeyHandler,
+	handleQuestionKey WireKeyHandler,
 	handleCopyKey WireKeyHandler,
 	requestFocusEditor func(),
 	requestFocus func(components.Widget),
@@ -98,6 +108,7 @@ func (c *ComposerPane) Wire(
 	c.overlayBlocksComposer = overlayBlocksComposer
 	c.handlePermissionKey = handlePermissionKey
 	c.handleContinueKey = handleContinueKey
+	c.handleQuestionKey = handleQuestionKey
 	c.handleCopyKey = handleCopyKey
 	c.requestFocusEditor = requestFocusEditor
 	c.requestFocus = requestFocus
@@ -120,6 +131,7 @@ func (c *ComposerPane) Wire(
 	}
 	c.Chat.OnMentionChange = c.onMentionChange
 	c.Chat.OnSlashChange = c.onSlashChange
+	c.Chat.OnPendingImagesChange = c.syncImagesFromLabels
 	c.mention.OnAccept = c.acceptMention
 	c.slash.OnAccept = c.acceptSlash
 }
@@ -167,6 +179,118 @@ func (c *ComposerPane) ClearPendingSkills() {
 	if c != nil {
 		c.Chat.ClearPendingSkills()
 	}
+}
+
+// PendingImages returns attached images for the next submit.
+func (c *ComposerPane) PendingImages() []llm.Image {
+	if c == nil {
+		return nil
+	}
+	out := make([]llm.Image, len(c.images))
+	copy(out, c.images)
+	return out
+}
+
+// ClearPendingImages drops queued attachments.
+func (c *ComposerPane) ClearPendingImages() {
+	if c == nil {
+		return
+	}
+	c.images = nil
+	c.Chat.ClearPendingImages()
+}
+
+// SetOnNotice reports attach errors (clipboard empty, unreadable file).
+func (c *ComposerPane) SetOnNotice(fn func(msg string, kind toast.ToastKind)) {
+	if c != nil {
+		c.onNotice = fn
+	}
+}
+
+func (c *ComposerPane) notice(msg string, kind toast.ToastKind) {
+	if c != nil && c.onNotice != nil {
+		c.onNotice(msg, kind)
+	}
+}
+
+func (c *ComposerPane) syncImagesFromLabels(names []string) {
+	if c == nil {
+		return
+	}
+	if len(names) >= len(c.images) {
+		return
+	}
+	c.images = c.images[:len(names)]
+}
+
+// AttachClipboard reads an image from the OS clipboard and toasts on failure.
+func (c *ComposerPane) AttachClipboard() bool {
+	return c.attachClipboard(true)
+}
+
+func (c *ComposerPane) attachClipboard(noticeEmpty bool) bool {
+	if c == nil {
+		return false
+	}
+	img, err := media.ReadClipboard()
+	if err != nil {
+		if noticeEmpty || err != media.ErrEmptyClipboard {
+			if err == media.ErrEmptyClipboard {
+				c.notice("Clipboard has no image — copy a screenshot first", toast.ToastWarning)
+			} else {
+				c.notice(err.Error(), toast.ToastWarning)
+			}
+		}
+		return false
+	}
+	ok := c.addImage(img)
+	if ok && noticeEmpty {
+		c.notice("Attached "+img.Label(), toast.ToastSuccess)
+	}
+	return ok
+}
+
+func (c *ComposerPane) handlePaste(text string) bool {
+	if paths := media.ImagePaths(text); len(paths) > 0 {
+		n := 0
+		for _, p := range paths {
+			if c.AttachPath(p) {
+				n++
+			}
+		}
+		return n > 0
+	}
+	if strings.TrimSpace(text) == "" {
+		return c.attachClipboard(false)
+	}
+	return false
+}
+
+// AttachPath loads an image file.
+func (c *ComposerPane) AttachPath(path string) bool {
+	if c == nil {
+		return false
+	}
+	img, err := media.LoadFile(path)
+	if err != nil {
+		c.notice(err.Error(), toast.ToastWarning)
+		return false
+	}
+	return c.addImage(img)
+}
+
+func (c *ComposerPane) addImage(img llm.Image) bool {
+	if len(c.images) >= 8 {
+		c.notice("At most 8 images per message", toast.ToastWarning)
+		return false
+	}
+	img.Filename = uniqueImageName(img.Label(), c.images)
+	c.images = append(c.images, img)
+	c.Chat.AddPendingImage(img.Label())
+	if c.onRedraw != nil {
+		c.onRedraw()
+	}
+	return true
 }
 
 // SyncBashBorder updates composer chrome for "!cmd" prefix.
@@ -218,6 +342,26 @@ func (c *ComposerPane) AddPendingSkill(name string) {
 func (c *ComposerPane) SetModelLabel(name string) {
 	if c != nil {
 		c.Chat.TopRightLabel.Text = name
+	}
+}
+
+// SetAttachLabel sets the composer top-left chrome while a sub-agent is focused.
+func (c *ComposerPane) SetAttachLabel(text string) {
+	if c == nil {
+		return
+	}
+	if strings.TrimSpace(text) == "" {
+		c.Chat.TopLeftLabel = layout.BorderLabel{}
+		return
+	}
+	c.Chat.TopLeftLabel = layout.BorderLabel{Text: text, Style: c.theme.Warning}
+}
+
+// SetOnIdleEscape is called on Esc when pickers are closed and nothing is streaming.
+// Return true if the key was consumed (e.g. detach from a sub-agent).
+func (c *ComposerPane) SetOnIdleEscape(fn func() bool) {
+	if c != nil {
+		c.onIdleEscape = fn
 	}
 }
 
@@ -274,6 +418,9 @@ func (c *ComposerPane) SetTheme(th components.Theme) {
 	c.Chat.TextStyle = th.Foreground
 	c.Chat.BottomRightLabel.Style = footer.PathLabelStyle(th)
 	c.Chat.TopRightLabel.Style = th.Success
+	if c.Chat.TopLeftLabel.Text != "" {
+		c.Chat.TopLeftLabel.Style = th.Warning
+	}
 	c.palette.Theme = th
 	c.mention.Theme = th
 	c.slash.Theme = th
@@ -308,6 +455,9 @@ func (c *ComposerPane) PreferredHeight(width int, method xui.WidthMethod) int {
 	chatH := c.Chat.PreferredHeight(width, method)
 	minChatH := 5
 	if len(c.Chat.PendingSkills) > 0 {
+		minChatH++
+	}
+	if len(c.Chat.PendingImages) > 0 {
 		minChatH++
 	}
 	if chatH < minChatH {
@@ -399,6 +549,9 @@ func (c *ComposerPane) Handle(ctx *components.EventContext, ev xui.Event) {
 		if c.handleContinueKey != nil && c.handleContinueKey(ctx, ev) {
 			return
 		}
+		if c.handleQuestionKey != nil && c.handleQuestionKey(ctx, ev) {
+			return
+		}
 		if c.handleCopyKey != nil && c.handleCopyKey(ctx, ev) {
 			return
 		}
@@ -428,6 +581,17 @@ func (c *ComposerPane) Handle(ctx *components.EventContext, ev xui.Event) {
 			}
 			if c.transcript != nil && c.transcript.SelectionActive() {
 				c.transcript.ClearSelection()
+				ctx.ConsumeAndRedraw()
+				return
+			}
+			if c.onIdleEscape != nil && c.onIdleEscape() {
+				ctx.ConsumeAndRedraw()
+				return
+			}
+		}
+		if ev.Press && ev.Mods.Has(xui.ModCtrl) && ev.Code == xui.KeyRune &&
+			(ev.Rune == 'v' || ev.Rune == 'V') {
+			if c.attachClipboard(false) {
 				ctx.ConsumeAndRedraw()
 				return
 			}
@@ -486,6 +650,10 @@ func (c *ComposerPane) Handle(ctx *components.EventContext, ev xui.Event) {
 	case xui.PasteEvent:
 		if c.palette.Open {
 			c.palette.Handle(ctx, ev)
+			return
+		}
+		if c.handlePaste(ev.Text) {
+			ctx.ConsumeAndRedraw()
 			return
 		}
 		c.Chat.Handle(ctx, ev)
@@ -624,6 +792,25 @@ func newChatInput(theme components.Theme, model, cwd string) chat.ChatInput {
 			Style: footer.PathLabelStyle(theme),
 		},
 	}
+}
+
+func uniqueImageName(name string, existing []llm.Image) string {
+	have := make(map[string]struct{}, len(existing))
+	for _, img := range existing {
+		have[img.Label()] = struct{}{}
+	}
+	if _, ok := have[name]; !ok {
+		return name
+	}
+	ext := filepath.Ext(name)
+	stem := strings.TrimSuffix(name, ext)
+	for i := 2; i < 99; i++ {
+		cand := fmt.Sprintf("%s-%d%s", stem, i, ext)
+		if _, ok := have[cand]; !ok {
+			return cand
+		}
+	}
+	return name
 }
 
 func mentionNavKey(e xui.KeyEvent) bool {

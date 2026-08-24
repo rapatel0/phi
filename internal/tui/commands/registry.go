@@ -30,6 +30,8 @@ type CommandContext struct {
 	ReloadHooks     func()
 	ListHooks       func() []palette.PaletteCommand
 	AddSkill        func(name string)
+	PasteImage      func()
+	AttachImagePath func(path string)
 	CopyLastMessage func()
 
 	ModelNames []string

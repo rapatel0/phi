@@ -528,6 +528,23 @@ func (m *Manager) MaxDepth() int { return m.maxDepth }
 // MaxConcurrent exposes the concurrency ceiling.
 func (m *Manager) MaxConcurrent() int { return m.maxConcurrent }
 
+// Live returns in-process jobs (starting/running).
+func (m *Manager) Live() []Info {
+	if m == nil {
+		return nil
+	}
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	out := make([]Info, 0, len(m.jobs))
+	for _, lj := range m.jobs {
+		out = append(out, Info{Meta: lj.meta})
+	}
+	slices.SortFunc(out, func(a, b Info) int {
+		return b.CreatedAt.Compare(a.CreatedAt)
+	})
+	return out
+}
+
 // LiveCount returns how many jobs are currently starting/running in-process.
 func (m *Manager) LiveCount() int {
 	m.mu.Lock()

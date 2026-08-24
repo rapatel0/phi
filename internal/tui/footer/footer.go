@@ -3,12 +3,14 @@ package footer
 import (
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/pulseaiclub/xui"
 
 	"github.com/pulseaiclub/phi/internal/components"
 	"github.com/pulseaiclub/phi/internal/components/layout"
 	"github.com/pulseaiclub/phi/internal/components/status"
+	"github.com/pulseaiclub/phi/internal/ext"
 	"github.com/pulseaiclub/phi/internal/session"
 	"github.com/pulseaiclub/phi/internal/tui/controller"
 )
@@ -32,6 +34,8 @@ type FooterChrome struct {
 	composer     labelComposer
 	labelContext func() session.Snapshot
 	liveJobs     func() int
+	attachHint   string
+	streamAt     time.Time
 }
 
 // NewFooterChrome builds footer chrome with a fresh spinner and activity handler.
@@ -82,6 +86,13 @@ func (f *FooterChrome) SetLiveJobs(fn func() int) {
 	}
 }
 
+// SetAttachHint shows a left-side hint while a sub-agent is focused.
+func (f *FooterChrome) SetAttachHint(s string) {
+	if f != nil {
+		f.attachHint = s
+	}
+}
+
 // AdvanceTick drives spinner animation during active work.
 func (f *FooterChrome) AdvanceTick() {
 	if f == nil {
@@ -120,6 +131,10 @@ func (f *FooterChrome) UpdateTokenDisplay(usage session.TokenUsage) {
 		return
 	}
 	f.lastUsage = usage
+	if f.streamAt.IsZero() {
+		f.streamAt = time.Now()
+	}
+	ext.Default().EmitUsage(usage.PromptTokens, usage.CompletionTokens, time.Since(f.streamAt))
 	if f.composer == nil {
 		return
 	}
@@ -158,6 +173,9 @@ func (f *FooterChrome) Apply(m controller.Msg) {
 	}
 	switch msg := m.(type) {
 	case controller.SetActivityMsg:
+		if msg.Activity == controller.ActivityStreaming {
+			f.streamAt = time.Now()
+		}
 		f.activity.Apply(msg.Activity)
 	case controller.ClearIfActivityMsg:
 		if f.activity.Current == msg.If {
@@ -185,11 +203,25 @@ func (f *FooterChrome) Draw(ctx components.DrawContext, width int) components.Su
 		snap = f.labelContext()
 	}
 	msg := f.activity.Label(snap)
+	if ah := strings.TrimSpace(f.attachHint); ah != "" {
+		if msg == "" {
+			msg = ah
+		} else {
+			msg = ah + " · " + msg
+		}
+	}
 	if hs := strings.TrimSpace(f.hookStatus); hs != "" {
 		if msg == "" {
 			msg = hs
 		} else {
 			msg = hs + " · " + msg
+		}
+	}
+	for _, bit := range ext.Default().FooterBits() {
+		if msg == "" {
+			msg = bit
+		} else {
+			msg = msg + " · " + bit
 		}
 	}
 	if f.liveJobs != nil {

@@ -22,6 +22,7 @@ type Overlays struct {
 	theme    components.Theme
 	perm     *permAskState
 	cont     *continueAskState
+	q        *questionState
 	activity *controller.ActivityHandler
 	composer overlayComposer
 
@@ -54,7 +55,7 @@ func (o *Overlays) SetTheme(th components.Theme) {
 
 // Active reports whether a modal overlay is showing.
 func (o *Overlays) Active() bool {
-	return o != nil && (o.perm != nil || o.cont != nil)
+	return o != nil && (o.perm != nil || o.cont != nil || o.q != nil)
 }
 
 // BlocksComposer reports whether composer input should be disabled.
@@ -86,6 +87,12 @@ func (o *Overlays) Apply(m controller.Msg) {
 		o.beginContinueAsk(msg)
 	case controller.ContinueDismissMsg:
 		o.dismissContinue()
+	case controller.QuestionAskMsg:
+		o.beginQuestion(msg)
+	case controller.QuestionDismissMsg:
+		if o.q != nil {
+			o.resolveQuestion(controller.QuestionReply{Index: -1})
+		}
 	}
 }
 
@@ -120,6 +127,9 @@ func (o *Overlays) PreferredBottomHeight(width int, method xui.WidthMethod) (hei
 	if o.cont != nil {
 		return o.cont.preferredAskHeight(), true
 	}
+	if o.q != nil {
+		return o.questionHeight(), true
+	}
 	return 0, false
 }
 
@@ -133,6 +143,9 @@ func (o *Overlays) DrawBottom(ctx components.DrawContext, width, height int) (co
 	}
 	if o.cont != nil {
 		return o.drawContinueAsk(ctx, width, height), true
+	}
+	if o.q != nil {
+		return o.drawQuestion(ctx, width, height), true
 	}
 	return components.Surface{}, false
 }

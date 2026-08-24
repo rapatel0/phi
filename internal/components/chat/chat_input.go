@@ -47,6 +47,8 @@ type ChatInput struct {
 	// PendingSkills are skill names shown inside the bordered editor as the
 	// first content row: "Skills: name1 name2".
 	PendingSkills []string
+	// PendingImages are attachment labels shown as "Images: shot.png".
+	PendingImages []string
 
 	PaddingX int // horizontal inner padding; default 1
 
@@ -56,6 +58,8 @@ type ChatInput struct {
 	OnChange func(text string)
 	// OnPendingSkillsChange is called after PendingSkills mutates.
 	OnPendingSkillsChange func(skills []string)
+	// OnPendingImagesChange is called after PendingImages mutates.
+	OnPendingImagesChange func(names []string)
 	// OnMentionChange is called after Value or Cursor changes that may
 	// activate/deactivate an @-file mention. active is false when none.
 	OnMentionChange func(active bool, query string)
@@ -103,11 +107,22 @@ func (c *ChatInput) bodyRows(width int, method xui.WidthMethod) int {
 // PreferredHeight returns total height (optional skills row + body + borders),
 // growing with content up to MaxBodyRows so the composer cannot expand forever.
 func (c *ChatInput) PreferredHeight(width int, method xui.WidthMethod) int {
-	return c.pendingSkillsHeight() + c.bodyRows(width, method) + 2
+	return c.pendingChipHeight() + c.bodyRows(width, method) + 2
+}
+
+func (c *ChatInput) pendingChipHeight() int {
+	return c.pendingSkillsHeight() + c.pendingImagesHeight()
 }
 
 func (c *ChatInput) pendingSkillsHeight() int {
 	if len(c.PendingSkills) == 0 {
+		return 0
+	}
+	return 1
+}
+
+func (c *ChatInput) pendingImagesHeight() int {
+	if len(c.PendingImages) == 0 {
 		return 0
 	}
 	return 1
@@ -151,6 +166,44 @@ func (c *ChatInput) notifyPendingSkills() {
 	}
 }
 
+// AddPendingImage appends a label if not already pending.
+func (c *ChatInput) AddPendingImage(name string) {
+	name = strings.TrimSpace(name)
+	if name == "" {
+		return
+	}
+	if slices.Contains(c.PendingImages, name) {
+		return
+	}
+	c.PendingImages = append(c.PendingImages, name)
+	c.notifyPendingImages()
+}
+
+// PopPendingImage removes the last pending image label. Returns false if none.
+func (c *ChatInput) PopPendingImage() bool {
+	if len(c.PendingImages) == 0 {
+		return false
+	}
+	c.PendingImages = c.PendingImages[:len(c.PendingImages)-1]
+	c.notifyPendingImages()
+	return true
+}
+
+// ClearPendingImages removes all pending image labels.
+func (c *ChatInput) ClearPendingImages() {
+	if len(c.PendingImages) == 0 {
+		return
+	}
+	c.PendingImages = nil
+	c.notifyPendingImages()
+}
+
+func (c *ChatInput) notifyPendingImages() {
+	if c.OnPendingImagesChange != nil {
+		c.OnPendingImagesChange(c.PendingImages)
+	}
+}
+
 func (c *ChatInput) padX() int {
 	if c.PaddingX <= 0 {
 		return 1
@@ -183,9 +236,13 @@ func (c *ChatInput) Handle(ctx *components.EventContext, ev xui.Event) {
 				return
 			}
 			// Shift+Enter / Alt+Enter insert newline; bare Enter submits.
-			if e.Mods.Has(xui.ModShift) || e.Mods.Has(xui.ModAlt) || e.Mods.Has(xui.ModCtrl) {
+			// Ctrl+Enter is left unconsumed (TASKS / child view).
+			if e.Mods.Has(xui.ModShift) || e.Mods.Has(xui.ModAlt) {
 				c.insert("\n")
 				ctx.ConsumeAndRedraw()
+				return
+			}
+			if e.Mods.Has(xui.ModCtrl) {
 				return
 			}
 			if c.OnSubmit != nil {
@@ -204,6 +261,8 @@ func (c *ChatInput) Handle(ctx *components.EventContext, ev xui.Event) {
 				if debuglog.Enabled() {
 					c.dumpNextDraw = true
 				}
+			} else if c.PopPendingImage() {
+				debuglog.Logf("chat backspace popped pending image remaining=%d", len(c.PendingImages))
 			} else if c.PopPendingSkill() {
 				debuglog.Logf("chat backspace popped pending skill remaining=%d", len(c.PendingSkills))
 			}
@@ -426,7 +485,7 @@ func (c *ChatInput) Draw(ctx components.DrawContext) components.Surface {
 	if w <= 0 {
 		w = 40
 	}
-	pendingH := c.pendingSkillsHeight()
+	pendingH := c.pendingChipHeight()
 	editorRows := c.bodyRows(w, ctx.Method)
 	body := pendingH + editorRows // inner rows inside the border
 	h := body + 2                 // + borders
@@ -485,8 +544,13 @@ func (c *ChatInput) Draw(ctx components.DrawContext) components.Surface {
 		}
 	}
 
-	if pendingH > 0 {
-		c.paintPendingSkills(&s, 1+pad, 1, innerW, ctx.Method)
+	chipY := 1
+	if c.pendingSkillsHeight() > 0 {
+		c.paintChipRow(&s, 1+pad, chipY, innerW, "Skills: ", c.PendingSkills, ctx.Method)
+		chipY++
+	}
+	if c.pendingImagesHeight() > 0 {
+		c.paintChipRow(&s, 1+pad, chipY, innerW, "Images: ", c.PendingImages, ctx.Method)
 	}
 
 	lines := text.WrapEditorLines(c.Value, innerW, ctx.Method)
@@ -581,7 +645,13 @@ func (c *ChatInput) Draw(ctx components.DrawContext) components.Surface {
 	return s
 }
 
-func (c *ChatInput) paintPendingSkills(s *components.Surface, x, y, width int, method xui.WidthMethod) {
+func (c *ChatInput) paintChipRow(
+	s *components.Surface,
+	x, y, width int,
+	prefix string,
+	names []string,
+	method xui.WidthMethod,
+) {
 	th := c.Theme
 	if th.Success.Fg.Kind == 0 && th.Foreground.Fg.Kind == 0 {
 		th = components.DefaultTheme()
@@ -592,8 +662,8 @@ func (c *ChatInput) paintPendingSkills(s *components.Surface, x, y, width int, m
 	nameSt.Bold = false
 	nameSt.Underline = true
 
-	spans := []components.Span{{Text: "Skills: ", Style: labelSt}}
-	for i, name := range c.PendingSkills {
+	spans := []components.Span{{Text: prefix, Style: labelSt}}
+	for i, name := range names {
 		if i > 0 {
 			spans = append(spans, components.Span{Text: " ", Style: labelSt})
 		}

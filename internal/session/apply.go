@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"maps"
 	"slices"
+
+	"github.com/pulseaiclub/phi/internal/llm"
 )
 
 // Apply returns a new snapshot with ev applied (immutable reducer).
@@ -20,9 +22,11 @@ func Apply(s Snapshot, ev Event) Snapshot {
 			id = fmt.Sprintf("user-%d", len(out.Messages)+1)
 		}
 		out.Messages = append(out.Messages, Message{
-			ID:   id,
-			Role: RoleUser,
-			Text: e.Text,
+			ID:        id,
+			Role:      RoleUser,
+			Text:      e.Text,
+			Images:    append([]string(nil), e.Images...),
+			ImageData: append([]llm.Image(nil), e.ImageData...),
 		})
 	case LocalBashStart:
 		id := e.ID

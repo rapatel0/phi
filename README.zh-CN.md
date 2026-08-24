@@ -238,7 +238,7 @@ Anthropic Messages API；其余走 OpenAI 兼容的 `/chat/completions` 路径�
 | `phi update --check` | 只查询最新版本，不安装 |
 | `phi sessions list` | 列出当前目录的持久化会话 |
 | `/sessions` | 列出当前目录的会话（TUI 内） |
-| `/resume <id>` | 按 id 或唯一前缀恢复会话（TUI 内） |
+| `/resume` | 恢复本目录最近一次会话；`/resume <id>` 指定 id 或唯一前缀 |
 | `/clear` | 开启一个全新的空会话（TUI 内） |
 | `!command` | 在本地运行 shell 命令，把输出流式写入对话记录；`Esc` 取消 |
 
@@ -252,7 +252,7 @@ Anthropic Messages API；其余走 OpenAI 兼容的 `/chat/completions` 路径�
 
 - `phi sessions list` —— 列出当前目录的会话 id、修改时间和预览
 - TUI 内 `/sessions` —— 同上，在应用内查看
-- `/resume <id>` —— 继续一个会话（id 或唯一前缀）
+- `/resume` —— 继续本目录最近一次会话（`/resume <id>` 指定 id 或唯一前缀）
 - `/clear` —— 开启全新会话（新 id、空对话记录）
 - `phi run --session <id>` / `phi run --continue-last` —— 无头模式恢复会话
 

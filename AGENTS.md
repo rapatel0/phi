@@ -12,10 +12,11 @@ Minimal Go terminal coding-agent harness. Layout: [doc/project-layout.md](doc/pr
 
 - **Tool loop is PreHooks → Gate/Ask → Run → PostHooks.** Don't bypass the permission gate when changing the executor. Don't put MCP server tool schemas on the model — only `mcp_list` / `mcp_inspect` / `mcp_call`.
 - **Keep hashline `edit`.** Don't replace it with whole-file rewrite. Stale `@file path#TAG` / `LINE#HASH` must fail closed.
-- **Sub-agent transcripts stay under `~/.phi/jobs/<id>/`.** Parent context gets the wait/task summary only. Child engines have no `agent_*` tools (no nesting). Default child role is explore (read-only).
+- **Sub-agent transcripts stay under `~/.phi/jobs/<id>/`.** Parent context gets the wait/task summary only. Child engines have no `agent_*` tools (no nesting). Default child role is explore (read-only). The TUI **views** a child in a popup (Ctrl+O); **steer** (Ctrl+I) is opt-in attach. Don't swap the parent `Controller.engine` pointer — route through the child hub.
 - **UI split:** `internal/components` render; `internal/tui` wires the shell. Non-shell pieces live under `internal/tui/controller` (Engine/Bus/Msg), `internal/tui/transcript` (Mapper); version in `internal/version`. Keep widgets dumb.
 - **TUI assembly:** `cmd` constructs `controller.Bus` / `controller.Controller` / App / `commands.NewBuiltinRegistry()` and passes them into `editor.NewEditor(...)`. Do not hide `GetDefaultProject` inside `tui` constructors; do not return half-initialized Controllers (`engineErr` zombies). Prefer constructor parameters over `XxxDeps` bags.
 - **Stay lean.** Direct module deps are few on purpose. Don't add a dependency without a clear need.
+- **Go extensions** live under `internal/ext/<name>` and `ext.Register` in `init`. Wire new ones with a blank import in `cmd/plugins.go`. Do not add a `.so` plugin loader.
 - **Format with `make fmt`** (gofumpt / goimports / golines, 120 cols, local prefix `github.com/pulseaiclub/phi`). Don't hand-fight import groups.
 - **`testing` / `testify` stay in `*_test.go`.** `depguard` will fail the lint otherwise.
 - After dependency changes: `go mod tidy`. `go.mod` is not generated.

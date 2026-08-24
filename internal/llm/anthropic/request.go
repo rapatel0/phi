@@ -1,6 +1,11 @@
 package anthropic
 
-import "encoding/json"
+import (
+	"encoding/base64"
+	"encoding/json"
+
+	"github.com/pulseaiclub/phi/internal/llm"
+)
 
 type cacheControl struct {
 	Type string `json:"type"`
@@ -36,14 +41,21 @@ type sysBlock struct {
 
 // anthropicContentBlock represents a single content block inside an Anthropic message.
 type anthropicContentBlock struct {
-	Type         string          `json:"type"`
-	Text         string          `json:"text,omitempty"`
-	ID           string          `json:"id,omitempty"`
-	Name         string          `json:"name,omitempty"`
-	Input        json.RawMessage `json:"input,omitempty"`
-	ToolUseID    string          `json:"tool_use_id,omitempty"`
-	Content      string          `json:"content,omitempty"`
-	CacheControl *cacheControl   `json:"cache_control,omitempty"`
+	Type         string                `json:"type"`
+	Text         string                `json:"text,omitempty"`
+	ID           string                `json:"id,omitempty"`
+	Name         string                `json:"name,omitempty"`
+	Input        json.RawMessage       `json:"input,omitempty"`
+	ToolUseID    string                `json:"tool_use_id,omitempty"`
+	Content      string                `json:"content,omitempty"`
+	Source       *anthropicImageSource `json:"source,omitempty"`
+	CacheControl *cacheControl         `json:"cache_control,omitempty"`
+}
+
+type anthropicImageSource struct {
+	Type      string `json:"type"`
+	MediaType string `json:"media_type"`
+	Data      string `json:"data"`
 }
 
 func resolveCacheControl() *cacheControl {
@@ -51,4 +63,35 @@ func resolveCacheControl() *cacheControl {
 		Type: "ephemeral",
 		TTL:  "1h",
 	}
+}
+
+func userContent(m llm.Message) any {
+	if !m.HasImages() {
+		return m.Content
+	}
+	var blocks []anthropicContentBlock
+	if m.Content != "" {
+		blocks = append(blocks, anthropicContentBlock{Type: "text", Text: m.Content})
+	}
+	blocks = append(blocks, imageBlocks(m.Images)...)
+	return blocks
+}
+
+func imageBlocks(images []llm.Image) []anthropicContentBlock {
+	var blocks []anthropicContentBlock
+	for _, img := range images {
+		mime := img.MIME
+		if mime == "" {
+			mime = "image/png"
+		}
+		blocks = append(blocks, anthropicContentBlock{
+			Type: "image",
+			Source: &anthropicImageSource{
+				Type:      "base64",
+				MediaType: mime,
+				Data:      base64.StdEncoding.EncodeToString(img.Data),
+			},
+		})
+	}
+	return blocks
 }

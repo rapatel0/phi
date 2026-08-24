@@ -71,6 +71,17 @@ Then start the TUI:
 phi
 ```
 
+Or log in with a subscription instead of an API key:
+
+```sh
+phi login anthropic   # Claude Pro/Max (browser)
+phi login codex       # ChatGPT Codex (device code)
+```
+
+Tokens are stored in `~/.phi/auth.json`. A model entry can omit `api_key` when a matching login exists. `models[].api_key` and `PHI_API_KEY` still win when set.
+
+Also: `phi login xai` (SuperGrok device code) and `phi login gemini` (AI Studio key), or `XAI_API_KEY` / `GEMINI_API_KEY`. Pi package analogs are listed in [doc/plugins.md](doc/plugins.md).
+
 Or build from source (Go 1.26.3+, see `go.mod`):
 
 ```sh
@@ -124,6 +135,10 @@ models:
     api_key: sk-ant-...
     base_url: https://api.anthropic.com
     context_window: 200000
+
+`phi login anthropic` / `codex` / `xai` / `gemini` also adds that provider's
+models to the TUI palette (Ctrl+K → settings → model) without editing this
+file. Config `api_key` still wins over OAuth.
 
 skill_path: ~/.phi/skills # where SKILL.md files are loaded from
 
@@ -204,7 +219,8 @@ syntax highlighting. Structural markers (`#`, `` ` ``, `*`) are stripped.
 The editor supports:
 
 - `@` — fuzzy file mention picker (type `@` and start typing a path)
-- `/` — slash command picker (`/sessions`, `/resume`, `/clear`)
+- `/` — slash command picker (`/sessions`, `/resume`, `/clear`, `/image`)
+- paste a screenshot path or **Ctrl+V** — attach a clipboard image to the next message (inline preview in Kitty/Ghostty)
 - `!command` — run a shell command locally and stream its output into the
   transcript (see [Commands](#commands))
 - `Ctrl+K` — command palette: settings → model / theme / permissions / agents, skills, hooks
@@ -214,8 +230,13 @@ The editor supports:
 | Key            | Action                          |
 | -------------- | ------------------------------- |
 | `Ctrl+C`       | Quit phi                        |
-| `Esc`          | Cancel the running agent / close pickers |
+| `Esc`          | Cancel stream / close pickers / close sub-agent view / detach |
 | `Ctrl+K`       | Toggle the command palette      |
+| `Ctrl+B` / `Ctrl+T` | Toggle the TASKS sidebar (Ctrl+T if Ctrl+B is tmux) |
+| `Ctrl+O`       | View selected/latest sub-agent transcript (popup) |
+| `Ctrl+I`       | (in sub-agent view) steer — composer talks to that child |
+| `Ctrl+Enter`   | View the selected TASKS row |
+| `Ctrl+V`       | Attach an image from the clipboard |
 | `Ctrl+Shift+C` | Copy the selected transcript text |
 
 Themes: `Dark`, `Darcula`, `Pink`, and `Terminal` (default), switchable from
@@ -231,8 +252,9 @@ the palette under settings → theme.
 | `phi update --check` | Query the latest release without installing |
 | `phi sessions list`| List persisted sessions for this directory    |
 | `/sessions`        | List sessions for this directory (TUI)        |
-| `/resume <id>`     | Resume a session by id or unique prefix (TUI) |
+| `/resume`          | Resume the latest session; `/resume <id>` for a specific one |
 | `/clear`           | Start a fresh empty session (TUI)             |
+| `/image`           | Attach clipboard image; `/image <path>` for a file |
 | `!command`         | Run a shell command locally, stream output into the transcript; `Esc` cancels it |
 
 In the TUI, `!command` runs locally via `bash -c` — outside the agent loop. It
@@ -247,7 +269,7 @@ Sessions persist automatically per working directory under
 - `phi sessions list` — list session id, mtime, and preview for the current
   directory
 - `/sessions` in the TUI — same, in-app
-- `/resume <id>` — continue a session (id or unique prefix)
+- `/resume` — continue the latest session for this directory (`/resume <id>` for a prefix/id)
 - `/clear` — start a fresh session (new id, empty transcript)
 - `phi run --session <id>` / `phi run --continue-last` — resume headlessly
 

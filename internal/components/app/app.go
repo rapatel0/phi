@@ -9,6 +9,8 @@ import (
 	"github.com/pulseaiclub/phi/internal/components/chat"
 	"github.com/pulseaiclub/phi/internal/components/input"
 	"github.com/pulseaiclub/phi/internal/components/palette"
+	"github.com/pulseaiclub/phi/internal/llm"
+	"github.com/pulseaiclub/phi/internal/termimg"
 )
 
 // App is the vxfw-style application runtime.
@@ -261,5 +263,19 @@ func (a *App) draw() error {
 	} else {
 		a.vx.Screen().ClearCursor()
 	}
-	return a.vx.Render()
+	if err := a.vx.Render(); err != nil {
+		return err
+	}
+	if termimg.Supported() {
+		gfx := components.CollectGraphics(surf, 0, 0, cols, rows)
+		places := make([]termimg.Placement, 0, len(gfx))
+		for _, g := range gfx {
+			places = append(places, termimg.Placement{
+				X: g.X, Y: g.Y, Cols: g.Cols, Rows: g.Rows,
+				Image: llm.Image{MIME: g.MIME, Data: g.Data, Filename: g.Filename},
+			})
+		}
+		termimg.Paint(a.vx, places)
+	}
+	return nil
 }

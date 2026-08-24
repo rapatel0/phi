@@ -18,6 +18,9 @@ func (g GlobalLayout) Root() string { return g.root }
 // ConfigFile returns the path to the global config file.
 func (g GlobalLayout) ConfigFile() string { return filepath.Join(g.root, "config.yaml") }
 
+// AuthFile returns the OAuth credential store (~/.phi/auth.json).
+func (g GlobalLayout) AuthFile() string { return filepath.Join(g.root, "auth.json") }
+
 // BinDir returns the directory for downloaded tool binaries.
 func (g GlobalLayout) BinDir() string { return filepath.Join(g.root, "bin") }
 

@@ -1,6 +1,17 @@
 package session
 
-import "testing"
+import (
+	"strings"
+	"testing"
+)
+
+func TestUserAppendImagesProject(t *testing.T) {
+	s := Apply(Snapshot{}, UserAppend{ID: "u1", Images: []string{"shot.png"}})
+	items := Project(s)
+	if len(items) != 1 || !strings.Contains(items[0].Text, "shot.png") {
+		t.Fatalf("items %+v", items)
+	}
+}
 
 func TestApplyStreamingUpdates(t *testing.T) {
 	var s Snapshot

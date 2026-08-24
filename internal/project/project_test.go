@@ -7,6 +7,8 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/pulseaiclub/phi/internal/auth"
 )
 
 // discoverInTempHome runs Discover("") with HOME redirected to a temp dir so
@@ -281,4 +283,66 @@ models:
 	cfg := p.Config()
 	assert.Empty(t, cfg.DefaultModel)
 	assert.Equal(t, "first", cfg.Model().Name)
+}
+
+func TestLoadConfigInjectsLoggedInCatalog(t *testing.T) {
+	p := discoverInTempHome(t)
+	t.Setenv("XAI_API_KEY", "")
+	t.Setenv("GEMINI_API_KEY", "")
+	t.Setenv("GOOGLE_API_KEY", "")
+	require.NoError(t, os.WriteFile(p.Global().ConfigFile(), []byte(`
+models:
+  - name: local
+    api_key: k
+    default: true
+`), 0o644))
+	st := auth.OpenStore(p.Global().AuthFile())
+	require.NoError(t, st.Put(auth.Credential{Provider: auth.ProviderAnthropic, AccessToken: "sk-ant-oat-x"}))
+	require.NoError(t, st.Put(auth.Credential{Provider: auth.ProviderCodex, AccessToken: "oat-codex"}))
+
+	require.NoError(t, p.LoadConfig())
+	cfg := p.Config()
+	assert.Equal(t, "local", cfg.Model().Name)
+	claude, ok := cfg.FindModel("claude-sonnet-5")
+	require.True(t, ok)
+	assert.Equal(t, "sk-ant-oat-x", claude.APIKey)
+	assert.Equal(t, "https://api.anthropic.com", claude.BaseURL)
+	codex, ok := cfg.FindModel("gpt-5.5")
+	require.True(t, ok)
+	assert.Equal(t, "oat-codex", codex.APIKey)
+	_, ok = cfg.FindModel("grok-4.6")
+	assert.False(t, ok)
+}
+
+func TestLoadConfigInjectsEnvGrokGemini(t *testing.T) {
+	p := discoverInTempHome(t)
+	require.NoError(t, os.WriteFile(p.Global().ConfigFile(), []byte(`
+models:
+  - name: local
+    api_key: k
+`), 0o644))
+	t.Setenv("XAI_API_KEY", "xai-k")
+	t.Setenv("GEMINI_API_KEY", "gem-k")
+
+	require.NoError(t, p.LoadConfig())
+	cfg := p.Config()
+	grok, ok := cfg.FindModel("grok-4.6")
+	require.True(t, ok)
+	assert.Equal(t, "xai-k", grok.APIKey)
+	gem, ok := cfg.FindModel("gemini-2.5-flash")
+	require.True(t, ok)
+	assert.Equal(t, "gem-k", gem.APIKey)
+}
+
+func TestLoadConfigOAuthOnly(t *testing.T) {
+	p := discoverInTempHome(t)
+	t.Setenv("PHI_MODEL", "")
+	t.Setenv("PHI_API_KEY", "")
+	st := auth.OpenStore(p.Global().AuthFile())
+	require.NoError(t, st.Put(auth.Credential{Provider: auth.ProviderAnthropic, AccessToken: "sk-ant-oat-x"}))
+
+	require.NoError(t, p.LoadConfig())
+	cfg := p.Config()
+	assert.Equal(t, "claude-opus-5", cfg.Model().Name)
+	assert.Equal(t, "sk-ant-oat-x", cfg.Model().APIKey)
 }

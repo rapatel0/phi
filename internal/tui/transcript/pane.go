@@ -77,6 +77,13 @@ func NewTranscriptPane(theme components.Theme, spin *status.Spinner, brand strin
 	return t
 }
 
+// SetOnOpenJob is called when the user opens a sub-agent card.
+func (t *TranscriptPane) SetOnOpenJob(fn func(jobID string)) {
+	if t != nil && t.mapper != nil {
+		t.mapper.OnOpenJob = fn
+	}
+}
+
 // SetUsageCallback fires when an assistant message reports token usage.
 func (t *TranscriptPane) SetUsageCallback(fn func(session.TokenUsage)) {
 	if t != nil {
@@ -143,6 +150,17 @@ func (t *TranscriptPane) StickToBottom() {
 	}
 }
 
+// ScrollBy moves the transcript by rows (positive = older / up).
+func (t *TranscriptPane) ScrollBy(rows int) {
+	if t == nil {
+		return
+	}
+	t.list.ScrollFromBottom += rows
+	if t.list.ScrollFromBottom < 0 {
+		t.list.ScrollFromBottom = 0
+	}
+}
+
 // ListHeight is the last drawn transcript area height (for picker anchoring).
 func (t *TranscriptPane) ListHeight() int {
 	if t == nil {
@@ -196,6 +214,35 @@ func (t *TranscriptPane) Sync() {
 	t.list.Entries = entries
 	t.listIDs = ids
 	t.list.InvalidateHeightsAt(dirty...)
+}
+
+// TakeSubagents replaces the nested-job store and returns the previous one.
+func (t *TranscriptPane) TakeSubagents() *SubagentStore {
+	if t == nil {
+		return nil
+	}
+	old := t.subagents
+	t.subagents = NewSubagentStore()
+	if t.mapper != nil {
+		t.mapper.Children = t.subagents.Children
+		t.mapper.ChildrenByJob = t.subagents.ChildrenByJob
+	}
+	return old
+}
+
+// RestoreSubagents puts a previously taken store back (nil → empty).
+func (t *TranscriptPane) RestoreSubagents(s *SubagentStore) {
+	if t == nil {
+		return
+	}
+	if s == nil {
+		s = NewSubagentStore()
+	}
+	t.subagents = s
+	if t.mapper != nil {
+		t.mapper.Children = s.Children
+		t.mapper.ChildrenByJob = s.ChildrenByJob
+	}
 }
 
 // LoadReplay replaces snap and clears widget cache after ctrl replay.

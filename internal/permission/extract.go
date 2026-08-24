@@ -37,6 +37,20 @@ func ExtractAt(toolName string, args json.RawMessage, cwd string) (Request, erro
 		req.Action = ActionRead
 		return withPath(req, in.Path, cwd)
 
+	case "read_image":
+		var in struct {
+			FilePath string `json:"file_path"`
+		}
+		if err := json.Unmarshal(args, &in); err != nil {
+			return req, fmt.Errorf("read_image args: %w", err)
+		}
+		req.Action = ActionRead
+		path := strings.TrimSpace(in.FilePath)
+		if strings.HasPrefix(path, "https://") || strings.HasPrefix(path, "http://") {
+			return req, nil
+		}
+		return withPath(req, path, cwd)
+
 	case "write":
 		var in struct {
 			Path string `json:"path"`

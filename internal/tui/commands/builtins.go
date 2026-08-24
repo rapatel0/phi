@@ -3,12 +3,10 @@ package commands
 import (
 	"fmt"
 	"strings"
-	"time"
 
 	"github.com/pulseaiclub/phi/internal/components"
 	"github.com/pulseaiclub/phi/internal/components/mention"
 	"github.com/pulseaiclub/phi/internal/components/palette"
-	"github.com/pulseaiclub/phi/internal/components/toast"
 	"github.com/pulseaiclub/phi/internal/hooks"
 	"github.com/pulseaiclub/phi/internal/llm/skills"
 )
@@ -35,16 +33,16 @@ func registerBuiltinCommands(r *CommandRegistry) {
 	})
 	r.Register(Command{
 		Name:        "resume",
-		Description: "Resume a session in this directory — /resume <id>",
+		Description: "Resume the latest session (or /resume <id>)",
 		Slash:       true,
-		Insert:      "/resume ",
+		Insert:      "/resume",
 		Run: func(ctx CommandContext) error {
-			if len(ctx.Args) < 1 {
-				ctx.toast("Usage: /resume <session-id>", toast.ToastWarning, 3*time.Second)
-				return nil
+			id := ""
+			if len(ctx.Args) >= 1 {
+				id = ctx.Args[0]
 			}
 			if ctx.ResumeSession != nil {
-				ctx.ResumeSession(ctx.Args[0])
+				ctx.ResumeSession(id)
 			}
 			return nil
 		},
@@ -57,6 +55,24 @@ func registerBuiltinCommands(r *CommandRegistry) {
 		Run: func(ctx CommandContext) error {
 			if ctx.ClearSession != nil {
 				ctx.ClearSession()
+			}
+			return nil
+		},
+	})
+	r.Register(Command{
+		Name:        "image",
+		Description: "Attach an image from the clipboard (or /image <path>)",
+		Slash:       true,
+		Insert:      "/image",
+		Run: func(ctx CommandContext) error {
+			if len(ctx.Args) >= 1 {
+				if ctx.AttachImagePath != nil {
+					ctx.AttachImagePath(strings.Join(ctx.Args, " "))
+				}
+				return nil
+			}
+			if ctx.PasteImage != nil {
+				ctx.PasteImage()
 			}
 			return nil
 		},

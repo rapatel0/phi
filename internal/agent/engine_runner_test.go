@@ -39,6 +39,45 @@ func jsonMarshalDelta(content string) string {
 	return `{"choices":[{"delta":{"role":"assistant","content":"` + content + `"}}]}`
 }
 
+type recordingHub struct {
+	binds int
+	done  int
+	evs   []session.Event
+}
+
+func (h *recordingHub) BindChild(_ job.Meta, _ *agent.Engine) { h.binds++ }
+func (h *recordingHub) FinishChild(string)                    { h.done++ }
+func (h *recordingHub) EmitChild(_ string, ev session.Event) {
+	if ev != nil {
+		h.evs = append(h.evs, ev)
+	}
+}
+
+func TestEngineRunnerHubSeesEvents(t *testing.T) {
+	srv := textOnlySSEServer("hello from child")
+	defer srv.Close()
+	hub := &recordingHub{}
+	mgr, err := job.New(job.Options{
+		Root: t.TempDir(),
+		Runner: agent.EngineRunner{
+			Model: llm.ModelConfig{Name: "fake", BaseURL: srv.URL, APIKey: "x"},
+			Hub:   hub,
+		},
+	})
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = mgr.Close(t.Context()) })
+
+	info, err := mgr.Spawn(t.Context(), job.SpawnRequest{Prompt: "go", WorkDir: t.TempDir()})
+	require.NoError(t, err)
+	_, err = mgr.Wait(t.Context(), info.ID)
+	require.NoError(t, err)
+	assert.Equal(t, 1, hub.binds)
+	assert.Equal(t, 1, hub.done)
+	require.NotEmpty(t, hub.evs)
+	_, ok := hub.evs[0].(session.UserAppend)
+	assert.True(t, ok, "first event should be the spawn prompt")
+}
+
 func TestEngineRunnerViaJobManager(t *testing.T) {
 	srv := textOnlySSEServer("explored auth module; see internal/auth/login.go")
 	defer srv.Close()

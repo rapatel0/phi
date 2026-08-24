@@ -1,6 +1,7 @@
 package project
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"os"
@@ -8,6 +9,7 @@ import (
 
 	"gopkg.in/yaml.v3"
 
+	"github.com/pulseaiclub/phi/internal/auth"
 	"github.com/pulseaiclub/phi/internal/llm"
 	"github.com/pulseaiclub/phi/internal/permission"
 )
@@ -90,20 +92,38 @@ func loadConfig(global GlobalLayout) (*Config, error) {
 		return nil, err
 	}
 	applyEnvOverrides(cfg)
+	injectAuthModels(cfg, global.AuthFile())
+	applyProviderEnvKeys(cfg)
 
 	if len(cfg.Models) == 0 {
-		return nil, fmt.Errorf("missing models (add at least one model in %s)", global.ConfigFile())
+		return nil, fmt.Errorf("missing models (add at least one model in %s, or run phi login)", global.ConfigFile())
 	}
 	def := cfg.defaultEntry()
 	if def.Name == "" {
 		return nil, fmt.Errorf("missing model name (set PHI_MODEL or models[].name in %s)", global.ConfigFile())
 	}
+	if err := applyOAuthKeys(cfg, global.AuthFile()); err != nil {
+		return nil, err
+	}
 	if def.APIKey == "" {
-		return nil, fmt.Errorf("missing api_key (set PHI_API_KEY or models[].api_key in %s)", global.ConfigFile())
+		return nil, fmt.Errorf(
+			"missing api_key (set PHI_API_KEY or models[].api_key in %s, or run phi login anthropic / phi login codex)",
+			global.ConfigFile(),
+		)
 	}
 	for i := range cfg.Models {
 		if cfg.Models[i].BaseURL == "" {
-			cfg.Models[i].BaseURL = "https://api.openai.com/v1"
+			name := strings.ToLower(cfg.Models[i].Name)
+			switch {
+			case strings.HasPrefix(name, "claude"):
+				cfg.Models[i].BaseURL = "https://api.anthropic.com"
+			case strings.HasPrefix(name, "gemini"):
+				cfg.Models[i].BaseURL = "https://generativelanguage.googleapis.com/v1beta"
+			case strings.HasPrefix(name, "grok"):
+				cfg.Models[i].BaseURL = "https://api.x.ai/v1"
+			default:
+				cfg.Models[i].BaseURL = "https://api.openai.com/v1"
+			}
 		}
 	}
 	if cfg.SkillPath == "" {
@@ -273,6 +293,51 @@ func parseDecision(val string, def permission.Decision) permission.Decision {
 	}
 }
 
+func applyOAuthKeys(c *Config, authFile string) error {
+	ctx := context.Background()
+	for i := range c.Models {
+		if err := auth.Apply(ctx, &c.Models[i], authFile); err != nil {
+			return fmt.Errorf("oauth: %w", err)
+		}
+	}
+	return nil
+}
+
+// injectAuthModels appends catalog models for logged-in (or env-keyed)
+// providers so they show up in the TUI palette without editing config.yaml.
+func injectAuthModels(c *Config, authFile string) {
+	if c == nil {
+		return
+	}
+	seen := make(map[string]struct{}, len(c.Models))
+	for _, m := range c.Models {
+		if m.Name != "" {
+			seen[m.Name] = struct{}{}
+		}
+	}
+	add := func(models []llm.ModelConfig) {
+		for _, m := range models {
+			if m.Name == "" {
+				continue
+			}
+			if _, ok := seen[m.Name]; ok {
+				continue
+			}
+			seen[m.Name] = struct{}{}
+			c.Models = append(c.Models, m)
+		}
+	}
+	for _, p := range auth.OpenStore(authFile).Providers() {
+		add(auth.Catalog(p))
+	}
+	if firstEnv("XAI_API_KEY") != "" {
+		add(auth.Catalog(auth.ProviderXAI))
+	}
+	if firstEnv("GEMINI_API_KEY", "GOOGLE_API_KEY") != "" {
+		add(auth.Catalog(auth.ProviderGemini))
+	}
+}
+
 func applyEnvOverrides(c *Config) {
 	if v := firstEnv("PHI_API_KEY"); v != "" {
 		c.defaultEntry().APIKey = v
@@ -286,6 +351,26 @@ func applyEnvOverrides(c *Config) {
 	}
 	if v := firstEnv("PHI_SKILL_PATH"); v != "" {
 		c.SkillPath = v
+	}
+	applyProviderEnvKeys(c)
+}
+
+func applyProviderEnvKeys(c *Config) {
+	for i := range c.Models {
+		if c.Models[i].APIKey != "" {
+			continue
+		}
+		name := strings.ToLower(c.Models[i].Name)
+		if strings.HasPrefix(name, "gemini") {
+			if v := firstEnv("GEMINI_API_KEY", "GOOGLE_API_KEY"); v != "" {
+				c.Models[i].APIKey = v
+			}
+		}
+		if strings.HasPrefix(name, "grok") {
+			if v := firstEnv("XAI_API_KEY"); v != "" {
+				c.Models[i].APIKey = v
+			}
+		}
 	}
 }
 

@@ -69,12 +69,20 @@ func BuildRequest(
 		}
 		msgs = append(msgs, m)
 	}
+	oauth := isOAuth(cfg)
+	if oauth {
+		req.System = append(req.System, sysBlock{
+			Type:         "text",
+			Text:         oauthIdentity,
+			CacheControl: cc,
+		})
+	}
 	if systemText.Len() > 0 {
-		req.System = []sysBlock{{
+		req.System = append(req.System, sysBlock{
 			Type:         "text",
 			Text:         systemText.String(),
 			CacheControl: cc,
-		}}
+		})
 	}
 
 	for i := 0; i < len(msgs); i++ {
@@ -83,7 +91,7 @@ func BuildRequest(
 		case llm.RoleUser:
 			req.Messages = append(req.Messages, anthropicMessage{
 				Role:    "user",
-				Content: m.Content,
+				Content: userContent(m),
 			})
 
 		case llm.RoleAssistant:
@@ -97,7 +105,7 @@ func BuildRequest(
 					blocks = append(blocks, anthropicContentBlock{
 						Type:  "tool_use",
 						ID:    normalizeToolCallID(tc.ID),
-						Name:  tc.Function.Name,
+						Name:  outboundToolName(tc.Function.Name, oauth),
 						Input: toolUseInput(tc.Function.Arguments),
 					})
 				}
@@ -109,6 +117,7 @@ func BuildRequest(
 
 		case llm.RoleTool:
 			blocks := make([]anthropicContentBlock, 0, 1)
+			var vision []llm.Image
 			for i < len(msgs) && msgs[i].Role == llm.RoleTool {
 				tm := msgs[i]
 				blocks = append(blocks, anthropicContentBlock{
@@ -116,9 +125,11 @@ func BuildRequest(
 					ToolUseID: normalizeToolCallID(tm.ToolCallID),
 					Content:   tm.Content,
 				})
+				vision = append(vision, tm.Images...)
 				i++
 			}
 			i--
+			blocks = append(blocks, imageBlocks(vision)...)
 			req.Messages = append(req.Messages, anthropicMessage{
 				Role:    "user",
 				Content: blocks,
@@ -148,7 +159,7 @@ func BuildRequest(
 			params = json.RawMessage("{}")
 		}
 		tool := anthropicTool{
-			Name:        t.Name,
+			Name:        outboundToolName(t.Name, oauth),
 			Description: t.Description,
 			InputSchema: params,
 		}
@@ -210,7 +221,7 @@ func Stream(
 			return
 		}
 		httpReq.Header.Set("Content-Type", "application/json")
-		httpReq.Header.Set("X-Api-Key", cfg.APIKey)
+		setAuthHeaders(httpReq, cfg)
 		httpReq.Header.Set("Anthropic-Version", apiVersion)
 		httpReq.Header.Set("Accept", util.ContentEventStream)
 
@@ -227,11 +238,11 @@ func Stream(
 			return
 		}
 
-		processStream(httpResp.Body, yield)
+		processStream(httpResp.Body, isOAuth(cfg), yield)
 	}
 }
 
-func processStream(body io.Reader, yield func(llm.StreamEvent, error) bool) {
+func processStream(body io.Reader, oauth bool, yield func(llm.StreamEvent, error) bool) {
 	var (
 		content     strings.Builder
 		reasoning   strings.Builder
@@ -300,7 +311,7 @@ func processStream(body io.Reader, yield func(llm.StreamEvent, error) bool) {
 					ID:    block.ContentBlock.ID,
 					Type:  "function",
 					Function: llm.Function{
-						Name: block.ContentBlock.Name,
+						Name: inboundToolName(block.ContentBlock.Name, oauth),
 					},
 				}
 			}
@@ -431,7 +442,7 @@ func Compact(ctx context.Context, httpClient *http.Client, cfg llm.ModelConfig, 
 		return "", err
 	}
 	httpReq.Header.Set("Content-Type", "application/json")
-	httpReq.Header.Set("X-Api-Key", cfg.APIKey)
+	setAuthHeaders(httpReq, cfg)
 	httpReq.Header.Set("Anthropic-Version", apiVersion)
 
 	httpResp, err := util.DoWithRetry(httpClient, httpReq)

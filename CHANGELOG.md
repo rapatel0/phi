@@ -10,6 +10,14 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ### Added
 
+- Go extension host (`internal/ext`): compiled-in plugins register tools and footer bits. Bundled: `tokenspeed`, `todo_write`, `ask_user_question`.
+- Gemini (`internal/llm/gemini`) and SuperGrok/xAI (`phi login xai`, `https://api.x.ai/v1`). See [doc/plugins.md](doc/plugins.md).
+- `phi login anthropic` / `phi login codex`: Claude Pro/Max (PKCE) and ChatGPT Codex (device code) OAuth. Tokens live in `~/.phi/auth.json`; config `api_key` still wins. OAuth Anthropic requests use Claude Code identity headers and tool names so subscription billing applies.
+- Image attach: Ctrl+V (clipboard), paste/drag a `.png`/`.jpg`/`.gif`/`.webp` path, or `/image` / `/image <path>`. Multipart vision content for Anthropic, OpenAI, Codex, and Gemini. Composer shows an `Images:` chip; backspace pops the last attach. Kitty/Ghostty terminals render attached images inline (Kitty graphics protocol; `PHI_KITTY_GRAPHICS=0` to disable).
+- `read_image` tool (from pi-go): the agent can look at local images or `https://` URLs (SSRF-gated). `read` on an image/PDF/binary now points at `read_image` / `pdftotext` instead of dumping bytes. Vision parts are injected on the next model turn.
+- TUI task sidebar (Ctrl+B): live/recent sub-agent jobs. Enter on an `agent_spawn` card, Ctrl+Enter on a TASKS row, or **Ctrl+O** opens a scrollable **view** popup (composer stays on the parent). **Ctrl+I** in that popup steers (opt-in attach). Esc closes the view or, while steering, returns to the parent.
+- Sub-agent cards use the spawn description as the title and collapse when the job finishes.
+
 - `phi run --yolo`: skip all permission checks for one headless run (benchmarks / CI).
 - Hooks: session lifecycle events now include `usage` — token counts of the latest completed assistant turn.
 - Hooks: `post_turn` event fires after each completed assistant stream with per-round `usage` (for audit metrics such as cache hit ratio).
@@ -21,6 +29,10 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 ### Removed
 
 ### Fixed
+
+- Ctrl+B hid the TASKS sidebar for one frame then immediately re-showed it whenever sub-agents were running. Hide is now sticky until you toggle again. `Ctrl+T` is the same binding (tmux eats Ctrl+B).
+- `/resume` with no id now continues the latest session for this directory (it used to only print usage). Replay restores tool rows and sub-agent cards, not just user/assistant text.
+- TUI model palette only listed `config.yaml` entries, so Anthropic / Codex / Grok / Gemini never appeared after `phi login`. Logged-in (or env-keyed) providers now inject their catalog into settings → model.
 
 ### Security
 

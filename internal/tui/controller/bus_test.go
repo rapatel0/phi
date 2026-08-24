@@ -51,6 +51,20 @@ func TestBusCoalesceNonAdjacentAssistant(t *testing.T) {
 	}
 }
 
+func TestBusDoesNotCoalesceParentAndChildAssistant(t *testing.T) {
+	b := controller.NewBus(nil)
+	b.Publish(controller.SessionEventMsg{Event: session.AssistantMessageUpdate{Message: session.Message{
+		ID: "p", Text: "parent", State: session.StateStreaming,
+	}}})
+	b.Publish(controller.SessionEventMsg{JobID: "child", Event: session.AssistantMessageUpdate{Message: session.Message{
+		ID: "c", Text: "child", State: session.StateStreaming,
+	}}})
+	batch := b.Drain()
+	if len(batch) != 2 {
+		t.Fatalf("len=%d want 2 (parent and child streams stay distinct)", len(batch))
+	}
+}
+
 func TestBusCoalesceJobProgressAcrossSession(t *testing.T) {
 	b := controller.NewBus(nil)
 	b.Publish(controller.JobProgressMsg{Progress: job.Progress{JobID: "j", ToolUseID: "t1", Status: "in-progress"}})

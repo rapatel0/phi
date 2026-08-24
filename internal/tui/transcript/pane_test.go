@@ -67,3 +67,19 @@ func TestTranscriptPane_LoadReplayClearsWidgets(t *testing.T) {
 		t.Fatal("LoadReplay should clear visible entries until snap has items")
 	}
 }
+
+func TestTranscriptPane_TakeAndRestoreSubagents(t *testing.T) {
+	th := components.DefaultTheme()
+	pane := NewTranscriptPane(th, status.NewSpinner(th.ToolName), "Phi test")
+	old := pane.TakeSubagents()
+	if old == nil {
+		t.Fatal("expected previous store")
+	}
+	if pane.subagents == old {
+		t.Fatal("TakeSubagents should replace the store")
+	}
+	pane.RestoreSubagents(old)
+	if pane.subagents != old {
+		t.Fatal("RestoreSubagents should put the store back")
+	}
+}

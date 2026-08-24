@@ -27,12 +27,12 @@ type apiTool struct {
 }
 
 type apiRequest struct {
-	Model         string         `json:"model"`
-	Messages      []llm.Message  `json:"messages"`
-	Tools         []apiTool      `json:"tools,omitempty"`
-	Stream        bool           `json:"stream,omitempty"`
-	StreamOptions *streamOptions `json:"stream_options,omitempty"`
-	ExtraBody     *ExtraBody     `json:"extra_body,omitempty"`
+	Model         string           `json:"model"`
+	Messages      []apiChatMessage `json:"messages"`
+	Tools         []apiTool        `json:"tools,omitempty"`
+	Stream        bool             `json:"stream,omitempty"`
+	StreamOptions *streamOptions   `json:"stream_options,omitempty"`
+	ExtraBody     *ExtraBody       `json:"extra_body,omitempty"`
 }
 
 // ExtraBody holds provider-specific request fields (e.g. DeepSeek thinking).
@@ -61,11 +61,12 @@ type StreamChoice struct {
 // The system prompt is prepended as a system message, mirroring the previous
 // in-client behavior.
 func BuildRequest(cfg llm.ModelConfig, system string, messages []llm.Message, tools []llm.ToolDefinition) *apiRequest {
-	msgs := make([]llm.Message, 0, len(messages)+1)
+	src := make([]llm.Message, 0, len(messages)+1)
 	if strings.TrimSpace(system) != "" {
-		msgs = append(msgs, llm.Message{Role: llm.RoleSystem, Content: system})
+		src = append(src, llm.Message{Role: llm.RoleSystem, Content: system})
 	}
-	msgs = append(msgs, messages...)
+	src = append(src, messages...)
+	msgs := toAPIMessages(src)
 
 	apiTools := make([]apiTool, len(tools))
 	for i, t := range tools {
@@ -96,7 +97,7 @@ func isThinkingModeModel(model string) bool {
 func Compact(ctx context.Context, httpClient *http.Client, cfg llm.ModelConfig, prompt string) (string, error) {
 	body, err := json.Marshal(&apiRequest{
 		Model:    cfg.Name,
-		Messages: []llm.Message{{Role: llm.RoleUser, Content: prompt}},
+		Messages: toAPIMessages([]llm.Message{{Role: llm.RoleUser, Content: prompt}}),
 	})
 	if err != nil {
 		return "", err

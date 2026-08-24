@@ -100,7 +100,11 @@ func (s *Submitter) Submit(text string) {
 
 func (s *Submitter) handleUserInput(text string) {
 	pendingSkills := s.composer.PendingSkills()
-	if (text == "" && len(pendingSkills) == 0) || s.IsBusy() {
+	pendingImages := s.composer.PendingImages()
+	if text == "" && len(pendingSkills) == 0 && len(pendingImages) == 0 {
+		return
+	}
+	if s.IsBusy() && (s.ctrl == nil || !s.ctrl.CanEnqueue()) {
 		return
 	}
 
@@ -111,7 +115,11 @@ func (s *Submitter) handleUserInput(text string) {
 	if display == "" && len(pendingSkills) > 0 {
 		display = "Skills: " + strings.Join(pendingSkills, ", ")
 	}
-	s.transcript.ApplySession(session.UserAppend{Text: display})
+	var labels []string
+	for _, img := range pendingImages {
+		labels = append(labels, img.Label())
+	}
+	s.transcript.ApplySession(session.UserAppend{Text: display, Images: labels, ImageData: pendingImages})
 	s.transcript.Sync()
 	s.transcript.StickToBottom()
 
@@ -119,9 +127,10 @@ func (s *Submitter) handleUserInput(text string) {
 
 	s.composer.ClearInput()
 	s.composer.ClearPendingSkills()
+	s.composer.ClearPendingImages()
 
 	if s.ctrl != nil {
-		s.ctrl.StartPrompt(text, pendingSkills)
+		s.ctrl.StartPrompt(text, pendingSkills, pendingImages)
 	}
 }
 

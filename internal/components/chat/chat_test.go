@@ -92,7 +92,7 @@ func TestChatInputMentionOpenDefersNav(t *testing.T) {
 }
 
 func TestChatInputNewlineModifiers(t *testing.T) {
-	for _, mods := range []xui.Modifiers{xui.ModShift, xui.ModAlt, xui.ModCtrl} {
+	for _, mods := range []xui.Modifiers{xui.ModShift, xui.ModAlt} {
 		c := &ChatInput{MinBodyRows: 3, MaxBodyRows: 8}
 		ctx := &components.EventContext{}
 		c.Handle(ctx, xui.KeyEvent{Code: xui.KeyRune, Rune: 'a', Press: true})
@@ -105,6 +105,19 @@ func TestChatInputNewlineModifiers(t *testing.T) {
 		if c.Value != "a\n" {
 			t.Fatalf("mods=%v value=%q", mods, c.Value)
 		}
+	}
+}
+
+func TestChatInputCtrlEnterDoesNotInsert(t *testing.T) {
+	c := &ChatInput{MinBodyRows: 3, MaxBodyRows: 8}
+	ctx := &components.EventContext{}
+	c.Handle(ctx, xui.KeyEvent{Code: xui.KeyRune, Rune: 'a', Press: true})
+	submitted := false
+	c.OnSubmit = func(string) { submitted = true }
+	ctx = &components.EventContext{}
+	c.Handle(ctx, xui.KeyEvent{Code: xui.KeyEnter, Mods: xui.ModCtrl, Press: true})
+	if submitted || ctx.Consume || c.Value != "a" {
+		t.Fatalf("Ctrl+Enter should bubble, value=%q consume=%v submitted=%v", c.Value, ctx.Consume, submitted)
 	}
 }
 
@@ -209,6 +222,16 @@ func TestSanitizeComposerTextDropsControls(t *testing.T) {
 	}
 	if got := sanitizeComposerText("▎hello"); got != "hello" {
 		t.Fatalf("chrome strip: got %q", got)
+	}
+}
+
+func TestChatInputPendingImages(t *testing.T) {
+	c := ChatInput{MinBodyRows: 3, PendingImages: []string{"shot.png"}}
+	if c.PreferredHeight(40, xui.WidthUnicode) < 6 {
+		t.Fatal("expected extra row for image chips")
+	}
+	if !c.PopPendingImage() || len(c.PendingImages) != 0 {
+		t.Fatal("pop")
 	}
 }
 

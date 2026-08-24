@@ -12,11 +12,14 @@ import (
 // modelFn may be nil; then model is used as a fixed snapshot.
 // hooksFn supplies hooks for child engines (may return nil); prefer a live
 // getter so TUI reload updates sub-agents too.
+// hub is optional (TUI live-attach); pass nil for headless runs.
 func NewJobManager(
 	root string,
 	model llm.ModelConfig,
 	modelFn func() llm.ModelConfig,
 	hooksFn func() *hooks.Manager,
+	authFile string,
+	hub ChildHub,
 ) (*job.Manager, error) {
 	if root == "" {
 		return nil, errors.New("agent: jobs root is required")
@@ -24,9 +27,11 @@ func NewJobManager(
 	return job.New(job.Options{
 		Root: root,
 		Runner: EngineRunner{
-			Model:   model,
-			ModelFn: modelFn,
-			HooksFn: hooksFn,
+			Model:    model,
+			ModelFn:  modelFn,
+			HooksFn:  hooksFn,
+			AuthFile: authFile,
+			Hub:      hub,
 		},
 	})
 }
