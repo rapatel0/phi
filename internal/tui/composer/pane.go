@@ -17,6 +17,7 @@ import (
 	"github.com/rapatel0/alpha/internal/components/sessionpicker"
 	"github.com/rapatel0/alpha/internal/components/toast"
 	"github.com/rapatel0/alpha/internal/llm"
+	"github.com/rapatel0/alpha/internal/llm/skills"
 	"github.com/rapatel0/alpha/internal/media"
 	"github.com/rapatel0/alpha/internal/tui/commands"
 	"github.com/rapatel0/alpha/internal/tui/controller"
@@ -28,12 +29,14 @@ import (
 
 // ComposerPane owns the chat input, slash/@ pickers, and palette.
 type ComposerPane struct {
-	theme components.Theme
-	cwd   string
+	theme     components.Theme
+	cwd       string
+	skillPath string
 
 	Chat     chat.ChatInput
 	mention  mention.Picker
 	slash    mention.Picker
+	skill    mention.Picker
 	palette  palette.CommandPalette
 	sessions sessionpicker.Picker
 
@@ -73,6 +76,10 @@ func NewComposerPane(theme components.Theme, model, cwd string) *ComposerPane {
 		slash: mention.Picker{
 			Theme:  theme,
 			Prefix: "/",
+		},
+		skill: mention.Picker{
+			Theme:  theme,
+			Prefix: "$",
 		},
 		palette: palette.CommandPalette{
 			Theme: theme,
@@ -137,9 +144,19 @@ func (c *ComposerPane) Wire(
 	}
 	c.Chat.OnMentionChange = c.onMentionChange
 	c.Chat.OnSlashChange = c.onSlashChange
+	c.Chat.OnSkillChange = c.onSkillChange
 	c.Chat.OnPendingImagesChange = c.syncImagesFromLabels
 	c.mention.OnAccept = c.acceptMention
 	c.slash.OnAccept = c.acceptSlash
+	c.skill.OnAccept = c.acceptSkill
+}
+
+// SetSkillPath sets the configured skill directory used by the $ picker.
+// Empty is valid: the other search directories still apply.
+func (c *ComposerPane) SetSkillPath(path string) {
+	if c != nil {
+		c.skillPath = path
+	}
 }
 
 // HideCompleters closes mention and slash pickers.
@@ -152,6 +169,8 @@ func (c *ComposerPane) HideCompleters() {
 	c.mentionGen++
 	c.slash.Hide()
 	c.Chat.SlashOpen = false
+	c.skill.Hide()
+	c.Chat.SkillOpen = false
 }
 
 // HidePalette closes the command palette if open.
@@ -316,6 +335,8 @@ func (c *ComposerPane) CloseMentionSlash() {
 	c.mentionGen++
 	c.slash.Hide()
 	c.Chat.SlashOpen = false
+	c.skill.Hide()
+	c.Chat.SkillOpen = false
 }
 
 // SetBashBorderActive toggles bash-mode border styling.
@@ -431,6 +452,7 @@ func (c *ComposerPane) SetTheme(th components.Theme) {
 	c.sessions.Theme = th
 	c.mention.Theme = th
 	c.slash.Theme = th
+	c.skill.Theme = th
 	c.SyncBashBorder(c.Chat.Value)
 }
 
@@ -496,6 +518,16 @@ func (c *ComposerPane) PickerOverlays(ctx components.DrawContext, listH, width i
 		out = append(out, components.SubSurface{
 			Origin:  components.Point{X: 0, Y: 0},
 			Surface: c.slash.Draw(ctx),
+			Z:       15,
+		})
+	}
+	if c.skill.Open {
+		c.skill.AnchorBottomY = listH
+		c.skill.AnchorX = 0
+		c.skill.AnchorWidth = width
+		out = append(out, components.SubSurface{
+			Origin:  components.Point{X: 0, Y: 0},
+			Surface: c.skill.Draw(ctx),
 			Z:       15,
 		})
 	}
@@ -625,6 +657,12 @@ func (c *ComposerPane) Handle(ctx *components.EventContext, ev xui.Event) {
 				ctx.ConsumeAndRedraw()
 				return
 			}
+			if c.skill.Open {
+				c.skill.Cancel()
+				c.Chat.SkillOpen = false
+				ctx.ConsumeAndRedraw()
+				return
+			}
 			if c.submitter != nil && (c.submitter.RunningBash() || c.submitter.IsBusy()) {
 				if c.publish != nil {
 					c.publish(controller.CancelStreamMsg{})
@@ -704,6 +742,13 @@ func (c *ComposerPane) Handle(ctx *components.EventContext, ev xui.Event) {
 			}
 			return
 		}
+		if c.skill.Open && mentionNavKey(ev) {
+			c.skill.Handle(ctx, ev)
+			if !c.skill.Open {
+				c.Chat.SkillOpen = false
+			}
+			return
+		}
 		if c.mention.Open && mentionNavKey(ev) {
 			c.mention.Handle(ctx, ev)
 			if !c.mention.Open {
@@ -762,6 +807,8 @@ func (c *ComposerPane) onMentionChange(active bool, query string) {
 	}
 	c.slash.Hide()
 	c.Chat.SlashOpen = false
+	c.skill.Hide()
+	c.Chat.SkillOpen = false
 	c.mention.Show()
 	c.Chat.MentionOpen = true
 	if len(c.mention.Items) == 0 {
@@ -781,6 +828,8 @@ func (c *ComposerPane) onSlashChange(active bool, query string) {
 	}
 	c.mention.Hide()
 	c.Chat.MentionOpen = false
+	c.skill.Hide()
+	c.Chat.SkillOpen = false
 	c.mentionGen++
 	items := []mention.Item{}
 	if c.commands != nil {
@@ -793,6 +842,49 @@ func (c *ComposerPane) onSlashChange(active bool, query string) {
 	c.slash.SetResults(items, status)
 	c.slash.Show()
 	c.Chat.SlashOpen = true
+}
+
+func (c *ComposerPane) onSkillChange(active bool, query string) {
+	if c == nil {
+		return
+	}
+	if !active {
+		c.skill.Hide()
+		c.Chat.SkillOpen = false
+		return
+	}
+	// One completer at a time; the file picker owns an in-flight search.
+	if c.mention.Open || c.Chat.MentionOpen || c.slash.Open || c.Chat.SlashOpen {
+		return
+	}
+
+	list := skills.Filter(skills.LoadDirs(skills.SearchDirs(c.skillPath, c.cwd)), query)
+	items := make([]mention.Item, 0, len(list))
+	for _, s := range list {
+		items = append(items, mention.Item{Path: s.Name, Description: s.Description})
+	}
+	status := ""
+	if len(items) == 0 {
+		status = "No matching skills"
+	}
+	c.skill.SetResults(items, status)
+	c.skill.Show()
+	c.Chat.SkillOpen = true
+}
+
+// acceptSkill inserts the literal $name token. The model reads it and decides
+// whether to call the skill tool, so accepting never submits by itself.
+func (c *ComposerPane) acceptSkill(item mention.Item) {
+	if c == nil {
+		return
+	}
+	_, start, end, ok := chat.ActiveSkill(c.Chat.Value, c.Chat.Cursor)
+	if !ok {
+		start, end = c.Chat.Cursor, c.Chat.Cursor
+	}
+	c.skill.Hide()
+	c.Chat.SkillOpen = false
+	c.Chat.ReplaceRange(start, end, "$"+item.Path+" ")
 }
 
 func (c *ComposerPane) scheduleMentionSearch(query string) {

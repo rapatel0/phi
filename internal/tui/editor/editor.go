@@ -202,6 +202,7 @@ func NewEditor(
 		e.skillPath,
 	)
 	e.hookCmds.CommandCtx = bridge.context
+	e.composer.SetSkillPath(e.skillPath)
 	e.composer.Wire(
 		e.transcript,
 		e.submitter,

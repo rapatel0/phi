@@ -24,6 +24,12 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ### Added
 
+- `$` completes skill names in the composer, following the Codex convention.
+  Accepting inserts the literal `$name` token, so `$code-review the auth
+  package` reads as written and the model loads that skill before it answers.
+  The picker lists the same skills the `skill` tool loads, so it cannot offer
+  one that fails to load. Shell text such as `$HOME`, `${VAR}`, `$(cmd)`, `$$`,
+  and `$5` leaves the picker closed.
 - Go extensions can register slash commands, watch session lifecycle events,
   and observe the tool loop. `ext.Host` gains `RegisterCommand`, `OnSession`,
   and `OnTool`; the controller merges the result with hooks discovered from

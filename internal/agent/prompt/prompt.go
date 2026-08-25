@@ -73,12 +73,12 @@ func execTmpl(t *template.Template, data any) string {
 	return strings.TrimSpace(buf.String())
 }
 
+// skillsBlock lists every skill the skill tool can load, not just the ones in
+// skillDir. The catalog is what the model matches a $name token against, so a
+// narrower list here would advertise fewer skills than the tool accepts.
 func skillsBlock(skillDir string) string {
-	if skillDir == "" {
-		return ""
-	}
-	list, err := skills.LoadSkills(skillDir)
-	if err != nil || len(list) == 0 {
+	list := skills.LoadDirs(skills.SearchDirs(skillDir, currentDir()))
+	if len(list) == 0 {
 		return ""
 	}
 	catalog := strings.TrimSpace(skills.ToPromptMarkdown(list))

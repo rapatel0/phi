@@ -5,11 +5,8 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"os"
-	"path/filepath"
 	"strings"
 
-	"github.com/rapatel0/alpha/internal/brand"
 	"github.com/rapatel0/alpha/internal/llm"
 	"github.com/rapatel0/alpha/internal/llm/skills"
 	"github.com/rapatel0/alpha/internal/tools/tooldef"
@@ -57,10 +54,7 @@ func runSkill(ctx context.Context, input json.RawMessage) (tooldef.Result, error
 	if name == "" {
 		return tooldef.Result{}, errors.New("skill: empty name")
 	}
-	list, err := loadAll(ctx)
-	if err != nil {
-		return tooldef.Result{}, err
-	}
+	list := loadAll(ctx)
 	sk := skills.Find(list, name)
 	if sk == nil {
 		var names []string
@@ -77,46 +71,18 @@ func runSkill(ctx context.Context, input json.RawMessage) (tooldef.Result, error
 	return tooldef.Result{Content: text, Output: text, Detail: sk.Name}, nil
 }
 
-func loadAll(ctx context.Context) ([]*skills.Skill, error) {
-	var out []*skills.Skill
-	seen := map[string]struct{}{}
-	for _, dir := range skillDirs(ctx) {
-		list, err := skills.LoadSkills(dir)
-		if err != nil {
-			return nil, err
-		}
-		for _, s := range list {
-			key := strings.ToLower(s.Name)
-			if _, ok := seen[key]; ok {
-				continue
-			}
-			seen[key] = struct{}{}
-			out = append(out, s)
-		}
-	}
-	return out, nil
+// loadAll returns every skill in the search path. A directory that is missing
+// or unreadable is skipped, so one bad entry cannot hide the rest.
+func loadAll(ctx context.Context) []*skills.Skill {
+	return skills.LoadDirs(skillDirs(ctx))
 }
 
+// skillDirs adapts the tool context to the shared search path, so the TUI
+// picker and this tool always see the same catalog.
 func skillDirs(ctx context.Context) []string {
-	var dirs []string
-	add := func(p string) {
-		p = strings.TrimSpace(p)
-		if p == "" {
-			return
-		}
-		dirs = append(dirs, p)
+	cwd, err := tooldef.Cwd(ctx)
+	if err != nil {
+		cwd = ""
 	}
-	if cfg := tooldef.Model(ctx); cfg.SkillPath != "" {
-		add(cfg.SkillPath)
-	}
-	if v := brand.Env("SKILL_PATH"); v != "" {
-		add(v)
-	}
-	if home, err := os.UserHomeDir(); err == nil {
-		add(filepath.Join(brand.HomeDir(home), "skills"))
-	}
-	if cwd, err := tooldef.Cwd(ctx); err == nil && cwd != "" {
-		add(filepath.Join(brand.ProjectDir(cwd), "skills"))
-	}
-	return dirs
+	return skills.SearchDirs(tooldef.Model(ctx).SkillPath, cwd)
 }

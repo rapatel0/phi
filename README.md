@@ -223,6 +223,10 @@ The editor supports:
 
 - `@` — fuzzy file mention picker (type `@` and start typing a path)
 - `/` — slash command picker (`/sessions`, `/resume`, `/clear`, `/image`)
+- `$` — skill picker (type `$` and start typing a skill name). Accepting inserts
+  the literal `$name` token, so `$code-review the auth package` stays readable.
+  The model loads that skill before it answers. Shell text such as `$HOME`,
+  `${VAR}`, and `$5` does not open the picker.
 - paste a screenshot path or **Ctrl+V** — attach a clipboard image to the next message (inline preview in Kitty/Ghostty)
 - `!command` — run a shell command locally and stream its output into the
   transcript (see [Commands](#commands))

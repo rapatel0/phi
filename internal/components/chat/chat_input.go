@@ -66,6 +66,9 @@ type ChatInput struct {
 	// OnSlashChange is called after Value or Cursor changes that may
 	// activate/deactivate a leading /command. active is false when none.
 	OnSlashChange func(active bool, query string)
+	// OnSkillChange is called after Value or Cursor changes that may
+	// activate/deactivate a $skill token. active is false when none.
+	OnSkillChange func(active bool, query string)
 
 	// MentionOpen is set by the editor while the @-file picker is visible.
 	// When true, Up/Down/Tab/Enter are left unconsumed so the picker can
@@ -73,13 +76,15 @@ type ChatInput struct {
 	MentionOpen bool
 	// SlashOpen is set while the /command picker is visible (same nav deferral).
 	SlashOpen bool
+	// SkillOpen is set while the $skill picker is visible (same nav deferral).
+	SkillOpen bool
 
 	// dumpNextDraw is set on paste/insert when ALPHA_DEBUG=1.
 	dumpNextDraw bool
 }
 
 func (c *ChatInput) completerOpen() bool {
-	return c.MentionOpen || c.SlashOpen
+	return c.MentionOpen || c.SlashOpen || c.SkillOpen
 }
 
 func (c *ChatInput) bodyRows(width int, method xui.WidthMethod) int {
@@ -420,6 +425,7 @@ func (c *ChatInput) notifyChange() {
 func (c *ChatInput) notifyCompleters() {
 	c.notifyMention()
 	c.notifySlash()
+	c.notifySkill()
 }
 
 func (c *ChatInput) notifyMention() {
@@ -436,6 +442,14 @@ func (c *ChatInput) notifySlash() {
 	}
 	q, _, _, ok := ActiveSlash(c.Value, c.Cursor)
 	c.OnSlashChange(ok, q)
+}
+
+func (c *ChatInput) notifySkill() {
+	if c.OnSkillChange == nil {
+		return
+	}
+	q, _, _, ok := ActiveSkill(c.Value, c.Cursor)
+	c.OnSkillChange(ok, q)
 }
 
 // ReplaceRange replaces value[start:end] with text and places the cursor after it.

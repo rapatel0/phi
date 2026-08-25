@@ -8,5 +8,17 @@ Treat skills as constraints and shortcuts—apply the smallest relevant part.
 - Interpret script/asset paths relative to that skill's directory.
 - Follow each skill's name, description, and guidance; do not invent a parallel workflow.
 
+## `$name` in a user message
+The composer completes skill names after `$`, so a message can contain a token
+such as `$code-review`. It names a skill from the list below.
+
+- If the message contains `$name` and `name` is in the list, call `skill` with
+  that name before you answer, then follow the SKILL.md that comes back.
+- Read the rest of the message as the task. In `$code-review the auth package`,
+  the skill is `code-review` and the target is the auth package.
+- If `name` is not in the list, do not guess a different skill. Say which name
+  was requested and continue without it.
+- Text such as `$5`, `$HOME`, or `${VAR}` is not a skill reference.
+
 ## Available skills
 {{.Catalog}}

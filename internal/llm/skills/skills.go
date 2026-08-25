@@ -4,6 +4,7 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 )
 
@@ -195,6 +196,61 @@ func Find(list []*Skill, name string) *Skill {
 		}
 	}
 	return nil
+}
+
+// LoadDirs loads skills from dirs in order, keeping the first skill for a
+// name and skipping later duplicates. Earlier directories therefore override
+// later ones, so a project skill wins over a user-level one with the same name.
+//
+// A directory that does not exist is skipped. An unreadable one is skipped
+// too: a broken entry in the search path must not empty the whole catalog.
+func LoadDirs(dirs []string) []*Skill {
+	var out []*Skill
+	seen := map[string]struct{}{}
+	for _, dir := range dirs {
+		if strings.TrimSpace(dir) == "" {
+			continue
+		}
+		list, err := LoadSkills(dir)
+		if err != nil {
+			continue
+		}
+		for _, s := range list {
+			key := strings.ToLower(strings.TrimSpace(s.Name))
+			if key == "" {
+				continue
+			}
+			if _, dup := seen[key]; dup {
+				continue
+			}
+			seen[key] = struct{}{}
+			out = append(out, s)
+		}
+	}
+	return out
+}
+
+// Filter returns skills whose name contains query, case-insensitive, ranked so
+// that a prefix match comes before a substring match. Ties break by name, so
+// the picker does not reshuffle between keystrokes. An empty query returns
+// every skill.
+func Filter(list []*Skill, query string) []*Skill {
+	q := strings.ToLower(strings.TrimSpace(query))
+	out := make([]*Skill, 0, len(list))
+	for _, s := range list {
+		if q == "" || strings.Contains(strings.ToLower(s.Name), q) {
+			out = append(out, s)
+		}
+	}
+	sort.SliceStable(out, func(i, j int) bool {
+		pi := strings.HasPrefix(strings.ToLower(out[i].Name), q)
+		pj := strings.HasPrefix(strings.ToLower(out[j].Name), q)
+		if pi != pj {
+			return pi
+		}
+		return out[i].Name < out[j].Name
+	})
+	return out
 }
 
 // LoadSkills walks skillDir looking for SKILL.md files, parses each one, and

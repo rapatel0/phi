@@ -81,8 +81,7 @@ func TestLoadAllDedupesAcrossDirs(t *testing.T) {
 	t.Setenv("ALPHA_SKILL_PATH", second)
 
 	ctx := tooldef.WithModel(t.Context(), llm.ModelConfig{SkillPath: first})
-	list, err := loadAll(ctx)
-	require.NoError(t, err)
+	list := loadAll(ctx)
 
 	bodies := map[string]string{}
 	for _, s := range list {
