@@ -139,6 +139,12 @@ CI requires every PR to touch `CHANGELOG.md` unless you skip the check by:
 Do not edit text under `<!-- Released section -->` except in a release PR
 (see below).
 
+Those lines are immutable, so `CHANGELOG.md` is listed in `.pi-lens.json`
+under `ignore`. A markdown formatter does not know about the marker: it wants
+blank lines around the lists and headings in the older released entries, and
+rewriting them fails `verify_released_changelog.sh` and the CI gate. Format
+this one file by hand. Do not remove that ignore entry.
+
 ## Release process
 
 `CHANGELOG.md` is the source of truth for user-facing release notes.
