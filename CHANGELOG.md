@@ -24,6 +24,11 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ### Added
 
+- `mise.toml` is now the source of truth for the toolchain and every task. The
+  Makefile forwards each target to `mise run <task>`, so `make build` and
+  `make check` keep working. CI installs mise and runs `mise run check`, so a
+  green local gate means a green CI. Add tasks in `mise.toml`, not the
+  Makefile. `mise tasks` lists them.
 - `make deadcode` reports unreachable functions and fails on new ones.
   `golangci-lint`'s `unused` works per package and treats every exported
   identifier as API, so an exported function that nothing calls is invisible to

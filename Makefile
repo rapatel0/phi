@@ -1,65 +1,69 @@
-BINARY   ?= alpha
-MAIN_SRC  = ./cmd
+# mise.toml is the source of truth for the toolchain and every task.
+# This Makefile forwards to it so `make <target>` keeps working.
+#
+#   mise install     install the pinned toolchain
+#   mise tasks       list every task
+#   mise run check   the full gate
+#
+# Add or change a task in mise.toml, not here. A target only needs a line in
+# this file when it should also be reachable as `make <target>`.
+MISE?=mise
 
-GOBIN    ?= $(shell go env GOBIN)
-GOPATH   ?= $(shell go env GOPATH)
-ifeq ($(GOBIN),)
-GOBIN     = $(GOPATH)/bin
-endif
-
-GO       ?= go
-GOFLAGS  ?= -ldflags="-s -w"
-CGO      ?= 0
-
-.PHONY: all build install run clean test fmt fmt-check lint deadcode check help
+.PHONY: all help build install run clean test fmt fmt-check lint
+.PHONY: deadcode deadcode-update tidy check
 
 all: build
 
 build:
-	CGO_ENABLED=$(CGO) $(GO) build $(GOFLAGS) -o $(BINARY) $(MAIN_SRC)
+	@$(MISE) run build
 
-install: build
-	@mkdir -p $(GOBIN)
-	mv $(BINARY) $(GOBIN)/$(BINARY)
-	@echo "installed $(BINARY) -> $(GOBIN)/$(BINARY)"
+install:
+	@$(MISE) run install
 
-run: build
-	./$(BINARY)
+run:
+	@$(MISE) run run
 
 clean:
-	rm -f $(BINARY)
-	$(GO) clean
+	@$(MISE) run clean
 
 test:
-	$(GO) test ./...
+	@$(MISE) run test
 
-# Apply gofumpt / goimports / golines via .golangci.yml formatters.
 fmt:
-	golangci-lint fmt ./...
+	@$(MISE) run fmt
 
-# Fail if formatting would change files (used by CI).
 fmt-check:
-	golangci-lint fmt --diff ./...
+	@$(MISE) run fmt-check
 
 lint:
-	golangci-lint run ./...
+	@$(MISE) run lint
 
-# Whole-program reachability from main. Catches exported functions that
-# nothing calls, which `unused` cannot see. Fails only on new findings.
 deadcode:
-	./scripts/deadcode.sh
+	@$(MISE) run deadcode
 
-check: fmt-check lint deadcode test
+deadcode-update:
+	@$(MISE) run deadcode-update
+
+tidy:
+	@$(MISE) run tidy
+
+check:
+	@$(MISE) run check
 
 help:
-	@echo "Usage:"
-	@echo "  make          - build binary ($(BINARY))"
-	@echo "  make install  - build & install to \$$GOBIN ($(GOBIN))"
-	@echo "  make run      - build & run"
-	@echo "  make clean    - remove binary & cache"
-	@echo "  make test     - run all tests"
-	@echo "  make fmt      - format Go sources (gofumpt/goimports/golines)"
-	@echo "  make fmt-check - check formatting without writing (CI)"
-	@echo "  make lint     - run golangci-lint"
-	@echo "  make deadcode - report unreachable functions (fails on new ones)"
-	@echo "  make check    - fmt-check + lint + deadcode + test"
+	@echo "Usage: make <target>   (forwards to 'mise run <target>')"
+	@echo
+	@echo "  build           build ./alpha (CGO off, stripped)"
+	@echo "  install         build and install into GOBIN"
+	@echo "  run             build and start the TUI"
+	@echo "  clean           remove the binary and Go cache artifacts"
+	@echo "  test            run all Go tests"
+	@echo "  fmt             apply gofumpt / goimports / golines"
+	@echo "  fmt-check       fail if formatting would change files"
+	@echo "  lint            run golangci-lint"
+	@echo "  deadcode        report unreachable functions, fail on new ones"
+	@echo "  deadcode-update rewrite the dead-code baseline"
+	@echo "  tidy            tidy go.mod / go.sum"
+	@echo "  check           fmt-check + lint + deadcode + test"
+	@echo
+	@echo "'mise tasks' lists everything, including tasks with no make target."

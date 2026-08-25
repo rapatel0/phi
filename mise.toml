@@ -1,6 +1,10 @@
-# Pins the toolchain and the same tasks as the Makefile.
-#   mise install
-#   mise run check
+# Source of truth for the toolchain and every task.
+#   mise install     install the pinned toolchain
+#   mise tasks       list every task
+#   mise run check   the full gate
+#
+# The Makefile forwards to these tasks, so add work here, not there.
+# CI runs the same tasks, so a green local `mise run check` means a green CI.
 
 [tools]
 go = "1.26.3"
