@@ -350,7 +350,7 @@ func (p *Picker) handleKey(ctx *components.EventContext, e xui.KeyEvent) {
 }
 
 func (p *Picker) handleRune(ctx *components.EventContext, e xui.KeyEvent) {
-	if e.Mods.Has(xui.ModCtrl) {
+	if components.AcceptsCmd(e) {
 		switch e.Rune {
 		case 'n', 'N':
 			p.moveSelection(1)

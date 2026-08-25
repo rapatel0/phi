@@ -24,6 +24,17 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ### Added
 
+- Shortcuts accept `Cmd` as well as `Ctrl` on macOS. `Cmd+R`, `Cmd+B`,
+  `Cmd+O`, and `Cmd+I` mirror their `Ctrl` forms, and the command palette adds
+  `Cmd+Shift+K`. `Ctrl` keeps working everywhere, which matters over SSH,
+  inside tmux, and on Linux.
+
+  Terminals claim some `Cmd` combinations before alpha sees them. Ghostty binds
+  `Cmd+K`, `Cmd+T`, `Cmd+Enter`, and `Cmd+V` to its own actions, so those keep
+  a `Ctrl` binding. Image paste stays on `Ctrl+V`, because a terminal paste
+  delivers text rather than a key press.
+- `alpha keys` prints key events as they arrive, so you can see which
+  combinations your terminal delivers and which it consumes.
 - Session tree dialog (`/sessions` or `Ctrl+R`). Sessions are grouped by
   project, with the current project expanded and the others collapsed. Type to
   filter by preview text, session id, or project name. `↑`/`↓` move, `←`/`→`

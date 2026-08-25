@@ -150,7 +150,7 @@ func (p *Picker) HandleNav(ev xui.KeyEvent) bool {
 		}
 		return true
 	case xui.KeyRune:
-		if ev.Mods.Has(xui.ModCtrl) {
+		if components.AcceptsCmd(ev) {
 			switch ev.Rune {
 			case 'n', 'N':
 				if p.Selected < len(p.Items)-1 {

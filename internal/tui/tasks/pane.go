@@ -94,21 +94,22 @@ func (p *Pane) Handle(ctx *components.EventContext, ev xui.Event) bool {
 	switch e := ev.(type) {
 	case xui.KeyEvent:
 		// Ctrl+N / Ctrl+P walk the list without stealing composer arrows.
-		if e.Mods.Has(xui.ModCtrl) && e.Code == xui.KeyRune && (e.Rune == 'n' || e.Rune == 'N') {
+		if components.IsChord(e, 'n', 'N') {
 			if p.Selected+1 < len(p.rows) {
 				p.Selected++
 			}
 			ctx.ConsumeAndRedraw()
 			return true
 		}
-		if e.Mods.Has(xui.ModCtrl) && e.Code == xui.KeyRune && (e.Rune == 'p' || e.Rune == 'P') {
+		if components.IsChord(e, 'p', 'P') {
 			if p.Selected > 0 {
 				p.Selected--
 			}
 			ctx.ConsumeAndRedraw()
 			return true
 		}
-		if e.Mods.Has(xui.ModCtrl) && e.Code == xui.KeyEnter && p.Selected >= 0 && p.Selected < len(p.rows) &&
+		// Ctrl-only: Ghostty binds Cmd+Enter to toggle_fullscreen.
+		if components.CtrlOnly(e) && e.Code == xui.KeyEnter && p.Selected >= 0 && p.Selected < len(p.rows) &&
 			p.OnOpen != nil {
 			p.OnOpen(p.rows[p.Selected].ID)
 			ctx.ConsumeAndRedraw()

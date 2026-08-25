@@ -31,6 +31,8 @@ func main() {
 			os.Exit(updateCmd(os.Args[2:]))
 		case "login":
 			os.Exit(loginCmd(os.Args[2:]))
+		case "keys":
+			os.Exit(keysCmd(os.Args[2:]))
 		case "tui":
 			os.Exit(runTUIExit(runTUI()))
 		case "-h", "--help", "help":
@@ -156,5 +158,6 @@ func printMainUsage(w *os.File) {
   alpha login …        Claude Pro/Max or ChatGPT Codex OAuth (see 'alpha login --help')
   alpha sessions list  list persisted sessions for this directory
   alpha mcp …          manage MCP servers (see 'alpha mcp --help')
+  alpha keys           show how this terminal reports key presses
 `)
 }

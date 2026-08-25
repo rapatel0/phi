@@ -367,22 +367,24 @@ func (e *Editor) Handle(ctx *components.EventContext, ev xui.Event) {
 		// Unhandled keys (Ctrl+B/K, typing, …) fall through to the parent UI.
 	}
 	if ke, ok := ev.(xui.KeyEvent); ok && ke.Press {
-		if ke.Mods.Has(xui.ModCtrl) && ke.Code == xui.KeyRune &&
-			(ke.Rune == 'b' || ke.Rune == 'B' || ke.Rune == 't' || ke.Rune == 'T') {
+		// Cmd+B works; Cmd+T does not, because Ghostty binds it to new_tab.
+		if components.IsChord(ke, 'b', 'B') ||
+			(components.CtrlOnly(ke) && ke.Code == xui.KeyRune && (ke.Rune == 't' || ke.Rune == 'T')) {
 			if e.tasks != nil {
 				e.tasks.Toggle()
 			}
 			ctx.ConsumeAndRedraw()
 			return
 		}
-		if ke.Mods.Has(xui.ModCtrl) && ke.Code == xui.KeyEnter {
+		// Ctrl-only: Ghostty binds Cmd+Enter to toggle_fullscreen.
+		if components.CtrlOnly(ke) && ke.Code == xui.KeyEnter {
 			if id := e.peekJobID(); id != "" {
 				e.viewChild(id)
 			}
 			ctx.ConsumeAndRedraw()
 			return
 		}
-		if ke.Mods.Has(xui.ModCtrl) && ke.Code == xui.KeyRune && (ke.Rune == 'o' || ke.Rune == 'O') {
+		if components.IsChord(ke, 'o', 'O') {
 			if id := e.peekJobID(); id == "" {
 				e.toast.Show("No sub-agent jobs", toast.ToastWarning, 2*time.Second)
 			} else {

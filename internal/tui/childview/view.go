@@ -81,11 +81,11 @@ func (v *View) Handle(ctx *components.EventContext, ev xui.Event) (keep, steer b
 			ctx.ConsumeAndRedraw()
 			return false, false
 		}
-		if e.Mods.Has(xui.ModCtrl) && e.Code == xui.KeyRune && (e.Rune == 'o' || e.Rune == 'O') {
+		if components.IsChord(e, 'o', 'O') {
 			ctx.ConsumeAndRedraw()
 			return false, false
 		}
-		if e.Mods.Has(xui.ModCtrl) && e.Code == xui.KeyRune && (e.Rune == 'i' || e.Rune == 'I') {
+		if components.IsChord(e, 'i', 'I') {
 			ctx.ConsumeAndRedraw()
 			return false, true
 		}

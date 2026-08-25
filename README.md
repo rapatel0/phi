@@ -184,12 +184,12 @@ xychart-beta
 
 Environment overrides:
 
-| Variable         | Overrides          |
+| Variable | Overrides |
 | ---------------- | ------------------ |
-| `ALPHA_API_KEY`    | `models[].api_key` (default model) |
-| `ALPHA_MODEL`      | `models[].name` (default model) |
-| `ALPHA_BASE_URL`   | `models[].base_url` (default model) |
-| `ALPHA_SKILL_PATH` | `skill_path`       |
+| `ALPHA_API_KEY` | `models[].api_key` (default model) |
+| `ALPHA_MODEL` | `models[].name` (default model) |
+| `ALPHA_BASE_URL` | `models[].base_url` (default model) |
+| `ALPHA_SKILL_PATH` | `skill_path` |
 
 Provider routing: a base URL containing `anthropic` or a model name starting
 with `claude` uses the Anthropic Messages API; everything else uses the
@@ -227,22 +227,33 @@ The editor supports:
 - `!command` — run a shell command locally and stream its output into the
   transcript (see [Commands](#commands))
 - `Ctrl+K` — command palette: settings → model / theme / permissions / agents, skills, hooks
-- `Ctrl+R` — session tree: pick a saved session to resume (same as `/sessions`)
+- `Ctrl+R` / `Cmd+R` — session tree: pick a saved session to resume (same as `/sessions`)
 
 ### Keyboard shortcuts
+
+Shortcuts accept `Ctrl` or `Cmd`, except where the table says otherwise.
+`Ctrl` is the only option over SSH, inside tmux, and on Linux.
 
 | Key            | Action                          |
 | -------------- | ------------------------------- |
 | `Ctrl+C`       | Quit alpha                        |
 | `Esc`          | Cancel stream / close pickers / close sub-agent view / detach |
-| `Ctrl+K`       | Toggle the command palette      |
-| `Ctrl+R`       | Toggle the session tree dialog  |
-| `Ctrl+B` / `Ctrl+T` | Toggle the TASKS sidebar (Ctrl+T if Ctrl+B is tmux) |
-| `Ctrl+O`       | View selected/latest sub-agent transcript (popup) |
-| `Ctrl+I`       | (in sub-agent view) steer — composer talks to that child |
-| `Ctrl+Enter`   | View the selected TASKS row |
-| `Ctrl+V`       | Attach an image from the clipboard |
-| `Ctrl+Shift+C` | Copy the selected transcript text |
+| `Ctrl+K` / `Cmd+Shift+K` | Toggle the command palette |
+| `Ctrl+R` / `Cmd+R` | Toggle the session tree dialog |
+| `Ctrl+B` / `Cmd+B` / `Ctrl+T` | Toggle the TASKS sidebar (Ctrl+T if Ctrl+B is tmux) |
+| `Ctrl+O` / `Cmd+O` | View selected/latest sub-agent transcript (popup) |
+| `Ctrl+I` / `Cmd+I` | (in sub-agent view) steer — composer talks to that child |
+| `Ctrl+Enter`   | View the selected TASKS row (Ctrl only) |
+| `Ctrl+V`       | Attach an image from the clipboard (Ctrl only) |
+| `Ctrl+Shift+C` / `Cmd+C` | Copy the selected transcript text |
+
+Terminals claim some `Cmd` combinations before alpha sees them. Ghostty, for
+example, binds `Cmd+K` to clear the screen, `Cmd+T` to open a tab, `Cmd+Enter`
+to toggle fullscreen, and `Cmd+V` to paste. Actions on those keys keep a `Ctrl`
+binding, and the palette uses `Cmd+Shift+K` as its `Cmd` form.
+
+Run `alpha keys` to see what your terminal delivers. A key that prints nothing
+was consumed by the terminal.
 
 Themes: `Dark`, `Darcula`, `Pink`, and `Terminal` (default), switchable from
 the palette under settings → theme.
@@ -256,6 +267,7 @@ the palette under settings → theme.
 | `alpha update`       | Download and install the latest GitHub release |
 | `alpha update --check` | Query the latest release without installing |
 | `alpha sessions list`| List persisted sessions for this directory    |
+| `alpha keys`         | Show how this terminal reports key presses    |
 | `/sessions`        | Open the session tree to pick one (TUI)       |
 | `/resume`          | Resume the latest session; `/resume <id>` for a specific one |
 | `/clear`           | Start a fresh empty session (TUI)             |
@@ -273,7 +285,7 @@ Sessions persist automatically per working directory under
 
 - `alpha sessions list` — list session id, mtime, and preview for the current
   directory
-- `/sessions` or `Ctrl+R` in the TUI — open a tree dialog of saved sessions,
+- `/sessions`, `Ctrl+R`, or `Cmd+R` in the TUI — open a tree dialog of saved sessions,
   grouped by project. The current project is expanded; the others are
   collapsed. Type to filter by preview text, session id, or project name.
   `↑`/`↓` move, `←`/`→` fold a project, `Enter` resumes, `Esc` closes.
@@ -441,7 +453,7 @@ When disabled, those tools are not registered and the model cannot spawn jobs.
 Sub-agents themselves use a **role** (`explore` default | `review` | `worker`):
 
 | Role | Tools | Use for |
-|------|--------|---------|
+| ------ | -------- | --------- |
 | `explore` | read-only (+ allowlisted bash) | Search / map structure |
 | `review` | read-only (+ allowlisted bash) | Diffs / checks; no edits |
 | `worker` | full tools except nesting | Planned, independent edits |

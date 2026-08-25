@@ -295,7 +295,7 @@ func (o *Overlays) handlePermissionKey(ctx *components.EventContext, e xui.KeyEv
 		ctx.ConsumeAndRedraw()
 		return true
 	case xui.KeyRune:
-		if e.Mods.Has(xui.ModCtrl) || e.Mods.Has(xui.ModAlt) {
+		if e.Mods.Has(xui.ModCtrl) || e.Mods.Has(xui.ModAlt) || e.Mods.Has(xui.ModSuper) {
 			ctx.ConsumeAndRedraw()
 			return true
 		}
@@ -373,7 +373,7 @@ func (o *Overlays) handlePermissionFeedbackKey(ctx *components.EventContext, e x
 		ctx.ConsumeAndRedraw()
 		return true
 	case xui.KeyRune:
-		if e.Mods.Has(xui.ModCtrl) || e.Mods.Has(xui.ModAlt) {
+		if e.Mods.Has(xui.ModCtrl) || e.Mods.Has(xui.ModAlt) || e.Mods.Has(xui.ModSuper) {
 			ctx.ConsumeAndRedraw()
 			return true
 		}
@@ -423,7 +423,7 @@ func (o *Overlays) handleContinueKey(ctx *components.EventContext, e xui.KeyEven
 		ctx.ConsumeAndRedraw()
 		return true
 	case xui.KeyRune:
-		if e.Mods.Has(xui.ModCtrl) || e.Mods.Has(xui.ModAlt) {
+		if e.Mods.Has(xui.ModCtrl) || e.Mods.Has(xui.ModAlt) || e.Mods.Has(xui.ModSuper) {
 			ctx.ConsumeAndRedraw()
 			return true
 		}
