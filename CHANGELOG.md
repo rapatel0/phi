@@ -24,6 +24,15 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ### Added
 
+- Go extensions can register slash commands, watch session lifecycle events,
+  and observe the tool loop. `ext.Host` gains `RegisterCommand`, `OnSession`,
+  and `OnTool`; the controller merges the result with hooks discovered from
+  disk, so one manager dispatches both. Until now a Go extension could only add
+  a tool and a footer string, while an external shell hook could do all three.
+  See [doc/ext-api.md](doc/ext-api.md).
+- `/toolstats` reports tool call counts for the current session, with failures
+  called out and counters reset when a session starts. It is also the reference
+  user of the extension API.
 - `mise.toml` is now the source of truth for the toolchain and every task. The
   Makefile forwards each target to `mise run <task>`, so `make build` and
   `make check` keep working. CI installs mise and runs `mise run check`, so a

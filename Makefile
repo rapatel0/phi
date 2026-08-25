@@ -7,7 +7,8 @@
 #
 # Add or change a task in mise.toml, not here. A target only needs a line in
 # this file when it should also be reachable as `make <target>`.
-MISE?=mise
+
+.DEFAULT_GOAL := build
 
 .PHONY: all help build install run clean test fmt fmt-check lint
 .PHONY: deadcode deadcode-update tidy check
@@ -15,40 +16,40 @@ MISE?=mise
 all: build
 
 build:
-	@$(MISE) run build
+	@mise run build
 
 install:
-	@$(MISE) run install
+	@mise run install
 
 run:
-	@$(MISE) run run
+	@mise run run
 
 clean:
-	@$(MISE) run clean
+	@mise run clean
 
 test:
-	@$(MISE) run test
+	@mise run test
 
 fmt:
-	@$(MISE) run fmt
+	@mise run fmt
 
 fmt-check:
-	@$(MISE) run fmt-check
+	@mise run fmt-check
 
 lint:
-	@$(MISE) run lint
+	@mise run lint
 
 deadcode:
-	@$(MISE) run deadcode
+	@mise run deadcode
 
 deadcode-update:
-	@$(MISE) run deadcode-update
+	@mise run deadcode-update
 
 tidy:
-	@$(MISE) run tidy
+	@mise run tidy
 
 check:
-	@$(MISE) run check
+	@mise run check
 
 help:
 	@echo "Usage: make <target>   (forwards to 'mise run <target>')"

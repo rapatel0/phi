@@ -38,6 +38,12 @@ type Host struct {
 	ask     QuestionFunc
 	onUsage []func(promptTok, completionTok int, elapsed time.Duration)
 	names   []string
+
+	// Slash commands and hook subscriptions. See api.go: these become
+	// hooks.Entry values so extensions and discovered hooks share one manager.
+	commands  []Command
+	onSession []sessionSub
+	onTool    []toolSub
 }
 
 var defaultHost = NewHost()

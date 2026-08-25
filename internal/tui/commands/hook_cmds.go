@@ -8,6 +8,7 @@ import (
 	"github.com/rapatel0/alpha/internal/components/palette"
 	"github.com/rapatel0/alpha/internal/components/toast"
 	"github.com/rapatel0/alpha/internal/debuglog"
+	"github.com/rapatel0/alpha/internal/ext"
 	"github.com/rapatel0/alpha/internal/hooks"
 	"github.com/rapatel0/alpha/internal/tui/controller"
 )
@@ -50,9 +51,15 @@ func (h *HookCommands) Sync() {
 	h.gen.Add(1)
 	h.Registry.clearHookCommands()
 	if h.Ctrl != nil {
+		// Compiled-in extensions describe their own commands; a discovered
+		// hook has no description, so it keeps the generic label.
+		descriptions := map[string]string{}
+		for _, cmd := range ext.Default().Commands() {
+			descriptions[cmd.Name] = cmd.Description
+		}
 		for _, entry := range h.Ctrl.Hooks().CommandEntries() {
 			name := entry.Hook.Name()
-			if !h.Registry.registerHook(h.slashCommand(name)) {
+			if !h.Registry.registerHook(h.slashCommand(name, descriptions[name])) {
 				debuglog.Logf("hooks: command %q skipped (name already registered)", name)
 			}
 		}
@@ -64,10 +71,13 @@ func (h *HookCommands) Sync() {
 	h.Composer.SetPaletteCommands(h.Registry.BuildPalette(ctx))
 }
 
-func (h *HookCommands) slashCommand(name string) Command {
+func (h *HookCommands) slashCommand(name, description string) Command {
+	if description == "" {
+		description = "hook command"
+	}
 	return Command{
 		Name:        name,
-		Description: "hook command",
+		Description: description,
 		Slash:       true,
 		Insert:      "/" + name,
 		Run: func(ctx CommandContext) error {

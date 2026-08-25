@@ -68,9 +68,10 @@ An extension returns a value that describes what it wants. It never touches the
 TUI. This keeps widgets dumb, keeps extensions testable without a terminal, and
 means an extension behaves the same in headless mode.
 
-## Proposed host surface
+## Host surface
 
-Three methods on `ext.Host`, each backed by machinery that already exists.
+Three methods on `ext.Host`, each backed by machinery that already existed.
+They live in [`internal/ext/api.go`](../internal/ext/api.go).
 
 ```go
 // RegisterCommand adds a slash command and a palette row.
@@ -93,10 +94,34 @@ type Command struct {
 }
 ```
 
-The host collects these at startup. The controller converts them into
-`hooks.Entry` values and merges them with the entries from directory discovery.
-One manager dispatches both, so ordering, fail-closed behavior, and async
-semantics stay in one place.
+The host collects these at startup. `Host.HookEntries` converts them into
+`hooks.Entry` values, and `Controller.ReloadHooks` merges them with the entries
+from directory discovery. One manager dispatches both, so ordering,
+fail-closed behavior, and async semantics stay in one place.
+
+### Rules the implementation follows
+
+- A command with no name or no `Run` is dropped. Both make it unusable.
+- A duplicate name keeps the first registration, so a collision does not depend
+  on extension load order.
+- Extension entries are never fail-closed. An extension is compiled in, and one
+  bad hook must not make the agent refuse to run tools.
+- `post_tool`, `session_start`, `session_shutdown`, and `post_turn` are async,
+  matching discovered hooks. `session_before_switch` is synchronous, because it
+  is the one session event a hook can veto.
+- A `PreFunc` error blocks the tool. It cannot grant permission: the gate stays
+  the only thing that allows a tool.
+- An `OnSession` error denies only `session_before_switch`. For the other kinds
+  the event already happened, so the error is reported and the action stays
+  Allow.
+
+### Reference user
+
+[`internal/ext/toolstats`](../internal/ext/toolstats/toolstats.go) uses all
+three methods: it counts tool calls through `OnTool`, resets per session
+through `OnSession`, and reports through a `/toolstats` command. A new
+extension needs a blank import in [`cmd/plugins.go`](../cmd/plugins.go), or
+nothing reaches its `init`.
 
 ## Event coverage
 

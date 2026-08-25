@@ -285,7 +285,11 @@ func (c *Controller) ReloadHooks() (loaded int, warns []hooks.Warning, err error
 	if err != nil {
 		return 0, warns, err
 	}
-	mgr := hooks.NewManager(hooks.EntriesFromDiscovered(found)...)
+	// Extension hooks join the discovered ones, so a single manager dispatches
+	// both and keeps ordering and fail-closed behavior in one place.
+	entries := hooks.EntriesFromDiscovered(found)
+	entries = append(entries, ext.Default().HookEntries()...)
+	mgr := hooks.NewManager(entries...)
 	hooks.LogWarnings(warns)
 	c.hooksManager.Store(mgr)
 	if c.engine != nil {
