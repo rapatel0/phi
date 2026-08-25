@@ -11,7 +11,7 @@ GO       ?= go
 GOFLAGS  ?= -ldflags="-s -w"
 CGO      ?= 0
 
-.PHONY: all build install run clean test fmt fmt-check lint help
+.PHONY: all build install run clean test fmt fmt-check lint deadcode check help
 
 all: build
 
@@ -44,6 +44,13 @@ fmt-check:
 lint:
 	golangci-lint run ./...
 
+# Whole-program reachability from main. Catches exported functions that
+# nothing calls, which `unused` cannot see. Fails only on new findings.
+deadcode:
+	./scripts/deadcode.sh
+
+check: fmt-check lint deadcode test
+
 help:
 	@echo "Usage:"
 	@echo "  make          - build binary ($(BINARY))"
@@ -54,3 +61,5 @@ help:
 	@echo "  make fmt      - format Go sources (gofumpt/goimports/golines)"
 	@echo "  make fmt-check - check formatting without writing (CI)"
 	@echo "  make lint     - run golangci-lint"
+	@echo "  make deadcode - report unreachable functions (fails on new ones)"
+	@echo "  make check    - fmt-check + lint + deadcode + test"

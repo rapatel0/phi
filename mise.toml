@@ -5,6 +5,7 @@
 [tools]
 go = "1.26.3"
 golangci-lint = "2.13.0"
+"go:golang.org/x/tools/cmd/deadcode" = "latest"
 
 [env]
 CGO_ENABLED = "0"
@@ -50,10 +51,18 @@ run = "golangci-lint fmt --diff ./..."
 description = "Run golangci-lint"
 run = "golangci-lint run ./..."
 
+[tasks.deadcode]
+description = "Report unreachable functions; fail on new ones"
+run = "./scripts/deadcode.sh"
+
+[tasks."deadcode-update"]
+description = "Rewrite the dead-code baseline after deleting code"
+run = "./scripts/deadcode.sh --update"
+
 [tasks.tidy]
 description = "Tidy go.mod / go.sum"
 run = "go mod tidy"
 
 [tasks.check]
-description = "Local CI gate: format, lint, tests"
-depends = ["fmt-check", "lint", "test"]
+description = "Local CI gate: format, lint, dead code, tests"
+depends = ["fmt-check", "lint", "deadcode", "test"]

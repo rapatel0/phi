@@ -24,6 +24,13 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ### Added
 
+- `make deadcode` reports unreachable functions and fails on new ones.
+  `golangci-lint`'s `unused` works per package and treats every exported
+  identifier as API, so an exported function that nothing calls is invisible to
+  it. `deadcode` analyzes reachability from `main` across the whole program and
+  catches it. The 48 known findings are tracked in
+  `scripts/deadcode-baseline.txt`, so only new dead code fails the build.
+  Wired into `make check`, `mise run check`, and CI.
 - Extension API spec ([doc/ext-api.md](doc/ext-api.md)) and the linters that
   enforce it. Three `depguard` rules keep the TUI out of core, out of widgets,
   and out of extensions. Three tests in `internal/agent/architecture_test.go`

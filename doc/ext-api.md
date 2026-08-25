@@ -151,6 +151,36 @@ structure rather than demand new work.
 Each rule was verified by writing a deliberate violation and confirming the
 linter rejected it. A rule that never fires gives false confidence.
 
+### Dead code (`make deadcode`)
+
+`golangci-lint` already runs `unused`, but `unused` works per package and
+assumes every exported identifier is API. An exported function that nothing
+calls is invisible to it. That is the exact residue an agent leaves after a
+refactor: a helper that lost its last caller.
+
+`deadcode` does whole-program reachability from `main`, so it sees across
+packages and through the export boundary. Verified: an exported orphan in
+`internal/util` is missed by `unused` and caught by `deadcode`.
+
+Run it with `make deadcode` or `mise run deadcode`. The `-test` flag counts
+functions reachable from tests as live, which drops the finding count on this
+tree from 114 to 48.
+
+The tree has 48 known unreachable functions, mostly unused widgets under
+`internal/components`. Failing on all of them would make the check useless on
+day one, so they live in `scripts/deadcode-baseline.txt`. New dead code fails
+the build. The baseline is a to-do list, not a permanent exemption.
+
+| Command | Effect |
+| --- | --- |
+| `make deadcode` | Fail on findings outside the baseline |
+| `scripts/deadcode.sh --list` | Print every finding |
+| `scripts/deadcode.sh --update` | Rewrite the baseline after deleting code |
+
+The baseline stores `<file> <func>` without line numbers, so editing above a
+function does not churn it. When dead code is deleted, the script says so and
+asks for an update, so the baseline shrinks instead of drifting.
+
 ### Call-order rules (`internal/agent/architecture_test.go`)
 
 `depguard` reasons about imports. It cannot see call order, so the tool loop

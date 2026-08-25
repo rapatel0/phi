@@ -60,3 +60,11 @@ jobs:
 
       - name: Check formatting
         run: make fmt-check
+
+      # Whole-program reachability. Catches exported functions that nothing
+      # calls, which golangci-lint's `unused` cannot see.
+      - name: Install deadcode
+        run: go install golang.org/x/tools/cmd/deadcode@latest
+
+      - name: Check for dead code
+        run: make deadcode
