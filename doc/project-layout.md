@@ -39,6 +39,7 @@
 
 | Path | Purpose |
 | ---- | ------- |
+| [`ext-api.md`](ext-api.md) | Extension API: host surface, boundaries, enforcement |
 | [`hooks.md`](hooks.md) | Hooks: concepts, authoring, protocol reference |
 | [`mcp.md`](mcp.md) | MCP: zero schema pollution, meta-tools, config, CLI |
 | [`tui.md`](tui.md) | TUI: package layout, aggregation, interaction flows |

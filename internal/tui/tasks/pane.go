@@ -122,10 +122,7 @@ func (p *Pane) Handle(ctx *components.EventContext, ev xui.Event) bool {
 // Draw renders the sidebar.
 func (p *Pane) Draw(ctx components.DrawContext, height int) components.Surface {
 	w := defaultWidth
-	h := height
-	if h < 1 {
-		h = 1
-	}
+	h := max(height, 1)
 	s := components.NewSurface(w, h, nil)
 	th := p.Theme
 	border := th.Border

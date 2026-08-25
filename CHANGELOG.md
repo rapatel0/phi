@@ -24,6 +24,11 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ### Added
 
+- Extension API spec ([doc/ext-api.md](doc/ext-api.md)) and the linters that
+  enforce it. Three `depguard` rules keep the TUI out of core, out of widgets,
+  and out of extensions. Three tests in `internal/agent/architecture_test.go`
+  keep the tool loop in order: PreHooks, then the permission gate, then the
+  tool. Every rule was verified by writing the violation it guards against.
 - Shortcuts accept `Cmd` as well as `Ctrl` on macOS. `Cmd+R`, `Cmd+B`,
   `Cmd+O`, and `Cmd+I` mirror their `Ctrl` forms, and the command palette adds
   `Cmd+Shift+K`. `Ctrl` keeps working everywhere, which matters over SSH,

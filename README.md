@@ -234,17 +234,17 @@ The editor supports:
 Shortcuts accept `Ctrl` or `Cmd`, except where the table says otherwise.
 `Ctrl` is the only option over SSH, inside tmux, and on Linux.
 
-| Key            | Action                          |
+| Key | Action |
 | -------------- | ------------------------------- |
-| `Ctrl+C`       | Quit alpha                        |
-| `Esc`          | Cancel stream / close pickers / close sub-agent view / detach |
+| `Ctrl+C` | Quit alpha |
+| `Esc` | Cancel stream / close pickers / close sub-agent view / detach |
 | `Ctrl+K` / `Cmd+Shift+K` | Toggle the command palette |
 | `Ctrl+R` / `Cmd+R` | Toggle the session tree dialog |
 | `Ctrl+B` / `Cmd+B` / `Ctrl+T` | Toggle the TASKS sidebar (Ctrl+T if Ctrl+B is tmux) |
 | `Ctrl+O` / `Cmd+O` | View selected/latest sub-agent transcript (popup) |
 | `Ctrl+I` / `Cmd+I` | (in sub-agent view) steer — composer talks to that child |
-| `Ctrl+Enter`   | View the selected TASKS row (Ctrl only) |
-| `Ctrl+V`       | Attach an image from the clipboard (Ctrl only) |
+| `Ctrl+Enter` | View the selected TASKS row (Ctrl only) |
+| `Ctrl+V` | Attach an image from the clipboard (Ctrl only) |
 | `Ctrl+Shift+C` / `Cmd+C` | Copy the selected transcript text |
 
 Terminals claim some `Cmd` combinations before alpha sees them. Ghostty, for

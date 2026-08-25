@@ -10,7 +10,8 @@ Minimal Go terminal coding-agent harness. Layout: [doc/project-layout.md](doc/pr
 
 ## Constraints
 
-- **Tool loop is PreHooks → Gate/Ask → Run → PostHooks.** Don't bypass the permission gate when changing the executor. Don't put MCP server tool schemas on the model — only `mcp_list` / `mcp_inspect` / `mcp_call`.
+- **Tool loop is PreHooks → Gate/Ask → Run → PostHooks.** Don't bypass the permission gate when changing the executor. Don't put MCP server tool schemas on the model — only `mcp_list` / `mcp_inspect` / `mcp_call`. Enforced by `internal/agent/architecture_test.go`.
+- **Core doesn't import the TUI.** `agent` / `session` / `llm` / `tools` / `hooks` / `job` / `permission` return values; the shell renders them. Extensions return intents (`hooks.CommandResult`), never touch `xui` or `components`. Enforced by `depguard` in `.golangci.yml`. See [doc/ext-api.md](doc/ext-api.md).
 - **Keep hashline `edit`.** Don't replace it with whole-file rewrite. Stale `@file path#TAG` / `LINE#HASH` must fail closed.
 - **Sub-agent transcripts stay under `~/.alpha/jobs/<id>/`.** Parent context gets the wait/task summary only. Child engines have no `agent_*` tools (no nesting). Default child role is explore (read-only). The TUI **views** a child in a popup (Ctrl+O); **steer** (Ctrl+I) is opt-in attach. Don't swap the parent `Controller.engine` pointer — route through the child hub.
 - **UI split:** `internal/components` render; `internal/tui` wires the shell. Non-shell pieces live under `internal/tui/controller` (Engine/Bus/Msg), `internal/tui/transcript` (Mapper); version in `internal/version`. Keep widgets dumb.

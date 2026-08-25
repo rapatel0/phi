@@ -15,3 +15,6 @@ lint-report.md
 phi
 phi-debug.log
 .phi/
+
+# Agent tool scratch output (delegate transcripts, background task logs).
+.pi/

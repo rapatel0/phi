@@ -50,7 +50,7 @@ linters:
       rules:
         non-tests:
           files:
-            - '!$test'
+            - "!$test"
           deny:
             - pkg: testing
               desc: Use testing only in test files.
@@ -59,6 +59,59 @@ linters:
             - pkg: crypto/md5
             - pkg: crypto/sha1
             - pkg: crypto/**/pkix
+
+        # Core must not import the shell. The agent loop, session store,
+        # model clients, tools, hooks, and the permission gate all run
+        # headless. A TUI import here means UI logic leaked into core.
+        # See doc/ext-api.md.
+        core-no-tui:
+          files:
+            - "**/internal/agent/**"
+            - "**/internal/session/**"
+            - "**/internal/llm/**"
+            - "**/internal/tools/**"
+            - "**/internal/hooks/**"
+            - "**/internal/job/**"
+            - "**/internal/permission/**"
+            - "**/internal/mcp/**"
+          deny:
+            - pkg: github.com/rapatel0/alpha/internal/tui
+              desc: >-
+                Core must not import the TUI. Return a value and let
+                the shell render it.
+
+        # Widgets stay dumb. internal/components renders; internal/tui wires
+        # the shell. A widget that imports the shell cannot be tested or
+        # reused, and it inverts the dependency.
+        components-no-tui:
+          files:
+            - "**/internal/components/**"
+          deny:
+            - pkg: github.com/rapatel0/alpha/internal/tui
+              desc: >-
+                Widgets must not import the shell. Take a callback or
+                a value instead.
+
+        # Extensions describe intent; they do not drive the UI. An extension
+        # returns hooks.CommandResult and the shell applies it. This keeps
+        # extensions testable without a terminal and identical in headless
+        # mode. See doc/ext-api.md.
+        ext-no-ui:
+          files:
+            - "**/internal/ext/**"
+          deny:
+            - pkg: github.com/rapatel0/alpha/internal/tui
+              desc: >-
+                Extensions must not import the TUI. Return an intent
+                (hooks.CommandResult).
+            - pkg: github.com/rapatel0/alpha/internal/components
+              desc: >-
+                Extensions must not render. Return an intent
+                (hooks.CommandResult).
+            - pkg: github.com/pulseaiclub/xui
+              desc: >-
+                Extensions must not touch the terminal. Return an
+                intent (hooks.CommandResult).
     gocritic:
       disabled-checks:
         - appendAssign
@@ -118,7 +171,7 @@ linters:
         - name: constant-logical-expr
         - name: context-as-argument
           arguments:
-            - allow-types-before: '*testing.T'
+            - allow-types-before: "*testing.T"
           disabled: true
         - name: context-keys-type
         - name: deep-exit
@@ -236,13 +289,13 @@ linters:
       # as we commonly use it in tests and examples.
       - linters:
           - gosec
-        text: 'G404:'
+        text: "G404:"
       # Ignoring gosec G402: TLS MinVersion too low
       # as the https://pkg.go.dev/crypto/tls#Config handles
       # MinVersion default well.
       - linters:
           - gosec
-        text: 'G402: TLS MinVersion too low.'
+        text: "G402: TLS MinVersion too low."
 issues:
   max-issues-per-linter: 0
   max-same-issues: 0
