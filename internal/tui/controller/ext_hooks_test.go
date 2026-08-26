@@ -61,8 +61,9 @@ func TestReloadHooksIncludesExtensionCommands(t *testing.T) {
 // The default host is what the controller reads, so a command registered on it
 // becomes dispatchable. This is the seam a third-party extension uses.
 func TestDefaultHostCommandsAreEntries(t *testing.T) {
-	before := len(ext.Default().HookEntries())
-
+	// The default host is process-wide and RegisterCommand keeps the first
+	// registration, so a second run of this test registers nothing new.
+	// Assert the command is dispatchable rather than that the count grew.
 	ext.Default().RegisterCommand(ext.Command{
 		Name:        "controller-probe",
 		Description: "probe",
@@ -72,7 +73,11 @@ func TestDefaultHostCommandsAreEntries(t *testing.T) {
 	})
 
 	entries := ext.Default().HookEntries()
-	require.Greater(t, len(entries), before)
+	names := make([]string, 0, len(entries))
+	for _, e := range entries {
+		names = append(names, e.Hook.Name())
+	}
+	require.Contains(t, names, "controller-probe")
 
 	res, err := hooks.NewManager(entries...).RunCommand(
 		t.Context(), "controller-probe", hooks.CommandEvent{})

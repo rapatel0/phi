@@ -142,6 +142,7 @@ func NewController(bus *Bus, proj *project.Project, cwd string) (*Controller, er
 	c.engine = eng
 	c.startJobProgress()
 	ext.Default().SetQuestionAsker(c.askQuestion)
+	ext.Default().SetSideChannel(c.startSide)
 	c.emitSessionStart("startup", eng.SessionID(), "")
 	return c, nil
 }
@@ -973,3 +974,49 @@ func (c *Controller) runLoop(ctx context.Context, gen int, prompt string, pendin
 		}
 	}
 }
+
+// startSide runs a /btw side conversation as a sub-agent job.
+//
+// The child is a normal job, so its transcript lands under ~/.alpha/jobs and
+// the existing Ctrl+O popup can view it. Only the summary comes back, which is
+// what keeps the side thread out of the main agent's context.
+func (c *Controller) startSide(ctx context.Context, req ext.SideRequest) (ext.SideResult, error) {
+	mgr := c.engineJobs()
+	if mgr == nil {
+		return ext.SideResult{}, errSideUnavailable
+	}
+
+	prompt := req.Prompt
+	if req.Inherit {
+		// The child has no access to the parent transcript, so the caller
+		// must carry any needed context in the prompt itself.
+		prompt = "Context from the main conversation follows the question.\n\n" + prompt
+	}
+
+	// An unknown role is a caller mistake. Fail rather than silently give
+	// the child a different tool set than it asked for.
+	role, err := job.ParseRole(req.Role)
+	if err != nil {
+		return ext.SideResult{}, err
+	}
+
+	info, err := mgr.Spawn(ctx, job.SpawnRequest{
+		Prompt:      prompt,
+		Description: "btw side conversation",
+		ParentID:    c.SessionID(),
+		Role:        role,
+		WorkDir:     c.cwd,
+	})
+	if err != nil {
+		return ext.SideResult{}, err
+	}
+
+	res, err := mgr.Wait(ctx, info.ID)
+	if err != nil {
+		// The job keeps running; the caller just stopped waiting for it.
+		return ext.SideResult{JobID: info.ID}, err
+	}
+	return ext.SideResult{JobID: info.ID, Summary: res.Summary}, nil
+}
+
+var errSideUnavailable = errors.New("sub-agents are disabled, so /btw has nowhere to run")

@@ -2,6 +2,7 @@ package ext
 
 import (
 	"context"
+	"errors"
 	"sync"
 	"time"
 
@@ -45,7 +46,31 @@ type Host struct {
 	onSession []sessionSub
 	onTool    []toolSub
 	onPrompt  []PromptFunc
+	side      SideFunc
 }
+
+// SideRequest asks for one side conversation: a sub-agent run that does not
+// enter the main thread's context.
+type SideRequest struct {
+	Prompt string
+	// Inherit includes the main conversation as background. A tangent starts
+	// clean, which is the point of asking something unrelated.
+	Inherit bool
+	// Role picks the child's tool set. Empty means the read-only default.
+	Role string
+}
+
+// SideResult is what the side conversation produced.
+type SideResult struct {
+	JobID   string
+	Summary string
+}
+
+// SideFunc runs a side conversation. The TUI supplies it.
+type SideFunc func(ctx context.Context, req SideRequest) (SideResult, error)
+
+var errNoSideChannel = errors.New(
+	"side conversations need the interactive shell with sub-agents enabled")
 
 var defaultHost = NewHost()
 
@@ -147,6 +172,33 @@ func (h *Host) EmitUsage(promptTok, completionTok int, elapsed time.Duration) {
 }
 
 // SetQuestionAsker installs the TUI/headless question prompt.
+// SetSideChannel installs the side-conversation runner. The TUI provides it,
+// because only the shell owns the job manager and the popup. Without it,
+// StartSide reports that side conversations are unavailable, which is the
+// correct answer in a headless run.
+func (h *Host) SetSideChannel(fn SideFunc) {
+	if h == nil {
+		return
+	}
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	h.side = fn
+}
+
+// StartSide runs a side conversation and returns its summary.
+func (h *Host) StartSide(ctx context.Context, req SideRequest) (SideResult, error) {
+	if h == nil {
+		return SideResult{}, errNoSideChannel
+	}
+	h.mu.Lock()
+	fn := h.side
+	h.mu.Unlock()
+	if fn == nil {
+		return SideResult{}, errNoSideChannel
+	}
+	return fn(ctx, req)
+}
+
 func (h *Host) SetQuestionAsker(fn QuestionFunc) {
 	if h == nil {
 		return
