@@ -29,6 +29,13 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ### Fixed
 
+- Images are converted to a format the provider documents. The supported
+  formats differ, and a provider rejects an undocumented format outright rather
+  than degrading it, so the request fails. xAI documents JPEG and PNG only and
+  is reached over the OpenAI-compatible path, so a GIF or WebP that any other
+  provider accepts arrived there and was refused. Gemini documents WebP but not
+  GIF. Conversion targets PNG, because such an image is usually a screenshot
+  and JPEG artifacts around text are what matters most.
 - Image budgets are sized from each provider's documented limits. Providers
   state their limits on the base64 payload, which is a third larger than the
   raw bytes, and both budgets compared raw bytes against those limits. A
