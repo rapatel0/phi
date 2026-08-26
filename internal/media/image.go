@@ -19,7 +19,11 @@ const (
 	maxInBytes  = 25 << 20 // refuse to slurp more than this from disk/clipboard
 	maxOutBytes = 4 << 20  // provider-safe after compress (Anthropic is 5MB)
 	maxDim      = 2048
-	maxPending  = 8
+
+	// A crop smaller than this is enlarged so thin strokes stay legible.
+	minZoomSide   = 768
+	maxZoomFactor = 8.0
+	maxPending    = 8
 )
 
 // ErrEmptyClipboard means the clipboard had no image.

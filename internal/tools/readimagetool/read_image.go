@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"image"
 	_ "image/gif"
@@ -26,6 +27,11 @@ Use this after a screenshot is saved to disk, or to inspect a local image / http
 
 Required: file_path — absolute or cwd-relative path, or an https:// URL.
 
+Optional: region — {"x":N,"y":N,"w":N,"h":N} in pixels of the full-size image, to read one part of it.
+A whole image is shrunk to fit, so small text in a large screenshot arrives unreadable. Reading a
+region spends the same budget on that area instead, and a small region is enlarged. Read the whole
+image first to find the coordinates, then read the region. Coordinates are clamped to the image.
+
 URL fetching is TLS-only (https) and blocks loopback / private / link-local / multicast hosts.`
 
 // ReadImageTool returns the vision ingest tool (pi-go read_image).
@@ -41,6 +47,17 @@ func ReadImageTool() tooldef.Tool {
 						"type":        "string",
 						"description": "Local path or https:// URL of the image",
 					},
+					"region": llm.Object{
+						"type":        "object",
+						"description": "Optional area to read, in pixels of the full-size image. Omit to read all of it.",
+						"properties": llm.Object{
+							"x": llm.Object{"type": "integer", "description": "Left edge, from 0"},
+							"y": llm.Object{"type": "integer", "description": "Top edge, from 0"},
+							"w": llm.Object{"type": "integer", "description": "Width in pixels"},
+							"h": llm.Object{"type": "integer", "description": "Height in pixels"},
+						},
+						"required": []string{"x", "y", "w", "h"},
+					},
 				},
 				Required: []string{"file_path"},
 			},
@@ -49,14 +66,26 @@ func ReadImageTool() tooldef.Tool {
 		DetailFromArgs: func(input json.RawMessage) string {
 			var in inputArgs
 			_ = json.Unmarshal(input, &in)
-			return strings.TrimSpace(in.FilePath)
+			detail := strings.TrimSpace(in.FilePath)
+			if r := in.Region; r != nil {
+				detail += fmt.Sprintf(" [%d,%d %dx%d]", r.X, r.Y, r.W, r.H)
+			}
+			return detail
 		},
 		Run: runReadImage,
 	}
 }
 
 type inputArgs struct {
-	FilePath string `json:"file_path"`
+	FilePath string  `json:"file_path"`
+	Region   *region `json:"region,omitempty"`
+}
+
+type region struct {
+	X int `json:"x"`
+	Y int `json:"y"`
+	W int `json:"w"`
+	H int `json:"h"`
 }
 
 type resultBody struct {
@@ -66,6 +95,11 @@ type resultBody struct {
 	Height    int    `json:"height"`
 	Size      int    `json:"size"`
 	SourceURL string `json:"source_url,omitempty"`
+	// Region and FullWidth/FullHeight are only set for a region read, so the
+	// model can tell which part of what it is looking at.
+	Region     *region `json:"region,omitempty"`
+	FullWidth  int     `json:"full_width,omitempty"`
+	FullHeight int     `json:"full_height,omitempty"`
 }
 
 func runReadImage(ctx context.Context, raw json.RawMessage) (tooldef.Result, error) {
@@ -109,12 +143,28 @@ func runReadImage(ctx context.Context, raw json.RawMessage) (tooldef.Result, err
 	if err != nil {
 		return tooldef.Result{}, err
 	}
-	img, err := media.Normalize(llm.Image{
-		Data:     data,
-		Filename: displayName(path, sourceURL),
-	})
-	if err != nil {
-		return tooldef.Result{}, err
+	fullW, fullH := decodeSize(data)
+
+	var img llm.Image
+	if r := in.Region; r != nil {
+		img, err = media.Zoom(data, media.Region{X: r.X, Y: r.Y, W: r.W, H: r.H})
+		if err != nil {
+			if errors.Is(err, media.ErrEmptyRegion) {
+				return tooldef.Result{}, fmt.Errorf(
+					"region [%d,%d %dx%d] is outside the image, which is %dx%d: %w",
+					r.X, r.Y, r.W, r.H, fullW, fullH, err)
+			}
+			return tooldef.Result{}, err
+		}
+		img.Filename = displayName(path, sourceURL)
+	} else {
+		img, err = media.Normalize(llm.Image{
+			Data:     data,
+			Filename: displayName(path, sourceURL),
+		})
+		if err != nil {
+			return tooldef.Result{}, err
+		}
 	}
 
 	w, h := decodeSize(img.Data)
@@ -129,6 +179,10 @@ func runReadImage(ctx context.Context, raw json.RawMessage) (tooldef.Result, err
 		Height:    h,
 		Size:      len(img.Data),
 		SourceURL: sourceURL,
+	}
+	if in.Region != nil {
+		body.Region = in.Region
+		body.FullWidth, body.FullHeight = fullW, fullH
 	}
 	encoded, err := json.Marshal(body)
 	if err != nil {
