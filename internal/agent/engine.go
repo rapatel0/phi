@@ -317,6 +317,10 @@ func (engine *Engine) Loop(ctx context.Context, prompt string, opts LoopOpts) it
 				content = instr + "\n\n" + content
 			}
 		}
+		// before_agent_start runs before the prompt is recorded, so a hook can
+		// still change the turn it is about to see.
+		engine.fireBeforeAgentStart(ctx, yield, content)
+
 		if err := engine.session.Append(llm.Message{
 			Role:    llm.RoleUser,
 			Content: content,
@@ -421,6 +425,40 @@ func (engine *Engine) Loop(ctx context.Context, prompt string, opts LoopOpts) it
 //
 // fireAgent reports the start or end of an agent turn. It is audit-only: the
 // turn runs whether or not a hook answers, so a nil manager is not an error.
+// fireBeforeAgentStart lets hooks replace the system prompt for this turn.
+// The replacement is applied to the client, so it also covers later rounds of
+// the same turn.
+func (engine *Engine) fireBeforeAgentStart(
+	ctx context.Context,
+	yield func(session.Event, error) bool,
+	prompt string,
+) {
+	if engine == nil || engine.hooks == nil || engine.session == nil {
+		return
+	}
+	out := engine.hooks.BeforeAgentStart(ctx, hooks.SessionEvent{
+		SessionID:    engine.session.ID(),
+		Cwd:          engine.session.Cwd(),
+		Prompt:       prompt,
+		SystemPrompt: engine.currentSystemPrompt(),
+	})
+	if out.SystemPromptSet && engine.client != nil {
+		engine.client.SetSystemPrompt(out.SystemPrompt)
+	}
+	publishHookEffects(yield, out)
+}
+
+// currentSystemPrompt reports the prompt the next request will use, which is
+// the built prompt unless an earlier turn's hook replaced it.
+func (engine *Engine) currentSystemPrompt() string {
+	if engine.client != nil {
+		if p := engine.client.SystemPrompt(); p != "" {
+			return p
+		}
+	}
+	return engine.systemPrompt()
+}
+
 func (engine *Engine) fireAgent(
 	ctx context.Context,
 	yield func(session.Event, error) bool,

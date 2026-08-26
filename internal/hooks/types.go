@@ -84,6 +84,12 @@ type SessionEvent struct {
 	TargetSessionID   string // before_switch resume: destination id
 	MessageID         string // post_turn: completed assistant message id
 	Usage             SessionUsage
+
+	// Prompt is the user text that starts the turn (before_agent_start).
+	Prompt string
+	// SystemPrompt is the prompt the turn will use unless a hook replaces it.
+	// Handlers run in order, so this carries earlier handlers' changes.
+	SystemPrompt string
 }
 
 type SessionUsage struct {
@@ -101,6 +107,12 @@ type SessionResult struct {
 
 	Status    string
 	StatusSet bool
+
+	// SystemPrompt replaces the system prompt for the turn that is about to
+	// start. Only before_agent_start reads it, and only when SystemPromptSet
+	// is true, so a hook that returns a zero value changes nothing.
+	SystemPrompt    string
+	SystemPromptSet bool
 }
 
 // PreResult is returned from PreTool.

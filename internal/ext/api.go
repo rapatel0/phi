@@ -47,6 +47,11 @@ type PreFunc func(ctx context.Context, ev hooks.Event) error
 // tool already ran.
 type PostFunc func(ctx context.Context, ev hooks.Event) error
 
+// PromptFunc can replace the system prompt for the turn that is starting. It
+// receives the user prompt and the current system prompt, and returns the
+// prompt to use. Returning "" or the prompt unchanged keeps the current one.
+type PromptFunc func(ctx context.Context, prompt, systemPrompt string) (string, error)
+
 // RegisterCommand adds a slash command. A command with an empty name or a nil
 // Run is dropped, because both make it unusable from the palette.
 //
@@ -97,6 +102,24 @@ func (h *Host) OnSession(kind hooks.Kind, fn SessionFunc) {
 	h.onSession = append(h.onSession, sessionSub{kind: kind, fn: fn})
 }
 
+// OnBeforeAgentStart subscribes to before_agent_start, which runs after the
+// user submits and before the turn starts.
+//
+// fn receives the user prompt and the system prompt the turn will use, and
+// returns the prompt to use instead. Returning "" keeps the current one.
+// Handlers run in order, so fn sees any earlier handler's replacement.
+//
+// An error is logged and the turn continues unchanged: a styling concern must
+// never cost a turn.
+func (h *Host) OnBeforeAgentStart(fn PromptFunc) {
+	if h == nil || fn == nil {
+		return
+	}
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	h.onPrompt = append(h.onPrompt, fn)
+}
+
 // OnTool observes the tool loop. match is a tool name, or "" for every tool.
 // Either callback may be nil.
 //
@@ -125,6 +148,7 @@ func (h *Host) HookEntries() []hooks.Entry {
 	cmds := append([]Command(nil), h.commands...)
 	sessions := append([]sessionSub(nil), h.onSession...)
 	toolSubs := append([]toolSub(nil), h.onTool...)
+	prompts := append([]PromptFunc(nil), h.onPrompt...)
 	h.mu.Unlock()
 
 	var entries []hooks.Entry
@@ -141,9 +165,17 @@ func (h *Host) HookEntries() []hooks.Entry {
 		entries = append(entries, hooks.Entry{
 			Hook: hooks.FuncHook{HookName: "ext:" + string(sub.kind), Sess: sessionAdapter(sub)},
 			Kind: sub.kind,
-			// An event that can deny must be waited on, or the denial
-			// arrives after the decision it was meant to change.
-			Async: !hooks.CanDeny(sub.kind),
+			// An event whose result is used must be waited on, or the
+			// answer arrives after the decision it was meant to change.
+			Async: !hooks.CanDeny(sub.kind) && sub.kind != hooks.KindBeforeAgentStart,
+		})
+	}
+	for _, fn := range prompts {
+		entries = append(entries, hooks.Entry{
+			Hook: hooks.FuncHook{HookName: "ext:before_agent_start", Sess: promptAdapter(fn)},
+			Kind: hooks.KindBeforeAgentStart,
+			// Never async: an detached handler's prompt would arrive after
+			// the request was already built.
 		})
 	}
 	for _, sub := range toolSubs {
@@ -175,6 +207,26 @@ func (h *Host) HookEntries() []hooks.Entry {
 type sessionSub struct {
 	kind hooks.Kind
 	fn   SessionFunc
+}
+
+// promptAdapter turns a replacement prompt into a SessionResult. An empty
+// return means "leave it alone", which is distinct from replacing the prompt
+// with nothing.
+func promptAdapter(fn PromptFunc) func(context.Context, hooks.SessionEvent) (hooks.SessionResult, error) {
+	return func(ctx context.Context, ev hooks.SessionEvent) (hooks.SessionResult, error) {
+		next, err := fn(ctx, ev.Prompt, ev.SystemPrompt)
+		if err != nil {
+			return hooks.SessionResult{Action: hooks.ActionAllow, Reason: err.Error()}, nil
+		}
+		if next == "" || next == ev.SystemPrompt {
+			return hooks.SessionResult{Action: hooks.ActionAllow}, nil
+		}
+		return hooks.SessionResult{
+			Action:          hooks.ActionAllow,
+			SystemPrompt:    next,
+			SystemPromptSet: true,
+		}, nil
+	}
 }
 
 type toolSub struct {

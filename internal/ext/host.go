@@ -44,6 +44,7 @@ type Host struct {
 	commands  []Command
 	onSession []sessionSub
 	onTool    []toolSub
+	onPrompt  []PromptFunc
 }
 
 var defaultHost = NewHost()

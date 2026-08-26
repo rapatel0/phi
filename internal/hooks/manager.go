@@ -34,6 +34,11 @@ const (
 	// post_turn does not.
 	KindAgentStart Kind = "agent_start"
 	KindAgentEnd   Kind = "agent_end"
+	// KindBeforeAgentStart fires after the user submits and before the turn
+	// runs. Unlike agent_start it can still change the turn: a hook may
+	// replace the system prompt. Handlers run in order and each sees the
+	// previous one's result.
+	KindBeforeAgentStart Kind = "before_agent_start"
 	// KindSessionBeforeCompact can veto or adjust compaction; KindSessionCompact
 	// reports that it happened.
 	KindSessionBeforeCompact Kind = "session_before_compact"
@@ -54,7 +59,7 @@ type Entry struct {
 // error messages. One table keeps the validator and the messages in step.
 var allKinds = []Kind{
 	KindPreTool, KindPostTool, KindCommand, KindPostTurn,
-	KindAgentStart, KindAgentEnd,
+	KindBeforeAgentStart, KindAgentStart, KindAgentEnd,
 	KindSessionStart, KindSessionShutdown, KindSessionBeforeSwitch,
 	KindSessionBeforeCompact, KindSessionCompact,
 }
@@ -62,13 +67,16 @@ var allKinds = []Kind{
 // notifyKinds are events that report something that already happened. A hook
 // result cannot change the outcome, so fail_closed is meaningless for them.
 var notifyKinds = map[Kind]bool{
-	KindCommand:         true,
-	KindPostTurn:        true,
-	KindAgentStart:      true,
-	KindAgentEnd:        true,
-	KindSessionStart:    true,
-	KindSessionShutdown: true,
-	KindSessionCompact:  true,
+	// before_agent_start changes the turn but cannot deny it, so
+	// fail_closed is meaningless while async would discard the edit.
+	KindBeforeAgentStart: true,
+	KindCommand:          true,
+	KindPostTurn:         true,
+	KindAgentStart:       true,
+	KindAgentEnd:         true,
+	KindSessionStart:     true,
+	KindSessionShutdown:  true,
+	KindSessionCompact:   true,
 }
 
 // asyncKinds are events that may be detached. Nothing waits on the result, so
@@ -408,6 +416,12 @@ type SessionOutcome struct {
 	Toast     string
 	Status    string
 	StatusSet bool
+
+	// SystemPrompt carries the replacement a before_agent_start hook asked
+	// for. It is meaningful only when SystemPromptSet is true, so a hook
+	// that sets nothing leaves the turn's prompt alone.
+	SystemPrompt    string
+	SystemPromptSet bool
 }
 
 // SessionBeforeSwitch runs session_before_switch entries serially. First Deny wins.
@@ -433,6 +447,43 @@ func (m *Manager) SessionShutdown(ctx context.Context, ev SessionEvent) SessionO
 func (m *Manager) PostTurn(ctx context.Context, ev SessionEvent) SessionOutcome {
 	ev.Kind = KindPostTurn
 	return m.runSessionNotify(ctx, KindPostTurn, ev)
+}
+
+// BeforeAgentStart runs before_agent_start entries serially, chaining the
+// system prompt through them so a later hook sees an earlier one's edit. It
+// cannot deny: the prompt is already submitted, and a hook that fails leaves
+// the turn unchanged rather than blocking it.
+func (m *Manager) BeforeAgentStart(ctx context.Context, ev SessionEvent) SessionOutcome {
+	if m == nil {
+		return SessionOutcome{}
+	}
+	ev.Kind = KindBeforeAgentStart
+	var out SessionOutcome
+	for _, e := range m.entries {
+		if e.Kind != KindBeforeAgentStart {
+			continue
+		}
+		if m.failClosedOnly && !e.FailClosed {
+			continue
+		}
+		if ctx.Err() != nil {
+			break
+		}
+		res, err := e.Hook.Session(ctx, ev)
+		if err != nil {
+			// Styling must never cost a turn.
+			debuglog.Logf("hooks: %s BeforeAgentStart: %v", e.Hook.Name(), err)
+			continue
+		}
+		mergeSessionUI(&out, res)
+		if res.SystemPromptSet && res.SystemPrompt != "" {
+			out.SystemPrompt = res.SystemPrompt
+			out.SystemPromptSet = true
+			// Chain: the next handler edits the prompt this one produced.
+			ev.SystemPrompt = res.SystemPrompt
+		}
+	}
+	return out
 }
 
 // AgentStart runs agent_start entries (parallel; Async detached) when a user

@@ -5,6 +5,7 @@ import (
 	"iter"
 	"net/http"
 	"strings"
+	"sync"
 
 	"github.com/rapatel0/alpha/internal/auth"
 	"github.com/rapatel0/alpha/internal/llm"
@@ -21,10 +22,35 @@ type Client struct {
 	httpClient *http.Client
 	cfg        llm.ModelConfig
 	tools      []llm.ToolDefinition
-	system     string
-	anthropic  bool
-	gemini     bool
-	authFile   string
+
+	// systemMu guards system, which a before_agent_start hook can replace
+	// between turns while a previous Stream is still reading it.
+	systemMu  sync.RWMutex
+	system    string
+	anthropic bool
+	gemini    bool
+	authFile  string
+}
+
+// SetSystemPrompt replaces the system prompt used by later requests. An empty
+// prompt is ignored: a turn with no system prompt is a bug, not a style.
+func (c *Client) SetSystemPrompt(prompt string) {
+	if c == nil || prompt == "" {
+		return
+	}
+	c.systemMu.Lock()
+	defer c.systemMu.Unlock()
+	c.system = prompt
+}
+
+// SystemPrompt returns the prompt later requests will use.
+func (c *Client) SystemPrompt() string {
+	if c == nil {
+		return ""
+	}
+	c.systemMu.RLock()
+	defer c.systemMu.RUnlock()
+	return c.system
 }
 
 // NewClient builds a streaming chat client.
@@ -57,8 +83,11 @@ func (c *Client) Stream(ctx context.Context, messages []llm.Message) iter.Seq2[l
 			yield(llm.StreamEvent{}, err)
 			return
 		}
+		// Snapshot once, so a hook replacing the prompt mid-turn cannot
+		// change it between the branch test and the request build.
+		sys := c.SystemPrompt()
 		if c.anthropic {
-			req := anthropic.BuildRequest(c.cfg, c.system, messages, c.tools)
+			req := anthropic.BuildRequest(c.cfg, sys, messages, c.tools)
 			for ev, err := range anthropic.Stream(ctx, c.httpClient, c.cfg, &req) {
 				if !yield(ev, err) {
 					return
@@ -67,7 +96,7 @@ func (c *Client) Stream(ctx context.Context, messages []llm.Message) iter.Seq2[l
 			return
 		}
 		if c.gemini {
-			req := gemini.BuildRequest(c.cfg, c.system, messages, c.tools)
+			req := gemini.BuildRequest(c.cfg, sys, messages, c.tools)
 			for ev, err := range gemini.Stream(ctx, c.httpClient, c.cfg, req) {
 				if !yield(ev, err) {
 					return
@@ -76,7 +105,7 @@ func (c *Client) Stream(ctx context.Context, messages []llm.Message) iter.Seq2[l
 			return
 		}
 		if openai.UseCodexBackend(c.cfg) {
-			req := openai.BuildResponsesRequest(c.cfg, c.system, messages, c.tools)
+			req := openai.BuildResponsesRequest(c.cfg, sys, messages, c.tools)
 			for ev, err := range openai.StreamCodex(ctx, c.httpClient, c.cfg, req) {
 				if !yield(ev, err) {
 					return
@@ -84,7 +113,7 @@ func (c *Client) Stream(ctx context.Context, messages []llm.Message) iter.Seq2[l
 			}
 			return
 		}
-		req := openai.BuildRequest(c.cfg, c.system, messages, c.tools)
+		req := openai.BuildRequest(c.cfg, sys, messages, c.tools)
 		for ev, err := range openai.StreamChatCompletion(ctx, c.httpClient, c.cfg.BaseURL, c.cfg.APIKey, req) {
 			if !yield(ev, err) {
 				return

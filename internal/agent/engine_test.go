@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"slices"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"testing"
@@ -518,4 +519,97 @@ func TestAgentHookWithoutEffectsIsSilent(t *testing.T) {
 		_, isEffect := ev.(session.HookEffects)
 		assert.False(t, isEffect, "a hook that set no status must not emit an effect")
 	}
+}
+
+// A before_agent_start hook must be able to replace the system prompt for the
+// turn that is about to run, and the replacement must reach the client.
+func TestBeforeAgentStartReplacesSystemPrompt(t *testing.T) {
+	server := fakeTextServer()
+	defer server.Close()
+
+	mgr := hooks.NewManager(hooks.Entry{
+		Kind: hooks.KindBeforeAgentStart,
+		Hook: hooks.FuncHook{
+			HookName: "style",
+			Sess: func(_ context.Context, ev hooks.SessionEvent) (hooks.SessionResult, error) {
+				require.NotEmpty(t, ev.SystemPrompt, "the hook must see the prompt it is replacing")
+				require.Equal(t, "go", ev.Prompt, "the hook must see the user prompt")
+				return hooks.SessionResult{
+					Action:       hooks.ActionAllow,
+					SystemPrompt: "BE TERSE", SystemPromptSet: true,
+				}, nil
+			},
+		},
+	})
+
+	engine, err := NewEngine(EngineOpts{
+		Model:       llm.ModelConfig{Name: "fake", BaseURL: server.URL, APIKey: "x"},
+		SessionOpts: SessionOpts{Cwd: t.TempDir()},
+		Gate:        permission.AllowAll{},
+		Hooks:       mgr,
+	})
+	require.NoError(t, err)
+
+	drain(t.Context(), t, engine)
+	assert.Equal(t, "BE TERSE", engine.client.SystemPrompt())
+}
+
+// Handlers run in order and each must see the previous one's edit, or a second
+// style extension would silently overwrite the first instead of building on it.
+func TestBeforeAgentStartChainsHandlers(t *testing.T) {
+	server := fakeTextServer()
+	defer server.Close()
+
+	mk := func(name, suffix string) hooks.Entry {
+		return hooks.Entry{
+			Kind: hooks.KindBeforeAgentStart,
+			Hook: hooks.FuncHook{
+				HookName: name,
+				Sess: func(_ context.Context, ev hooks.SessionEvent) (hooks.SessionResult, error) {
+					return hooks.SessionResult{
+						Action:       hooks.ActionAllow,
+						SystemPrompt: ev.SystemPrompt + suffix, SystemPromptSet: true,
+					}, nil
+				},
+			},
+		}
+	}
+
+	engine, err := NewEngine(EngineOpts{
+		Model:       llm.ModelConfig{Name: "fake", BaseURL: server.URL, APIKey: "x"},
+		SessionOpts: SessionOpts{Cwd: t.TempDir()},
+		Gate:        permission.AllowAll{},
+		Hooks:       hooks.NewManager(mk("first", "|A"), mk("second", "|B")),
+	})
+	require.NoError(t, err)
+
+	drain(t.Context(), t, engine)
+	got := engine.client.SystemPrompt()
+	assert.True(t, strings.HasSuffix(got, "|A|B"), "handlers must chain in order, got suffix of %q", got)
+}
+
+// A hook that fails must not cost the turn: styling is not worth an error.
+func TestBeforeAgentStartErrorLeavesPromptAlone(t *testing.T) {
+	server := fakeTextServer()
+	defer server.Close()
+
+	engine, err := NewEngine(EngineOpts{
+		Model:       llm.ModelConfig{Name: "fake", BaseURL: server.URL, APIKey: "x"},
+		SessionOpts: SessionOpts{Cwd: t.TempDir()},
+		Gate:        permission.AllowAll{},
+		Hooks: hooks.NewManager(hooks.Entry{
+			Kind: hooks.KindBeforeAgentStart,
+			Hook: hooks.FuncHook{
+				HookName: "broken",
+				Sess: func(context.Context, hooks.SessionEvent) (hooks.SessionResult, error) {
+					return hooks.SessionResult{}, errors.New("boom")
+				},
+			},
+		}),
+	})
+	require.NoError(t, err)
+
+	before := engine.client.SystemPrompt()
+	drain(t.Context(), t, engine)
+	assert.Equal(t, before, engine.client.SystemPrompt(), "a failed hook must not change the prompt")
 }
