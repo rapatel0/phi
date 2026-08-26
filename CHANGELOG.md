@@ -29,6 +29,16 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ### Fixed
 
+- Image budgets are sized from each provider's documented limits. Providers
+  state their limits on the base64 payload, which is a third larger than the
+  raw bytes, and both budgets compared raw bytes against those limits. A
+  normalized image could reach 5.6 MB encoded against a 5 MB per-image limit,
+  and the request budget could reach 16.8 MB against a 20 MB cap that also had
+  to hold the prompt. Budgets are now chosen per request, because the limits
+  differ by more than a factor of three and the model can change mid-session.
+  xAI was getting OpenAI's budget against a documented limit three times
+  smaller. `/media` reports the budget that was applied and its provider.
+  Sources are recorded in `doc/media-limits.md`.
 - Images are no longer degraded on the way to the model. Two defects, both
   silent. Every GIF was re-encoded as JPEG, so a 4 KB file already inside every
   limit came back twice as large, and an animation was flattened to one frame.
