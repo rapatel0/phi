@@ -5,6 +5,7 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -25,11 +26,6 @@ func TestResolveFD(t *testing.T) {
 }
 
 func TestSearch(t *testing.T) {
-	ResetResolveFDForTest()
-	if _, err := ResolveFD(); err != nil {
-		t.Skip("fd not installed:", err)
-	}
-
 	dir := t.TempDir()
 	mustWrite := func(rel, body string) {
 		t.Helper()
@@ -115,11 +111,6 @@ func TestSearch(t *testing.T) {
 // A deadline must surface as ErrTimeout, not as the child's "signal: killed".
 // The picker shows this text, so it has to be about the search, not the process.
 func TestSearchTimeoutIsTyped(t *testing.T) {
-	ResetResolveFDForTest()
-	if _, err := ResolveFD(); err != nil {
-		t.Skip("fd not installed:", err)
-	}
-
 	// Already past the deadline, so fd is killed immediately.
 	ctx, cancel := context.WithTimeout(t.Context(), time.Nanosecond)
 	defer cancel()
@@ -136,11 +127,6 @@ func TestSearchTimeoutIsTyped(t *testing.T) {
 
 // A cancelled search reports the cancellation, not a process failure.
 func TestSearchCancelled(t *testing.T) {
-	ResetResolveFDForTest()
-	if _, err := ResolveFD(); err != nil {
-		t.Skip("fd not installed:", err)
-	}
-
 	ctx, cancel := context.WithCancel(t.Context())
 	cancel()
 
@@ -150,26 +136,32 @@ func TestSearchCancelled(t *testing.T) {
 	}
 }
 
-func TestSearchMissingFD(t *testing.T) {
+// The walk runs in process, so a missing fd binary must not stop it. This is
+// the property that makes the picker work on a machine without fd.
+func TestSearchWorksWithoutFD(t *testing.T) {
 	ResetResolveFDForTest()
-	if _, err := ResolveFD(); err == nil {
-		t.Skip("fd is installed")
+	t.Cleanup(ResetResolveFDForTest)
+
+	dir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(dir, "a.go"), []byte("x"), 0o644); err != nil {
+		t.Fatal(err)
 	}
-	_, _, err := Search(t.Context(), t.TempDir(), "", 5)
-	if err == nil {
-		t.Fatal("expected error when fd missing")
+
+	// Empty PATH, so fd cannot be resolved even if it is installed.
+	t.Setenv("PATH", "")
+
+	got, _, err := Search(t.Context(), dir, "", 5)
+	if err != nil {
+		t.Fatalf("search must not need an external binary: %v", err)
+	}
+	if len(got) != 1 || got[0] != "a.go" {
+		t.Fatalf("want [a.go], got %v", got)
 	}
 }
 
-// The root is passed to fd as an argument, which makes fd read a missing
-// pattern as the pattern itself. An empty query must still list files, and
-// results must stay relative to cwd rather than leaking the absolute root.
+// An empty query must list files, and results must stay relative to cwd
+// rather than leaking the absolute root.
 func TestSearchEmptyQueryListsRelativePaths(t *testing.T) {
-	ResetResolveFDForTest()
-	if _, err := ResolveFD(); err != nil {
-		t.Skip("fd not installed:", err)
-	}
-
 	dir := t.TempDir()
 	for _, rel := range []string{"a.go", "sub/b.go"} {
 		p := filepath.Join(dir, filepath.FromSlash(rel))
@@ -198,11 +190,6 @@ func TestSearchEmptyQueryListsRelativePaths(t *testing.T) {
 // A query must match against the path, not just the file name, and the result
 // must still be relative.
 func TestSearchMatchesDirectorySegment(t *testing.T) {
-	ResetResolveFDForTest()
-	if _, err := ResolveFD(); err != nil {
-		t.Skip("fd not installed:", err)
-	}
-
 	dir := t.TempDir()
 	p := filepath.Join(dir, "internal", "session", "manager.go")
 	if err := os.MkdirAll(filepath.Dir(p), 0o755); err != nil {
@@ -218,5 +205,73 @@ func TestSearchMatchesDirectorySegment(t *testing.T) {
 	}
 	if len(got) != 1 || got[0] != "internal/session/manager.go" {
 		t.Fatalf("want internal/session/manager.go, got %v", got)
+	}
+}
+
+// The picker must never offer a file git ignores. This covers the cases that
+// make a hand-rolled matcher risky: a directory rule, a glob, a negation, and
+// a nested .gitignore that applies only below its own directory.
+func TestSearchRespectsGitignore(t *testing.T) {
+	dir := t.TempDir()
+	write := func(rel, body string) {
+		t.Helper()
+		p := filepath.Join(dir, filepath.FromSlash(rel))
+		if err := os.MkdirAll(filepath.Dir(p), 0o755); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(p, []byte(body), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	write(".gitignore", "node_modules/\n*.log\n!keep.log\n")
+	write("src/app.go", "x")
+	write("node_modules/lib/index.js", "x")
+	write("debug.log", "x")
+	write("keep.log", "x")
+	write("nested/.gitignore", "secret*\n")
+	write("nested/secret.txt", "x")
+	write("nested/ok.txt", "x")
+
+	got, _, err := Search(t.Context(), dir, "", 100)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	found := make(map[string]bool, len(got))
+	for _, p := range got {
+		found[p] = true
+	}
+	for _, want := range []string{"src/app.go", "nested/ok.txt", "keep.log"} {
+		if !found[want] {
+			t.Errorf("%q must be listed, got %v", want, got)
+		}
+	}
+	for _, deny := range []string{"node_modules/lib/index.js", "debug.log", "nested/secret.txt"} {
+		if found[deny] {
+			t.Errorf("%q is ignored by git and must not be listed", deny)
+		}
+	}
+}
+
+// The walk stops once enough matches exist, so a huge tree costs no more than
+// a small one when matches are common.
+func TestSearchStopsEarly(t *testing.T) {
+	dir := t.TempDir()
+	for i := range 500 {
+		p := filepath.Join(dir, "f"+strconv.Itoa(i)+".go")
+		if err := os.WriteFile(p, []byte("x"), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	got, truncated, err := Search(t.Context(), dir, "", 20)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(got) != 20 {
+		t.Fatalf("want 20 paths, got %d", len(got))
+	}
+	if !truncated {
+		t.Fatal("480 more files exist, so truncated must be true")
 	}
 }

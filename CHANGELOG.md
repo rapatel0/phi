@@ -8,86 +8,19 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased]
 
-### Changed
-
-- **Renamed the project from phi to alpha.** The binary is now `alpha`, the
-  module path is `github.com/rapatel0/alpha`, state lives in `~/.alpha`, and
-  environment variables use the `ALPHA_` prefix.
-
-  The first run moves an existing `~/.phi` to `~/.alpha`, so OAuth tokens,
-  sessions, skills, and hooks are kept. If `~/.alpha` already exists, nothing
-  is moved and `~/.phi` is left in place.
-
-  `PHI_*` variables are still read when the matching `ALPHA_*` variable is
-  unset. Command hooks receive both `ALPHA_HOOK_*` and `PHI_HOOK_*`.
-  Update your scripts: the legacy names are deprecated.
-
 ### Added
 
-- `$` completes skill names in the composer, following the Codex convention.
-  Accepting inserts the literal `$name` token, so `$code-review the auth
-  package` reads as written and the model loads that skill before it answers.
-  The picker lists the same skills the `skill` tool loads, so it cannot offer
-  one that fails to load. Shell text such as `$HOME`, `${VAR}`, `$(cmd)`, `$$`,
-  and `$5` leaves the picker closed. A name must start with a letter, so shell
-  text such as `$_` and `$1` stays quiet too. The variable check is
-  case-sensitive, so a skill named `home` still completes as `$home`. A
-  plugin-qualified name such as `$plugin:skill` is one token.
-- Go extensions can register slash commands, watch session lifecycle events,
-  and observe the tool loop. `ext.Host` gains `RegisterCommand`, `OnSession`,
-  and `OnTool`; the controller merges the result with hooks discovered from
-  disk, so one manager dispatches both. Until now a Go extension could only add
-  a tool and a footer string, while an external shell hook could do all three.
-  See [doc/ext-api.md](doc/ext-api.md).
-- `/toolstats` reports tool call counts for the current session, with failures
-  called out and counters reset when a session starts. It is also the reference
-  user of the extension API.
-- `mise.toml` is now the source of truth for the toolchain and every task. The
-  Makefile forwards each target to `mise run <task>`, so `make build` and
-  `make check` keep working. CI installs mise and runs `mise run check`, so a
-  green local gate means a green CI. Add tasks in `mise.toml`, not the
-  Makefile. `mise tasks` lists them.
-- `make deadcode` reports unreachable functions and fails on new ones.
-  `golangci-lint`'s `unused` works per package and treats every exported
-  identifier as API, so an exported function that nothing calls is invisible to
-  it. `deadcode` analyzes reachability from `main` across the whole program and
-  catches it. The 48 known findings are tracked in
-  `scripts/deadcode-baseline.txt`, so only new dead code fails the build.
-  Wired into `make check`, `mise run check`, and CI.
-- Extension API spec ([doc/ext-api.md](doc/ext-api.md)) and the linters that
-  enforce it. Three `depguard` rules keep the TUI out of core, out of widgets,
-  and out of extensions. Three tests in `internal/agent/architecture_test.go`
-  keep the tool loop in order: PreHooks, then the permission gate, then the
-  tool. Every rule was verified by writing the violation it guards against.
-- Shortcuts accept `Cmd` as well as `Ctrl` on macOS. `Cmd+R`, `Cmd+B`,
-  `Cmd+O`, and `Cmd+I` mirror their `Ctrl` forms, and the command palette adds
-  `Cmd+Shift+K`. `Ctrl` keeps working everywhere, which matters over SSH,
-  inside tmux, and on Linux.
-
-  Terminals claim some `Cmd` combinations before alpha sees them. Ghostty binds
-  `Cmd+K`, `Cmd+T`, `Cmd+Enter`, and `Cmd+V` to its own actions, so those keep
-  a `Ctrl` binding. Image paste stays on `Ctrl+V`, because a terminal paste
-  delivers text rather than a key press.
-- `alpha keys` prints key events as they arrive, so you can see which
-  combinations your terminal delivers and which it consumes.
-- Session tree dialog (`/sessions` or `Ctrl+R`). Sessions are grouped by
-  project, with the current project expanded and the others collapsed. Type to
-  filter by preview text, session id, or project name. `↑`/`↓` move, `←`/`→`
-  fold a project, `Enter` resumes, `Esc` closes. Picking a session from another
-  project resumes it and warns that the session cwd differs; the working
-  directory does not change. `/sessions` used to print a flat list into the
-  transcript.
 - Built-in `skill`, `webfetch`, and `websearch` tools. Search uses the current model's native API when available (Anthropic `web_search_20250305`, Gemini `google_search`, OpenAI/xAI Responses `web_search`) and falls back to DuckDuckGo HTML. `webfetch` is https-only with SSRF checks.
 - `mise.toml` pins Go 1.26.3 and golangci-lint 2.13.0, with tasks for build / test / fmt / lint (`mise run check`).
 - Go extension host (`internal/ext`): compiled-in plugins register tools and footer bits. Bundled: `tokenspeed`, `todo_write`, `ask_user_question`.
-- Gemini (`internal/llm/gemini`) and SuperGrok/xAI (`alpha login xai`, `https://api.x.ai/v1`). See [doc/plugins.md](doc/plugins.md).
-- `alpha login anthropic` / `alpha login codex`: Claude Pro/Max (PKCE) and ChatGPT Codex (device code) OAuth. Tokens live in `~/.alpha/auth.json`; config `api_key` still wins. OAuth Anthropic requests use Claude Code identity headers and tool names so subscription billing applies.
-- Image attach: Ctrl+V (clipboard), paste/drag a `.png`/`.jpg`/`.gif`/`.webp` path, or `/image` / `/image <path>`. Multipart vision content for Anthropic, OpenAI, Codex, and Gemini. Composer shows an `Images:` chip; backspace pops the last attach. Kitty/Ghostty terminals render attached images inline (Kitty graphics protocol; `ALPHA_KITTY_GRAPHICS=0` to disable).
+- Gemini (`internal/llm/gemini`) and SuperGrok/xAI (`phi login xai`, `https://api.x.ai/v1`). See [doc/plugins.md](doc/plugins.md).
+- `phi login anthropic` / `phi login codex`: Claude Pro/Max (PKCE) and ChatGPT Codex (device code) OAuth. Tokens live in `~/.phi/auth.json`; config `api_key` still wins. OAuth Anthropic requests use Claude Code identity headers and tool names so subscription billing applies.
+- Image attach: Ctrl+V (clipboard), paste/drag a `.png`/`.jpg`/`.gif`/`.webp` path, or `/image` / `/image <path>`. Multipart vision content for Anthropic, OpenAI, Codex, and Gemini. Composer shows an `Images:` chip; backspace pops the last attach. Kitty/Ghostty terminals render attached images inline (Kitty graphics protocol; `PHI_KITTY_GRAPHICS=0` to disable).
 - `read_image` tool (from pi-go): the agent can look at local images or `https://` URLs (SSRF-gated). `read` on an image/PDF/binary now points at `read_image` / `pdftotext` instead of dumping bytes. Vision parts are injected on the next model turn.
 - TUI task sidebar (Ctrl+B): live/recent sub-agent jobs. Enter on an `agent_spawn` card, Ctrl+Enter on a TASKS row, or **Ctrl+O** opens a scrollable **view** popup (composer stays on the parent). **Ctrl+I** in that popup steers (opt-in attach). Esc closes the view or, while steering, returns to the parent.
 - Sub-agent cards use the spawn description as the title and collapse when the job finishes.
 
-- `alpha run --yolo`: skip all permission checks for one headless run (benchmarks / CI).
+- `phi run --yolo`: skip all permission checks for one headless run (benchmarks / CI).
 - Hooks: session lifecycle events now include `usage` — token counts of the latest completed assistant turn.
 - Hooks: `post_turn` event fires after each completed assistant stream with per-round `usage` (for audit metrics such as cache hit ratio).
 
@@ -99,25 +32,10 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ### Fixed
 
-- The `@` file picker started a search for every keystroke and never stopped
-  the previous one. On a large tree each search walked the whole directory, so
-  the processes piled up faster than they finished: six keystrokes left four
-  concurrent walks running. A new keystroke now cancels the search in flight,
-  and closing the picker cancels it too.
-- The `@` file picker was about 4x slower than it needed to be on a large
-  tree. It ran `fd` from a working directory instead of naming the root, so
-  `--full-path` rebuilt a full path for every file walked: 5.3s versus 1.3s
-  across 363k files. A search that matched nothing used to exceed the 3s
-  deadline; it now finishes in about 1.5s.
-- The `@` file picker showed `fd: signal: killed` when a search hit its
-  deadline. It now reports `Search timed out — type more of the path`.
-- The `@` file picker silently cut its list at 20 matches, so a missing file
-  looked absent rather than out of view. It now says `First 20 matches — type
-  more to narrow` when more exist.
 - Ctrl+B hid the TASKS sidebar for one frame then immediately re-showed it whenever sub-agents were running. Hide is now sticky until you toggle again. `Ctrl+T` is the same binding (tmux eats Ctrl+B).
 - `/resume` with no id now continues the latest session for this directory (it used to only print usage). Replay restores tool rows and sub-agent cards, not just user/assistant text.
-- TUI model palette only listed `config.yaml` entries, so Anthropic / Codex / Grok / Gemini never appeared after `alpha login`. Logged-in (or env-keyed) providers now inject their catalog into settings → model.
-- Ctrl+K → settings → model fetches live IDs from each provider's `/models` API (OpenAI-compat, Anthropic, Gemini, Codex). Static catalog is the fallback; `ALPHA_MODEL_LIST=0` skips the network.
+- TUI model palette only listed `config.yaml` entries, so Anthropic / Codex / Grok / Gemini never appeared after `phi login`. Logged-in (or env-keyed) providers now inject their catalog into settings → model.
+- Ctrl+K → settings → model fetches live IDs from each provider's `/models` API (OpenAI-compat, Anthropic, Gemini, Codex). Static catalog is the fallback; `PHI_MODEL_LIST=0` skips the network.
 - Anthropic OAuth mapped both `agent_wait` and `agent_list` to `TaskOutput`, so Claude rejected the request with "tools: Tool names must be unique." `agent_list` is now `TaskList`; remaining collisions keep the original name.
 
 ### Security
@@ -230,10 +148,10 @@ Earlier releases are available from GitHub tags only.
 
 <!-- Released section ended -->
 
-[Unreleased]: https://github.com/rapatel0/alpha/compare/v0.16.0...HEAD
-[0.16.0]: https://github.com/rapatel0/alpha/releases/tag/v0.16.0
-[0.15.0]: https://github.com/rapatel0/alpha/releases/tag/v0.15.0
-[0.14.0]: https://github.com/rapatel0/alpha/releases/tag/v0.14.0
-[0.13.0]: https://github.com/rapatel0/alpha/releases/tag/v0.13.0
-[0.12.0]: https://github.com/rapatel0/alpha/releases/tag/v0.12.0
-[0.11.0]: https://github.com/rapatel0/alpha/releases/tag/v0.11.0
+[Unreleased]: https://github.com/pulseaiclub/phi/compare/v0.16.0...HEAD
+[0.16.0]: https://github.com/pulseaiclub/phi/releases/tag/v0.16.0
+[0.15.0]: https://github.com/pulseaiclub/phi/releases/tag/v0.15.0
+[0.14.0]: https://github.com/pulseaiclub/phi/releases/tag/v0.14.0
+[0.13.0]: https://github.com/pulseaiclub/phi/releases/tag/v0.13.0
+[0.12.0]: https://github.com/pulseaiclub/phi/releases/tag/v0.12.0
+[0.11.0]: https://github.com/pulseaiclub/phi/releases/tag/v0.11.0

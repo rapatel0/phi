@@ -900,7 +900,7 @@ const mentionSearchLimit = 20
 
 // abandonMentionSearch drops any result still in flight and stops the work
 // behind it. Bumping the generation alone only makes the UI ignore the answer;
-// the fd process keeps walking the tree. Every path that closes the picker or
+// the walk keeps running over the tree. Every path that closes the picker or
 // starts a new query goes through here, so the two always happen together.
 func (c *ComposerPane) abandonMentionSearch() {
 	c.mentionGen++
@@ -911,7 +911,7 @@ func (c *ComposerPane) abandonMentionSearch() {
 }
 
 // scheduleMentionSearch debounces, then searches. Each call cancels the search
-// in flight: without that, every keystroke leaves an fd process walking the
+// in flight: without that, every keystroke leaves a walk running over the
 // tree, and on a large one they pile up faster than they finish.
 func (c *ComposerPane) scheduleMentionSearch(query string) {
 	if c == nil {
