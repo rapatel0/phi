@@ -8,6 +8,7 @@ import (
 	"sync"
 
 	"github.com/rapatel0/alpha/internal/auth"
+	"github.com/rapatel0/alpha/internal/hooks"
 	"github.com/rapatel0/alpha/internal/llm"
 	"github.com/rapatel0/alpha/internal/llm/anthropic"
 	"github.com/rapatel0/alpha/internal/llm/gemini"
@@ -86,6 +87,15 @@ func (c *Client) Stream(ctx context.Context, messages []llm.Message) iter.Seq2[l
 		// Snapshot once, so a hook replacing the prompt mid-turn cannot
 		// change it between the branch test and the request build.
 		sys := c.SystemPrompt()
+		// before_provider_request runs on the message list rather than the
+		// built payload, so one hook covers every provider below.
+		if hooks.HasProviderHooks() {
+			messages = hooks.ApplyProviderHooks(ctx, hooks.ProviderRequest{
+				Model:        c.cfg.Name,
+				SystemPrompt: sys,
+				Messages:     messages,
+			})
+		}
 		if c.anthropic {
 			req := anthropic.BuildRequest(c.cfg, sys, messages, c.tools)
 			for ev, err := range anthropic.Stream(ctx, c.httpClient, c.cfg, &req) {

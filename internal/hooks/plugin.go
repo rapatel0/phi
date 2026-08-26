@@ -185,6 +185,13 @@ func parseEvent(event string) (Kind, error) {
 		return "", errors.New("missing required field \"event\"")
 	}
 	k := Kind(trimmed)
+	// before_provider_request dispatches through RegisterProviderHook, not
+	// through Manager entries, so a manifest declaring it would be accepted
+	// and then never fire. Reject it with a reason instead.
+	if k == KindBeforeProviderRequest {
+		return "", fmt.Errorf(
+			"event %q is available to compiled-in Go extensions only, not to command hooks", event)
+	}
 	if !validKind(k) {
 		return "", fmt.Errorf("invalid event %q (want %s)", event, kindList(nil))
 	}

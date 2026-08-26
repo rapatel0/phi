@@ -317,3 +317,28 @@ func TestInvalidEventErrorListsEveryKind(t *testing.T) {
 		assert.Contains(t, err.Error(), string(k), "the invalid-event error must name %q", k)
 	}
 }
+
+// before_provider_request dispatches through RegisterProviderHook rather than
+// Manager entries, so a command hook declaring it would be accepted and then
+// never fire. A clear rejection beats a silent no-op.
+func TestParsePluginRejectsGoOnlyEvent(t *testing.T) {
+	dir := t.TempDir()
+	path := writePluginJSON(t, dir, `{"hooks":[
+    {"name":"x","event":"before_provider_request","run":"./a.sh"}]}`)
+	_, err := ParsePlugin(path)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "Go extensions only")
+}
+
+// A command hook may still declare before_agent_start, which does dispatch
+// through the Manager.
+func TestParsePluginAcceptsBeforeAgentStart(t *testing.T) {
+	dir := t.TempDir()
+	path := writePluginJSON(t, dir, `{"hooks":[
+    {"name":"x","event":"before_agent_start","run":"./a.sh"}]}`)
+	ms, err := ParsePlugin(path)
+	require.NoError(t, err)
+	require.Len(t, ms, 1)
+	assert.Equal(t, KindBeforeAgentStart, ms[0].Kind)
+	assert.False(t, ms[0].Async, "its result is used, so it cannot be detached")
+}

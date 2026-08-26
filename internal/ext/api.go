@@ -120,6 +120,26 @@ func (h *Host) OnBeforeAgentStart(fn PromptFunc) {
 	h.onPrompt = append(h.onPrompt, fn)
 }
 
+// OnBeforeProviderRequest subscribes to before_provider_request, which runs
+// once per model request after the message list is assembled and before it
+// becomes a provider payload.
+//
+// fn returns the messages to send. Returning the input unchanged observes
+// without rewriting. An error is logged and the request proceeds unchanged: a
+// budget must never cost a turn.
+//
+// The hook sees the message list rather than a provider payload, so one
+// implementation covers every provider.
+func (h *Host) OnBeforeProviderRequest(name string, fn hooks.ProviderFunc) {
+	if h == nil || fn == nil {
+		return
+	}
+	if name == "" {
+		name = "ext"
+	}
+	hooks.RegisterProviderHook(name, fn)
+}
+
 // OnTool observes the tool loop. match is a tool name, or "" for every tool.
 // Either callback may be nil.
 //

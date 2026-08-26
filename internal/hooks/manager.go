@@ -39,6 +39,14 @@ const (
 	// replace the system prompt. Handlers run in order and each sees the
 	// previous one's result.
 	KindBeforeAgentStart Kind = "before_agent_start"
+	// KindBeforeProviderRequest fires once per model request, after the
+	// message list is assembled and before it is turned into a
+	// provider-specific payload. A hook may rewrite the messages, which is
+	// how an aggregate media budget drops or replaces oversized content.
+	//
+	// It runs on the message list rather than the built payload so one
+	// implementation covers every provider.
+	KindBeforeProviderRequest Kind = "before_provider_request"
 	// KindSessionBeforeCompact can veto or adjust compaction; KindSessionCompact
 	// reports that it happened.
 	KindSessionBeforeCompact Kind = "session_before_compact"
@@ -59,7 +67,7 @@ type Entry struct {
 // error messages. One table keeps the validator and the messages in step.
 var allKinds = []Kind{
 	KindPreTool, KindPostTool, KindCommand, KindPostTurn,
-	KindBeforeAgentStart, KindAgentStart, KindAgentEnd,
+	KindBeforeAgentStart, KindBeforeProviderRequest, KindAgentStart, KindAgentEnd,
 	KindSessionStart, KindSessionShutdown, KindSessionBeforeSwitch,
 	KindSessionBeforeCompact, KindSessionCompact,
 }
@@ -67,16 +75,18 @@ var allKinds = []Kind{
 // notifyKinds are events that report something that already happened. A hook
 // result cannot change the outcome, so fail_closed is meaningless for them.
 var notifyKinds = map[Kind]bool{
-	// before_agent_start changes the turn but cannot deny it, so
-	// fail_closed is meaningless while async would discard the edit.
-	KindBeforeAgentStart: true,
-	KindCommand:          true,
-	KindPostTurn:         true,
-	KindAgentStart:       true,
-	KindAgentEnd:         true,
-	KindSessionStart:     true,
-	KindSessionShutdown:  true,
-	KindSessionCompact:   true,
+	// before_agent_start and before_provider_request change the request
+	// but cannot deny it, so fail_closed is meaningless while async would
+	// discard the edit.
+	KindBeforeAgentStart:      true,
+	KindBeforeProviderRequest: true,
+	KindCommand:               true,
+	KindPostTurn:              true,
+	KindAgentStart:            true,
+	KindAgentEnd:              true,
+	KindSessionStart:          true,
+	KindSessionShutdown:       true,
+	KindSessionCompact:        true,
 }
 
 // asyncKinds are events that may be detached. Nothing waits on the result, so
