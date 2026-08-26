@@ -50,4 +50,6 @@ go test ./internal/hooks -v    # one package
 
 - Packages: lowercase, single word, match the directory (`writetool`, not `write_tool`).
 - Prefer small packages under `internal/`; keep the exported surface small.
-- Tests live beside the code they cover.
+- Tests live beside the code they cover: tests for `foo.go` go in `foo_test.go`,
+  not in a new `foo_thing_test.go`. Split a test file only when the package
+  differs (`package foo` against `package foo_test`).

@@ -224,6 +224,19 @@ the build. The baseline is a to-do list, not a permanent exemption.
 | `scripts/deadcode.sh --list` | Print every finding |
 | `scripts/deadcode.sh --update` | Rewrite the baseline after deleting code |
 
+### Test colocation
+
+Tests for `foo.go` belong in `foo_test.go`. A test file with no matching source
+file splits a package's tests across names that no longer say what they cover.
+
+`TestTestFilesAreColocated` in
+[`internal/agent/architecture_test.go`](../internal/agent/architecture_test.go)
+checks the whole tree. A file declaring `package x_test` is exempt, because an
+external test cannot merge into an internal test file. The remaining 26 files
+predate the rule and live in `scripts/colocation-baseline.txt`, which ratchets
+like the dead-code baseline: a new orphan fails, and a fixed file must be
+removed from the list. The baseline is a to-do list, not an exemption.
+
 The baseline stores `<file> <func>` without line numbers, so editing above a
 function does not churn it. When dead code is deleted, the script says so and
 asks for an update, so the baseline shrinks instead of drifting.

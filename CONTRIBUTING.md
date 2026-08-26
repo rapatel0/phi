@@ -76,6 +76,8 @@ stay clean.
 - Format with `make fmt` (gofumpt / goimports / golines via `.golangci.yml`).
   CI runs `make fmt-check`.
 - Write tests alongside code (testify is used; see existing `*_test.go` files).
+  Tests for `foo.go` belong in `foo_test.go`. Add a separate file only when the
+  package differs (`package foo` against `package foo_test`).
 - Prefer small, focused packages. The layout under `internal/` is deliberately
   granular — when adding a feature, put it where it fits and keep the public
   surface small.
