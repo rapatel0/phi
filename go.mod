@@ -5,6 +5,7 @@ go 1.26.3
 require (
 	github.com/alecthomas/chroma/v2 v2.27.0
 	github.com/boyter/gocodewalker v1.5.1
+	github.com/ledongthuc/pdf v0.0.0-20250511090121-5959a4027728
 	github.com/pulseaiclub/xui v0.1.3
 	github.com/stretchr/testify v1.11.1
 	github.com/yuin/goldmark v1.8.5

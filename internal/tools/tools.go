@@ -3,6 +3,7 @@ package tools
 import (
 	"github.com/rapatel0/alpha/internal/tools/agenttool"
 	"github.com/rapatel0/alpha/internal/tools/bashtool"
+	"github.com/rapatel0/alpha/internal/tools/doctool"
 	"github.com/rapatel0/alpha/internal/tools/findtool"
 	"github.com/rapatel0/alpha/internal/tools/greptool"
 	"github.com/rapatel0/alpha/internal/tools/lstool"
@@ -78,6 +79,7 @@ func DefaultTools() []Tool {
 		bashtool.BashTool(),
 		readtool.ReadTool(),
 		readimagetool.ReadImageTool(),
+		doctool.DocTool(),
 		writetool.WriteTool(),
 		greptool.GrepTool(),
 		lstool.LsTool(),
@@ -97,6 +99,7 @@ func ReadonlyTools() []Tool {
 		bashtool.BashTool(),
 		readtool.ReadTool(),
 		readimagetool.ReadImageTool(),
+		doctool.DocTool(),
 		greptool.GrepTool(),
 		lstool.LsTool(),
 		findtool.FindTool(),
