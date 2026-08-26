@@ -1,11 +1,15 @@
 package client
 
 import (
+	"context"
 	"net/http"
 	"net/http/httptest"
 	"strings"
 	"testing"
 
+	"github.com/stretchr/testify/assert"
+
+	"github.com/rapatel0/alpha/internal/hooks"
 	"github.com/rapatel0/alpha/internal/llm"
 )
 
@@ -184,4 +188,61 @@ func collectEvents(seq func(func(llm.StreamEvent, error) bool)) []llm.StreamEven
 		events = append(events, ev)
 	}
 	return events
+}
+
+// Provider must agree with the branch Stream actually takes. If it drifts, a
+// hook would apply one provider's limits to another provider's request.
+func TestProviderMatchesDispatch(t *testing.T) {
+	cases := []struct {
+		name string
+		cfg  llm.ModelConfig
+		want string
+	}{
+		{
+			"anthropic",
+			llm.ModelConfig{Name: "claude-sonnet-4", BaseURL: "https://api.anthropic.com"},
+			ProviderAnthropic,
+		},
+		{
+			"gemini",
+			llm.ModelConfig{Name: "gemini-2.0-flash", BaseURL: "https://generativelanguage.googleapis.com"},
+			ProviderGemini,
+		},
+		{
+			"openai",
+			llm.ModelConfig{Name: "gpt-4o", BaseURL: "https://api.openai.com/v1"},
+			ProviderOpenAI,
+		},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			assert.Equal(t, tc.want, NewClient(tc.cfg, nil, "").Provider())
+		})
+	}
+}
+
+// A hook must be told which backend is about to receive the request.
+func TestStreamPassesProviderToHooks(t *testing.T) {
+	t.Cleanup(hooks.ResetProviderHooks)
+	hooks.ResetProviderHooks()
+
+	var got hooks.ProviderRequest
+	hooks.RegisterProviderHook("probe", func(_ context.Context, req hooks.ProviderRequest) ([]llm.Message, error) {
+		got = req
+		return req.Messages, nil
+	})
+
+	// A stub endpoint so the stream reaches the hook and then ends cleanly.
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "text/event-stream")
+		w.WriteHeader(http.StatusOK)
+	}))
+	t.Cleanup(srv.Close)
+
+	cfg := llm.ModelConfig{Name: "claude-sonnet-4", BaseURL: srv.URL, APIKey: "x"}
+	c := NewClient(cfg, nil, "sys")
+	for range c.Stream(t.Context(), []llm.Message{{Role: llm.RoleUser, Content: "hi"}}) { //nolint:revive // drain
+	}
+	assert.Equal(t, ProviderAnthropic, got.Provider)
+	assert.Equal(t, "claude-sonnet-4", got.Model)
 }

@@ -91,6 +91,7 @@ func (c *Client) Stream(ctx context.Context, messages []llm.Message) iter.Seq2[l
 		// built payload, so one hook covers every provider below.
 		if hooks.HasProviderHooks() {
 			messages = hooks.ApplyProviderHooks(ctx, hooks.ProviderRequest{
+				Provider:     c.Provider(),
 				Model:        c.cfg.Name,
 				SystemPrompt: sys,
 				Messages:     messages,
@@ -131,6 +132,30 @@ func (c *Client) Stream(ctx context.Context, messages []llm.Message) iter.Seq2[l
 		}
 	}
 }
+
+// Provider names the backend this client sends to. The branches below mirror
+// the dispatch order in Stream, so a hook sees the provider that will actually
+// receive the request rather than one inferred from the model name.
+func (c *Client) Provider() string {
+	switch {
+	case c.anthropic:
+		return ProviderAnthropic
+	case c.gemini:
+		return ProviderGemini
+	case openai.UseCodexBackend(c.cfg):
+		return ProviderCodex
+	default:
+		return ProviderOpenAI
+	}
+}
+
+// Provider names, as seen by a before_provider_request hook.
+const (
+	ProviderAnthropic = "anthropic"
+	ProviderGemini    = "gemini"
+	ProviderCodex     = "codex"
+	ProviderOpenAI    = "openai"
+)
 
 // Compact sends a single non-streaming chat request and returns the
 // assistant text. It satisfies llm.Compactor for session compaction.

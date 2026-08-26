@@ -12,6 +12,11 @@ import (
 // assembled message list rather than a provider payload, so one hook covers
 // every provider instead of needing four implementations.
 type ProviderRequest struct {
+	// Provider is the backend about to receive the request, for example
+	// "anthropic" or "gemini". A hook needs it because provider limits
+	// differ, and the model name alone does not identify the backend.
+	// It is empty when the backend is unknown.
+	Provider     string
 	Model        string
 	SystemPrompt string
 	Messages     []llm.Message
@@ -80,11 +85,12 @@ func ApplyProviderHooks(ctx context.Context, req ProviderRequest) []llm.Message 
 		if ctx.Err() != nil {
 			break
 		}
-		next, err := fn(ctx, ProviderRequest{
-			Model:        req.Model,
-			SystemPrompt: req.SystemPrompt,
-			Messages:     msgs,
-		})
+		// Copy the request and swap only the messages, so a field added to
+		// ProviderRequest reaches hooks without another edit here. Rebuilding
+		// it field by field silently dropped Provider once already.
+		cur := req
+		cur.Messages = msgs
+		next, err := fn(ctx, cur)
 		if err != nil {
 			debuglog.Logf("hooks: %s BeforeProviderRequest: %v", names[i], err)
 			continue

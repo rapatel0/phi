@@ -126,3 +126,47 @@ func TestProviderHookSeesModelAndPrompt(t *testing.T) {
 	assert.Equal(t, "claude", gotModel)
 	assert.Equal(t, "BASE", gotPrompt)
 }
+
+// Every request field must reach the hook. ApplyProviderHooks used to rebuild
+// ProviderRequest field by field, which silently dropped Provider when that
+// field was added.
+func TestApplyProviderHooksForwardsEveryField(t *testing.T) {
+	t.Cleanup(ResetProviderHooks)
+	ResetProviderHooks()
+
+	var got ProviderRequest
+	RegisterProviderHook("probe", func(_ context.Context, req ProviderRequest) ([]llm.Message, error) {
+		got = req
+		return req.Messages, nil
+	})
+
+	want := ProviderRequest{
+		Provider:     "anthropic",
+		Model:        "claude-sonnet-4",
+		SystemPrompt: "be terse",
+		Messages:     []llm.Message{{Role: llm.RoleUser, Content: "hi"}},
+	}
+	ApplyProviderHooks(t.Context(), want)
+	assert.Equal(t, want, got, "a hook must see the request it was given, in full")
+}
+
+// The second hook must also see the non-message fields, not just the first.
+func TestApplyProviderHooksForwardsFieldsToEveryHook(t *testing.T) {
+	t.Cleanup(ResetProviderHooks)
+	ResetProviderHooks()
+
+	var seen []string
+	record := func(_ context.Context, req ProviderRequest) ([]llm.Message, error) {
+		seen = append(seen, req.Provider)
+		return append(req.Messages, llm.Message{Role: llm.RoleUser, Content: "more"}), nil
+	}
+	RegisterProviderHook("first", record)
+	RegisterProviderHook("second", record)
+
+	out := ApplyProviderHooks(t.Context(), ProviderRequest{
+		Provider: "gemini",
+		Messages: []llm.Message{{Role: llm.RoleUser, Content: "hi"}},
+	})
+	assert.Equal(t, []string{"gemini", "gemini"}, seen)
+	assert.Len(t, out, 3, "each hook's output must feed the next")
+}
