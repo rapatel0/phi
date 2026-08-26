@@ -56,6 +56,24 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ### Added
 
+- **Profiles.** A profile is a named set of credentials, each with its own
+  `auth.json`, so a work login and a personal login no longer overwrite each
+  other. `alpha profile list / show / create / use / delete`. The active one
+  comes from `ALPHA_PROFILE`, then `alpha profile use`, then `default`. The
+  environment wins, so one shell or one project can differ from the rest. The
+  default profile keeps `~/.alpha/auth.json`, so nothing has to move. See
+  [doc/profiles.md](doc/profiles.md).
+- **Antigravity provider.** `alpha login antigravity` reaches Gemini 3 and
+  Claude 4.6 through Google's Antigravity endpoint. That endpoint is
+  undocumented and can be withdrawn without notice, so alpha reports that as a
+  distinct condition rather than as a login problem. See
+  [doc/antigravity.md](doc/antigravity.md).
+- `read_document` extracts the text of a PDF, Word document, spreadsheet,
+  presentation, or CSV. `read` returns the bytes, which is not text for these
+  formats. The Office formats use only the standard library; PDF adds one
+  dependency, `github.com/ledongthuc/pdf`, chosen by measuring 605 real
+  documents. A scanned PDF has no text layer and is reported as such. See
+  [doc/documents.md](doc/documents.md).
 - `lens` reports code problems to the model right after it writes a file, so a
   mistake is corrected in the same turn rather than at the next build. It runs
   the checker the project already uses — `go vet`, `ruff`, `shellcheck`,

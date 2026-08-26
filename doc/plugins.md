@@ -12,13 +12,13 @@ Your `~/.pi/agent/settings.json` packages:
 | `@gotgenes/pi-anthropic-auth` | `alpha login anthropic` + Anthropic OAuth headers | Subscription billing identity + tool-name mapping |
 | `pi-subagents` | `agent_spawn` / `wait` / `list` / `cancel` | Built-in job manager + TUI cards/sidebar; Enter/Ctrl+Enter attaches and talks to the child |
 | `pi-powerline-footer` | Footer chrome + extension footer bits | Not pixel-identical; tokens, jobs, tok/s, todos |
-| `@siva-sub/pi-docparser` | — | Use MCP (`mcp_list` / `inspect` / `call`) or a Go ext |
+| `@siva-sub/pi-docparser` | `read_document` | PDF, Word, Excel, PowerPoint, CSV. No OCR: a scanned PDF is reported as such |
 | `pi-token-speed` | `internal/ext/tokenspeed` | Footer `N tok/s` |
 | `pi-image-paste` | Ctrl+V / path paste / `/image` + `read_image` | User paste plus agent vision ingest (pi-go) |
 | `pi-media-guard` | size/type sniff in `internal/media` | Compresses to 4MB / 2048px; not a full sanitizer |
 | `@narumitw/pi-goal` | `internal/ext/goal` | `/goal` with completion and blocked states |
 | `pi-btw` | `internal/ext/btw` | Side-session overlay |
-| `@narumitw/pi-accounts` | `~/.alpha/auth.json` per provider | One credential per provider, not named profiles |
+| `@narumitw/pi-accounts` | `alpha profile` | Named credential sets; `ALPHA_PROFILE` or `alpha profile use` |
 | `pi-auto-router` | — | Slot: `internal/ext/router` later |
 | `pi-output-styles` | `internal/ext/outputstyle` | `/style` selects, lists, or clears |
 | `pi-blackhole` | session compaction | Observational memory not ported |
@@ -38,9 +38,10 @@ hooks / skills in Alpha (`~/.alpha/hooks`, `~/.alpha/skills`).
 | Google Gemini (`generateContent` SSE) | `internal/llm/gemini` + `alpha login gemini` / `GEMINI_API_KEY` |
 | SuperGrok / xAI OAuth (device code) | `internal/auth/xai.go` + `alpha login xai` / `XAI_API_KEY` |
 | Grok chat | OpenAI-compatible `https://api.x.ai/v1` |
+| `@cortexkit/pi-antigravity-auth` | `internal/auth/antigravity.go` + `alpha login antigravity` |
 
-Antigravity OAuth and Vertex ADC are not ported (API key / Bearer on the Gemini
-URL covers AI Studio and a custom `base_url`).
+Vertex ADC is not ported (API key / Bearer on the Gemini URL covers AI Studio
+and a custom `base_url`). Antigravity OAuth is ported: see the table below.
 
 ## Adding a Go extension
 
