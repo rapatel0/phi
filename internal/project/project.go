@@ -8,21 +8,41 @@ import (
 
 	"github.com/rapatel0/alpha/internal/brand"
 	"github.com/rapatel0/alpha/internal/debuglog"
+	"github.com/rapatel0/alpha/internal/profile"
 )
 
 // GlobalLayout describes the global home directory (~/.alpha).
 type GlobalLayout struct {
 	root string
+	// profile selects which credential set to use. Empty means the
+	// default, whose files stay at the root so an install that never uses
+	// profiles keeps them where they were.
+	profile string
 }
 
 // Root returns the global home directory (~/.alpha).
 func (g GlobalLayout) Root() string { return g.root }
 
+// Profile returns the active credential profile name.
+func (g GlobalLayout) Profile() string {
+	if g.profile == "" {
+		return profile.Default
+	}
+	return g.profile
+}
+
+// ProfileDir returns the directory holding the active profile's state.
+func (g GlobalLayout) ProfileDir() string { return profile.Dir(g.root, g.profile) }
+
 // ConfigFile returns the path to the global config file.
 func (g GlobalLayout) ConfigFile() string { return filepath.Join(g.root, "config.yaml") }
 
-// AuthFile returns the OAuth credential store (~/.alpha/auth.json).
-func (g GlobalLayout) AuthFile() string { return filepath.Join(g.root, "auth.json") }
+// AuthFile returns the OAuth credential store for the active profile.
+//
+// The default profile uses ~/.alpha/auth.json; a named one uses
+// ~/.alpha/profiles/<name>/auth.json. Every caller reaches credentials through
+// here, so switching profile switches all of them at once.
+func (g GlobalLayout) AuthFile() string { return profile.AuthFile(g.root, g.profile) }
 
 // BinDir returns the directory for downloaded tool binaries.
 func (g GlobalLayout) BinDir() string { return filepath.Join(g.root, "bin") }
@@ -146,8 +166,15 @@ func Discover(startDir string) (*Project, error) {
 	if _, mErr := brand.Migrate(home); mErr != nil {
 		debuglog.Logf("brand: migrate home dir: %v", mErr)
 	}
-	global := GlobalLayout{root: brand.HomeDir(home)}
+	root := brand.HomeDir(home)
+	active, _ := profile.Resolve(root)
+	global := GlobalLayout{root: root, profile: active}
 	if err := ensureGlobalDirs(global); err != nil {
+		return nil, err
+	}
+	// A profile selected but never created would silently read an empty
+	// credential store, which looks like being logged out.
+	if err := profile.Create(root, active); err != nil {
 		return nil, err
 	}
 	return &Project{root: absRoot, global: global}, nil

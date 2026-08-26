@@ -31,6 +31,8 @@ func main() {
 			os.Exit(updateCmd(os.Args[2:]))
 		case "login":
 			os.Exit(loginCmd(os.Args[2:]))
+		case "profile":
+			os.Exit(profileCmd(os.Args[2:]))
 		case "keys":
 			os.Exit(keysCmd(os.Args[2:]))
 		case "tui":
@@ -156,6 +158,7 @@ func printMainUsage(w *os.File) {
   alpha update         install the latest release (see 'alpha update --help')
   alpha run -p "..."   run one agent loop headlessly (see 'alpha run --help')
   alpha login …        Claude Pro/Max or ChatGPT Codex OAuth (see 'alpha login --help')
+  alpha profile …      switch between named credential sets (see 'alpha profile --help')
   alpha sessions list  list persisted sessions for this directory
   alpha mcp …          manage MCP servers (see 'alpha mcp --help')
   alpha keys           show how this terminal reports key presses
