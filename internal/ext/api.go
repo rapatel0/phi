@@ -4,6 +4,7 @@ import (
 	"context"
 	"strings"
 
+	"github.com/rapatel0/alpha/internal/debuglog"
 	"github.com/rapatel0/alpha/internal/hooks"
 )
 
@@ -46,6 +47,18 @@ type PreFunc func(ctx context.Context, ev hooks.Event) error
 // PostFunc runs after a tool returns. The error is reported, not acted on: the
 // tool already ran.
 type PostFunc func(ctx context.Context, ev hooks.Event) error
+
+// ResultFunc runs after a tool returns and can add a note to the result the
+// model reads. It is how an extension tells the model something about work it
+// just did, such as a problem in a file it wrote.
+//
+// The returned string is appended to the tool result. Returning "" adds
+// nothing, which is the right answer when there is nothing to report: a note
+// after every call trains the model to skip the section.
+//
+// An error is logged and the note dropped. The tool already ran, so a failing
+// observer must not look like a failing tool.
+type ResultFunc func(ctx context.Context, ev hooks.Event) (string, error)
 
 // PromptFunc can replace the system prompt for the turn that is starting. It
 // receives the user prompt and the current system prompt, and returns the
@@ -154,6 +167,22 @@ func (h *Host) OnTool(match string, pre PreFunc, post PostFunc) {
 	h.onTool = append(h.onTool, toolSub{match: match, pre: pre, post: post})
 }
 
+// OnToolResult registers a handler that can add a note to a tool result the
+// model reads. match takes the same comma-separated tool names as OnTool.
+//
+// Unlike OnTool's post handler, this one runs synchronously: the note has to
+// be ready before the result is handed to the model, and a detached handler
+// would deliver it a turn late. Keep the work short, and bound anything that
+// waits on a process or the network.
+func (h *Host) OnToolResult(match string, fn ResultFunc) {
+	if h == nil || fn == nil {
+		return
+	}
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	h.onToolResult = append(h.onToolResult, resultSub{match: match, fn: fn})
+}
+
 // HookEntries converts everything registered on this host into hook entries.
 //
 // The controller merges these with entries from directory discovery, so one
@@ -168,6 +197,7 @@ func (h *Host) HookEntries() []hooks.Entry {
 	cmds := append([]Command(nil), h.commands...)
 	sessions := append([]sessionSub(nil), h.onSession...)
 	toolSubs := append([]toolSub(nil), h.onTool...)
+	results := append([]resultSub(nil), h.onToolResult...)
 	prompts := append([]PromptFunc(nil), h.onPrompt...)
 	h.mu.Unlock()
 
@@ -221,6 +251,19 @@ func (h *Host) HookEntries() []hooks.Entry {
 			})
 		}
 	}
+	for _, sub := range results {
+		entries = append(entries, hooks.Entry{
+			Hook: hooks.FuncHook{
+				HookName: "ext:tool_result",
+				MatchFn:  matcher(sub.match),
+				Post:     resultAdapter(sub.fn),
+			},
+			Kind: hooks.KindPostTool,
+			// Never async: the manager detaches async post entries and
+			// discards their result, so the note would never reach the
+			// model it was written for.
+		})
+	}
 	return entries
 }
 
@@ -255,13 +298,23 @@ type toolSub struct {
 	post  PostFunc
 }
 
-// matcher turns a tool name into a Match function. An empty name matches every
-// tool, which is what hooks.Hook already means by a nil MatchFn.
-func matcher(match string) func(string) bool {
-	if match == "" {
-		return nil
+type resultSub struct {
+	match string
+	fn    ResultFunc
+}
+
+// resultAdapter turns a note into a PostResult the executor appends to the
+// tool result. An error is swallowed after logging: the tool already ran, so a
+// failing observer must not be reported as a failing tool.
+func resultAdapter(fn ResultFunc) func(context.Context, hooks.Event) (hooks.PostResult, error) {
+	return func(ctx context.Context, ev hooks.Event) (hooks.PostResult, error) {
+		note, err := fn(ctx, ev)
+		if err != nil {
+			debuglog.Logf("ext: tool result handler for %s: %v", ev.Tool, err)
+			return hooks.PostResult{}, nil
+		}
+		return hooks.PostResult{Context: note}, nil
 	}
-	return func(tool string) bool { return tool == match }
 }
 
 func commandAdapter(cmd Command) func(context.Context, hooks.CommandEvent) (hooks.CommandResult, error) {

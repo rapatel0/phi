@@ -42,11 +42,12 @@ type Host struct {
 
 	// Slash commands and hook subscriptions. See api.go: these become
 	// hooks.Entry values so extensions and discovered hooks share one manager.
-	commands  []Command
-	onSession []sessionSub
-	onTool    []toolSub
-	onPrompt  []PromptFunc
-	side      SideFunc
+	commands     []Command
+	onSession    []sessionSub
+	onTool       []toolSub
+	onToolResult []resultSub
+	onPrompt     []PromptFunc
+	side         SideFunc
 }
 
 // SideRequest asks for one side conversation: a sub-agent run that does not

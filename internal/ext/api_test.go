@@ -356,3 +356,63 @@ func TestVetoableKindsAreSynchronous(t *testing.T) {
 		})
 	}
 }
+
+// A tool result handler must reach the model. An async post entry is detached
+// and its result discarded, so this is the difference between a note the model
+// reads and one nobody sees.
+func TestOnToolResultReachesTheModel(t *testing.T) {
+	h := ext.NewHost()
+	h.OnToolResult("write", func(_ context.Context, ev hooks.Event) (string, error) {
+		return "NOTE-FOR-" + ev.Tool, nil
+	})
+
+	mgr := hooks.NewManager(h.HookEntries()...)
+	out := mgr.PostTool(t.Context(), hooks.Event{Tool: "write"})
+	require.Equal(t, "NOTE-FOR-write", out.Context)
+}
+
+// The entry must be synchronous, or the manager detaches it and the note
+// arrives after the decision it was written for.
+func TestOnToolResultEntryIsSynchronous(t *testing.T) {
+	h := ext.NewHost()
+	h.OnToolResult("write", func(context.Context, hooks.Event) (string, error) { return "x", nil })
+
+	var found int
+	for _, e := range h.HookEntries() {
+		if e.Kind == hooks.KindPostTool {
+			found++
+			require.False(t, e.Async, "a tool result entry must not be async")
+		}
+	}
+	require.Equal(t, 1, found)
+}
+
+// An empty note must add nothing: a note after every call trains the model to
+// skip the section.
+func TestOnToolResultEmptyNoteAddsNothing(t *testing.T) {
+	h := ext.NewHost()
+	h.OnToolResult("write", func(context.Context, hooks.Event) (string, error) { return "", nil })
+
+	mgr := hooks.NewManager(h.HookEntries()...)
+	require.Empty(t, mgr.PostTool(t.Context(), hooks.Event{Tool: "write"}).Context)
+}
+
+// A failing handler must not look like a failing tool: the tool already ran.
+func TestOnToolResultErrorIsSwallowed(t *testing.T) {
+	h := ext.NewHost()
+	h.OnToolResult("write", func(context.Context, hooks.Event) (string, error) {
+		return "ignored", errors.New("boom")
+	})
+
+	mgr := hooks.NewManager(h.HookEntries()...)
+	out := mgr.PostTool(t.Context(), hooks.Event{Tool: "write"})
+	require.Empty(t, out.Context)
+	require.False(t, out.Stop)
+}
+
+// A nil handler is dropped rather than registered as a panic waiting to run.
+func TestOnToolResultIgnoresNil(t *testing.T) {
+	h := ext.NewHost()
+	h.OnToolResult("write", nil)
+	require.Empty(t, h.HookEntries())
+}

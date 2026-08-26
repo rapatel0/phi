@@ -16,16 +16,16 @@ Your `~/.pi/agent/settings.json` packages:
 | `pi-token-speed` | `internal/ext/tokenspeed` | Footer `N tok/s` |
 | `pi-image-paste` | Ctrl+V / path paste / `/image` + `read_image` | User paste plus agent vision ingest (pi-go) |
 | `pi-media-guard` | size/type sniff in `internal/media` | Compresses to 4MB / 2048px; not a full sanitizer |
-| `@narumitw/pi-goal` | — | Slot: `internal/ext/goal` later |
-| `pi-btw` | — | Slot: side-session overlay later |
+| `@narumitw/pi-goal` | `internal/ext/goal` | `/goal` with completion and blocked states |
+| `pi-btw` | `internal/ext/btw` | Side-session overlay |
 | `@narumitw/pi-accounts` | `~/.alpha/auth.json` per provider | One credential per provider, not named profiles |
 | `pi-auto-router` | — | Slot: `internal/ext/router` later |
-| `pi-output-styles` | system prompt / skills | No live `/style` switcher yet |
+| `pi-output-styles` | `internal/ext/outputstyle` | `/style` selects, lists, or clears |
 | `pi-blackhole` | session compaction | Observational memory not ported |
 | `pi-background-tasks` | `agent_spawn` jobs | No separate durable bash task manager |
 | `@juicesharp/rpiv-ask-user-question` | `internal/ext/askuser` → `ask_user_question` | Overlay in composer slot |
 | `@juicesharp/rpiv-todo` | `internal/ext/todo` → `todo_write` | Footer `n/m todos` |
-| `pi-lens` | — | LSP is a pi-go/OMP feature; MCP or later ext |
+| `pi-lens` | `internal/ext/lens` | Edit-time diagnostics only. See [lens.md](lens.md); LSP navigation and structural rules not ported |
 | `pi-vimmode` | — | Keybindings still hardcoded |
 
 Local Pi extras (`~/.pi/agent/extensions/b2-sync`, `subagent`) stay as shell

@@ -82,7 +82,24 @@ func (h *Host) OnSession(kind hooks.Kind, fn SessionFunc)
 
 // OnTool observes or gates the tool loop.
 func (h *Host) OnTool(match string, pre PreFunc, post PostFunc)
+
+// OnToolResult adds a note to a tool result the model reads.
+func (h *Host) OnToolResult(match string, fn ResultFunc)
 ```
+
+`match` takes one tool name, several separated by commas (`"edit,write"`), or
+`""` for every tool.
+
+`OnToolResult` is how an extension tells the model something about work it just
+did. The returned string is appended to the tool result; returning `""` adds
+nothing, which is the right answer when there is nothing to report. Unlike
+`OnTool`'s post handler it runs synchronously, because the note has to be ready
+before the result reaches the model. Keep the work short and bound anything
+that waits on a process.
+
+An `OnTool` post handler cannot do this: those entries are dispatched async and
+the manager discards their result. `internal/ext/lens` uses `OnToolResult` to
+report code problems after a write.
 
 `Command` stays small and free of TUI types:
 
