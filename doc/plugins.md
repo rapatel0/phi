@@ -8,7 +8,7 @@ it from `cmd/plugins.go` (or a local `cmd/plugins_local.go`).
 Your `~/.pi/agent/settings.json` packages:
 
 | Pi package | Analog in Alpha | Notes |
-|---|---|---|
+| --- | --- | --- |
 | `@gotgenes/pi-anthropic-auth` | `alpha login anthropic` + Anthropic OAuth headers | Subscription billing identity + tool-name mapping |
 | `pi-subagents` | `agent_spawn` / `wait` / `list` / `cancel` | Built-in job manager + TUI cards/sidebar; Enter/Ctrl+Enter attaches and talks to the child |
 | `pi-powerline-footer` | Footer chrome + extension footer bits | Not pixel-identical; tokens, jobs, tok/s, todos |
@@ -34,7 +34,7 @@ hooks / skills in Alpha (`~/.alpha/hooks`, `~/.alpha/skills`).
 ## Oh My Pi (OMP) providers stolen this round
 
 | OMP / Pi | Alpha |
-|---|---|
+| --- | --- |
 | Google Gemini (`generateContent` SSE) | `internal/llm/gemini` + `alpha login gemini` / `GEMINI_API_KEY` |
 | SuperGrok / xAI OAuth (device code) | `internal/auth/xai.go` + `alpha login xai` / `XAI_API_KEY` |
 | Grok chat | OpenAI-compatible `https://api.x.ai/v1` |
