@@ -430,23 +430,24 @@ func (m *Manager) SessionShutdown(ctx context.Context, ev SessionEvent) SessionO
 
 // PostTurn runs post_turn entries (parallel; Async detached). The interactive TUI
 // triggers this from Controller.recordUsage; results are audit-only.
-func (m *Manager) PostTurn(ctx context.Context, ev SessionEvent) {
+func (m *Manager) PostTurn(ctx context.Context, ev SessionEvent) SessionOutcome {
 	ev.Kind = KindPostTurn
-	m.runSessionNotify(ctx, KindPostTurn, ev)
+	return m.runSessionNotify(ctx, KindPostTurn, ev)
 }
 
 // AgentStart runs agent_start entries (parallel; Async detached) when a user
-// prompt begins a turn. Results are audit-only: the turn has already begun.
-func (m *Manager) AgentStart(ctx context.Context, ev SessionEvent) {
+// prompt begins a turn. The turn cannot be denied, but a hook can still ask
+// for a toast or a status, so the outcome is returned rather than dropped.
+func (m *Manager) AgentStart(ctx context.Context, ev SessionEvent) SessionOutcome {
 	ev.Kind = KindAgentStart
-	m.runSessionNotify(ctx, KindAgentStart, ev)
+	return m.runSessionNotify(ctx, KindAgentStart, ev)
 }
 
 // AgentEnd runs agent_end entries (parallel; Async detached) when the turn
-// stops, including on error or cancellation. Results are audit-only.
-func (m *Manager) AgentEnd(ctx context.Context, ev SessionEvent) {
+// stops, including on error or cancellation.
+func (m *Manager) AgentEnd(ctx context.Context, ev SessionEvent) SessionOutcome {
 	ev.Kind = KindAgentEnd
-	m.runSessionNotify(ctx, KindAgentEnd, ev)
+	return m.runSessionNotify(ctx, KindAgentEnd, ev)
 }
 
 // SessionBeforeCompact runs session_before_compact entries serially. First
@@ -457,10 +458,10 @@ func (m *Manager) SessionBeforeCompact(ctx context.Context, ev SessionEvent) Ses
 }
 
 // SessionCompact runs session_compact entries (parallel; Async detached) after
-// the summary is written. Results are audit-only.
-func (m *Manager) SessionCompact(ctx context.Context, ev SessionEvent) {
+// the summary is written.
+func (m *Manager) SessionCompact(ctx context.Context, ev SessionEvent) SessionOutcome {
 	ev.Kind = KindSessionCompact
-	m.runSessionNotify(ctx, KindSessionCompact, ev)
+	return m.runSessionNotify(ctx, KindSessionCompact, ev)
 }
 
 func (m *Manager) runSessionGate(ctx context.Context, kind Kind, ev SessionEvent) SessionOutcome {

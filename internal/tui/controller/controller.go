@@ -864,12 +864,13 @@ func (c *Controller) recordUsage(m session.Message) {
 	if mgr == nil {
 		return
 	}
-	mgr.PostTurn(context.Background(), hooks.SessionEvent{
+	out := mgr.PostTurn(context.Background(), hooks.SessionEvent{
 		SessionID: c.SessionID(),
 		Cwd:       c.cwd,
 		MessageID: m.ID,
 		Usage:     usage,
 	})
+	c.publishSessionEffects(out)
 }
 
 // resetUsage clears captured usage when switching sessions so a new or resumed
@@ -953,6 +954,17 @@ func (c *Controller) runLoop(ctx context.Context, gen int, prompt string, pendin
 			return
 		}
 		if ev != nil {
+			// Hook effects are not transcript content: they carry the toast
+			// and status an engine-fired hook asked for, which the engine
+			// cannot publish itself.
+			if fx, ok := ev.(session.HookEffects); ok {
+				c.publishSessionEffects(hooks.SessionOutcome{
+					Toast:     fx.Toast,
+					Status:    fx.Status,
+					StatusSet: fx.StatusSet,
+				})
+				continue
+			}
 			c.publish(SessionEventMsg{Event: ev})
 			if up, ok := ev.(session.AssistantMessageUpdate); ok && up.Message.State == session.StateComplete &&
 				up.Message.Usage.Reported() {

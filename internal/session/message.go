@@ -236,6 +236,17 @@ type CompactionComplete struct {
 
 func (CompactionComplete) isSessionEvent() {}
 
+// HookEffects carries the toast and status a hook asked for. Engine-fired
+// events have no controller, so their results travel with the other session
+// events rather than through the TUI-only path post_turn uses.
+type HookEffects struct {
+	Toast     string
+	Status    string
+	StatusSet bool
+}
+
+func (HookEffects) isSessionEvent() {}
+
 // Snapshot is the full session state the TUI projects from.
 type Snapshot struct {
 	Messages   []Message

@@ -330,10 +330,10 @@ func (engine *Engine) Loop(ctx context.Context, prompt string, opts LoopOpts) it
 		// every exit, including error, cancellation, and a caller that stops
 		// consuming, so it is deferred rather than placed at the return.
 		// Firing from here rather than the TUI means headless runs get it too.
-		engine.fireAgent(ctx, hooks.KindAgentStart, "", 0)
+		engine.fireAgent(ctx, yield, hooks.KindAgentStart, "", 0)
 		lastMessageID, lastUsage := "", 0
 		defer func() {
-			engine.fireAgent(context.WithoutCancel(ctx), hooks.KindAgentEnd, lastMessageID, lastUsage)
+			engine.fireAgent(context.WithoutCancel(ctx), yield, hooks.KindAgentEnd, lastMessageID, lastUsage)
 		}()
 
 		toolRounds := 0
@@ -421,7 +421,13 @@ func (engine *Engine) Loop(ctx context.Context, prompt string, opts LoopOpts) it
 //
 // fireAgent reports the start or end of an agent turn. It is audit-only: the
 // turn runs whether or not a hook answers, so a nil manager is not an error.
-func (engine *Engine) fireAgent(ctx context.Context, kind hooks.Kind, messageID string, totalTokens int) {
+func (engine *Engine) fireAgent(
+	ctx context.Context,
+	yield func(session.Event, error) bool,
+	kind hooks.Kind,
+	messageID string,
+	totalTokens int,
+) {
 	if engine == nil || engine.hooks == nil || engine.session == nil {
 		return
 	}
@@ -431,11 +437,28 @@ func (engine *Engine) fireAgent(ctx context.Context, kind hooks.Kind, messageID 
 		MessageID: messageID,
 		Usage:     hooks.SessionUsage{TotalTokens: totalTokens},
 	}
+	var out hooks.SessionOutcome
 	if kind == hooks.KindAgentStart {
-		engine.hooks.AgentStart(ctx, ev)
+		out = engine.hooks.AgentStart(ctx, ev)
+	} else {
+		out = engine.hooks.AgentEnd(ctx, ev)
+	}
+	publishHookEffects(yield, out)
+}
+
+// publishHookEffects forwards a hook's toast and status to the UI. The engine
+// has no controller, so the effects ride the event stream the caller is
+// already reading. A caller that stopped reading gets nothing, which is
+// correct: it is no longer showing this turn.
+func publishHookEffects(yield func(session.Event, error) bool, out hooks.SessionOutcome) {
+	if yield == nil || (out.Toast == "" && !out.StatusSet) {
 		return
 	}
-	engine.hooks.AgentEnd(ctx, ev)
+	_ = yield(session.HookEffects{
+		Toast:     out.Toast,
+		Status:    out.Status,
+		StatusSet: out.StatusSet,
+	}, nil)
 }
 
 func (engine *Engine) maybeCompact(
@@ -490,12 +513,13 @@ func (engine *Engine) maybeCompact(
 	// Report only after the summary is written, so a hook that reads the
 	// session sees the compacted state.
 	if engine.hooks != nil {
-		engine.hooks.SessionCompact(ctx, hooks.SessionEvent{
+		out := engine.hooks.SessionCompact(ctx, hooks.SessionEvent{
 			SessionID: engine.session.ID(),
 			Cwd:       engine.session.Cwd(),
 			MessageID: result.FirstKeptEntryID,
 			Usage:     hooks.SessionUsage{TotalTokens: result.TokensBefore},
 		})
+		publishHookEffects(yield, out)
 	}
 
 	if !yield(session.CompactionComplete{ID: id}, nil) {

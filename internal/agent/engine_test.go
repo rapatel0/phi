@@ -451,3 +451,71 @@ func TestCompactionFiresBeforeAndAfter(t *testing.T) {
 	require.True(t, ok)
 	assert.NotEmpty(t, ev.SessionID)
 }
+
+// A hook that asks for a toast or a status must reach the UI. The engine has
+// no controller, so the effects ride the event stream; dropping the outcome
+// leaves an extension silently unable to report anything.
+func TestAgentHookEffectsReachTheCaller(t *testing.T) {
+	server := fakeTextServer()
+	defer server.Close()
+
+	mgr := hooks.NewManager(hooks.Entry{
+		Kind: hooks.KindAgentEnd,
+		Hook: hooks.FuncHook{
+			HookName: "status",
+			Sess: func(_ context.Context, _ hooks.SessionEvent) (hooks.SessionResult, error) {
+				return hooks.SessionResult{
+					Action: hooks.ActionAllow,
+					Status: "42 tok/s", StatusSet: true,
+					Toast: "turn done",
+				}, nil
+			},
+		},
+	})
+
+	engine, err := NewEngine(EngineOpts{
+		Model:       llm.ModelConfig{Name: "fake", BaseURL: server.URL, APIKey: "x"},
+		SessionOpts: SessionOpts{Cwd: t.TempDir()},
+		Gate:        permission.AllowAll{},
+		Hooks:       mgr,
+	})
+	require.NoError(t, err)
+
+	var got []session.HookEffects
+	for ev, loopErr := range engine.Loop(t.Context(), "go", LoopOpts{}) {
+		if loopErr != nil {
+			break
+		}
+		if fx, ok := ev.(session.HookEffects); ok {
+			got = append(got, fx)
+		}
+	}
+
+	require.Len(t, got, 1, "agent_end asked for a status, so exactly one effect must reach the caller")
+	assert.Equal(t, "42 tok/s", got[0].Status)
+	assert.True(t, got[0].StatusSet)
+	assert.Equal(t, "turn done", got[0].Toast)
+}
+
+// A hook that asks for nothing must not push an empty event into the stream.
+func TestAgentHookWithoutEffectsIsSilent(t *testing.T) {
+	server := fakeTextServer()
+	defer server.Close()
+
+	rec := &recorder{}
+	engine, err := NewEngine(EngineOpts{
+		Model:       llm.ModelConfig{Name: "fake", BaseURL: server.URL, APIKey: "x"},
+		SessionOpts: SessionOpts{Cwd: t.TempDir()},
+		Gate:        permission.AllowAll{},
+		Hooks:       lifecycleManager(t, rec, ""),
+	})
+	require.NoError(t, err)
+
+	for ev, loopErr := range engine.Loop(t.Context(), "go", LoopOpts{}) {
+		if loopErr != nil {
+			break
+		}
+		_, isEffect := ev.(session.HookEffects)
+		assert.False(t, isEffect, "a hook that set no status must not emit an effect")
+	}
+}
