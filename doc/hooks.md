@@ -133,7 +133,7 @@ A file is either `{"name":"plugin-id","hooks":[…]}` or a top-level `[…]` arr
 | `name` (plugin) | string | no | directory name | Optional plugin id |
 | `hooks` | array | yes* | — | Hook entries (`*` not needed for a top-level array) |
 | `name` (hook) | string | yes† | plugin `name` | Unique id; used for user/project override. †Optional only when the file has exactly one hook and the plugin has a name |
-| `event` | string | yes | — | `pre_tool`, `post_tool`, `post_turn`, `command`, `agent_start`, `agent_end`, `session_start`, `session_shutdown`, `session_before_switch`, `session_before_compact`, or `session_compact` |
+| `event` | string | yes | — | `pre_tool`, `post_tool`, `post_turn`, `command`, `before_agent_start`, `agent_start`, `agent_end`, `session_start`, `session_shutdown`, `session_before_switch`, `session_before_compact`, or `session_compact` |
 | `match` | string | no | `*` | Exact tool name, or `*` for all tools. Not a regex. Ignored for `command` and session events. |
 | `run` | string | yes | — | Executable path relative to `plugin.json`'s directory, or absolute. Executed directly (no shell). |
 | `timeout` | string \| number | no | `5s` | Go duration string (e.g. `"5s"`) or seconds as a number. Maximum `60s`. |
@@ -226,8 +226,13 @@ The TUI runs at most one hook command at a time (like `!` bash). Reload drops in
 | `session_shutdown` | Leaving a session (`new` / `resume` / `quit`) | No |
 | `session_start` | After a session is ready (`startup` / `new` / `resume`) | No |
 | `session_compact` | After the compaction summary is written | No |
+| `before_agent_start` | After the user submits, before the turn runs | No — but it can replace the system prompt |
 | `agent_start` | A user prompt starts an agent turn | No |
 | `agent_end` | The turn stops, including on error or cancel | No |
+
+`before_agent_start` runs serially and each handler sees the previous one's replacement, so two hooks compose instead of overwriting each other. A hook that fails is logged and the turn continues unchanged.
+
+`before_provider_request` is Go-only. It rewrites the message list before it becomes a provider payload, so one hook covers every provider. Shell hooks cannot subscribe to it: piping every request through a subprocess would cost more than the budget it enforces. See [ext-api.md](ext-api.md).
 
 `async: true` is allowed on the events that cannot deny. `fail_closed` is allowed only on events that can: `session_before_switch` and `session_before_compact`. `match` is ignored.
 

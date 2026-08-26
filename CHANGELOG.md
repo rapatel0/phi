@@ -38,6 +38,31 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
   text such as `$_` and `$1` stays quiet too. The variable check is
   case-sensitive, so a skill named `home` still completes as `$home`. A
   plugin-qualified name such as `$plugin:skill` is one token.
+- `/goal` sets a session objective the agent keeps working toward. The
+  objective is fed back at the start of each turn, and the goal ends only for a
+  stated reason through `goal_complete`, `goal_blocked`, or `goal_wait`. Each
+  closing tool takes the goal id it believes is active, so a turn that started
+  under an older goal cannot close the one that replaced it. A turn limit stops
+  a goal that loops without finishing.
+- `/btw` asks a side question without spending main context. It runs as a
+  sub-agent and returns only the summary, so the exchange stays out of the main
+  thread. `--tangent` starts a side thread that does not inherit the
+  conversation. The child transcript is a normal job, viewable in the usual
+  popup.
+- `/style` selects a named addition to the system prompt, `/style off` clears
+  it, and a bare `/style` opens a picker. Four styles ship built in; a `.md`
+  file under `<project>/.alpha/styles` or `~/.alpha/styles` overrides a
+  built-in of the same name.
+- An aggregate media budget keeps a long session sendable. Images accumulated
+  until a provider rejected the request with an opaque error. The newest images
+  are now kept and the rest replaced with a factual note naming the file, so
+  the turn survives and the model still knows something was there. The stored
+  session keeps every image; only the request is trimmed. `/media` reports the
+  last decision.
+- Two hook events: `before_agent_start`, which can replace the system prompt
+  for the turn about to run, and `before_provider_request`, which can rewrite
+  the message list before it becomes a provider payload. The second was
+  previously out of scope; `doc/ext-api.md` records why that changed.
 - Four hook events: `agent_start`, `agent_end`, `session_before_compact`, and
   `session_compact`. The turn events fire from the engine rather than the TUI,
   so a headless `alpha run` gets them too; it previously fired no turn event at

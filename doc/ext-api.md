@@ -125,16 +125,28 @@ nothing reaches its `init`.
 
 ## Event coverage
 
-Alpha fires 11 hook kinds. Pi fires 26. Add events by demand, not for symmetry.
+Alpha fires 13 hook kinds. Pi fires 26. Add events by demand, not for symmetry.
 
 Present: `session_start`, `session_shutdown`, `session_before_switch`,
-`session_before_compact`, `session_compact`, `agent_start`, `agent_end`,
-`pre_tool`, `post_tool`, `command`, `post_turn`.
+`session_before_compact`, `session_compact`, `before_agent_start`,
+`agent_start`, `agent_end`, `before_provider_request`, `pre_tool`,
+`post_tool`, `command`, `post_turn`.
 
 `allKinds` in [`internal/hooks/manager.go`](../internal/hooks/manager.go) is the
 single list. `notifyKinds` and `asyncKinds` derive the rules from it, and error
 messages render it, so adding a kind in one place updates the validator and the
 text together.
+
+### before_agent_start
+
+`before_agent_start` fires after the user submits and before the turn runs, so
+unlike `agent_start` it can still change the turn. A hook returns a replacement
+system prompt, and handlers run in order with each seeing the previous one's
+result. That chaining is what lets two extensions compose instead of
+overwriting each other.
+
+An error is logged and the turn continues unchanged. A styling or bookkeeping
+concern must never cost a turn.
 
 ### Turn events
 
@@ -170,11 +182,31 @@ failover. Alpha compiles providers in (`internal/auth`: Anthropic, Codex, xAI).
 Opening that surface is a separate decision about whether alpha stays lean, and
 it should not ride along with this API.
 
-**Request interception.** Two extensions rewrite the request before it is sent.
-`Client.Stream` builds and sends inline, with no seam. Two users does not
-justify the change yet.
-
 **A `.so` loader.** Extensions are compiled in. This is deliberate.
+
+## Request interception
+
+This was out of scope. The earlier reasoning was that `Client.Stream` builds
+and sends inline with no seam, and that two users did not justify the change.
+Both halves proved wrong.
+
+The seam exists. `Stream` assembles `[]llm.Message` before it branches to a
+provider, so one interception point there covers Anthropic, Gemini, Codex, and
+OpenAI at once. Intercepting after the branch would have meant four
+implementations, which is what the original note was really objecting to.
+
+The demand was undercounted. Rewriting the request is what an aggregate media
+budget needs, and alpha has no image budget at all: images accumulate until a
+provider rejects the request with an opaque error.
+
+`before_provider_request` runs on the message list, never on a provider
+payload. A hook returns the messages to send. Returning the input observes
+without changing anything, and an error is logged and skipped, so a budget
+cannot break a request.
+
+It is registered through `hooks.RegisterProviderHook` rather than a `Manager`
+entry, because the callback shape differs from the four `Hook` methods and
+adding a fifth would break every implementer for one event.
 
 ## Enforcement
 
