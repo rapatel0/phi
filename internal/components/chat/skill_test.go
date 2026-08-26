@@ -103,3 +103,72 @@ func TestActiveSkillDoesNotBreakMentions(t *testing.T) {
 	_, _, _, ok := ActiveSkill("@internal/ext$", 14)
 	assert.False(t, ok, "a '$' inside a path token is not a skill")
 }
+
+// A well-known shell variable stays quiet, but the same name in lowercase is a
+// plausible skill and must still complete. This mirrors the Codex rule.
+func TestActiveSkillEnvVarGuardIsCaseSensitive(t *testing.T) {
+	quiet := []string{"$HOME", "$PATH", "$USER", "$SHELL", "$PWD", "$GOPATH", "$XDG_CONFIG_HOME"}
+	for _, v := range quiet {
+		t.Run("quiet"+v, func(t *testing.T) {
+			_, _, _, ok := ActiveSkill(v, len(v))
+			assert.False(t, ok, "%q is a shell variable", v)
+		})
+	}
+
+	open := []string{"$home", "$path", "$Home", "$HOMEX", "$HOME2"}
+	for _, v := range open {
+		t.Run("open"+v, func(t *testing.T) {
+			query, _, _, ok := ActiveSkill(v, len(v))
+			require.True(t, ok, "%q is not a known variable, so it may be a skill", v)
+			assert.Equal(t, v[1:], query)
+		})
+	}
+}
+
+// A plugin-qualified name is one token, so ':' must not split it.
+func TestActiveSkillAllowsPluginQualifiedName(t *testing.T) {
+	const value = "$plugin:skill"
+	query, start, end, ok := ActiveSkill(value, len(value))
+	require.True(t, ok)
+	assert.Equal(t, "plugin:skill", query)
+	assert.Equal(t, value, value[start:end], "the whole token is replaced on accept")
+}
+
+// A ':' before the '$' still opens a token, so prose like "note: $rev" works.
+func TestActiveSkillAfterColonAndSpace(t *testing.T) {
+	query, start, _, ok := ActiveSkill("note: $rev", 10)
+	require.True(t, ok)
+	assert.Equal(t, "rev", query)
+	assert.Equal(t, 6, start)
+}
+
+// A skill name comes from a directory, so it starts with a letter. Money,
+// shell positionals, and the shell's $_ and $- must stay quiet. The README
+// promises this for $5. Non-ASCII digits count too, since the check uses
+// unicode.IsLetter rather than an ASCII range.
+func TestActiveSkillNeedsLeadingLetter(t *testing.T) {
+	quiet := []string{"$5", "$50", "$1000", "$0", "$_", "$-", "$\u0665", "$\uff15"}
+	for _, v := range quiet {
+		t.Run("quiet"+v, func(t *testing.T) {
+			_, _, _, ok := ActiveSkill(v, len(v))
+			assert.False(t, ok, "%q cannot be a skill name", v)
+		})
+	}
+
+	// A digit later in the name is fine, and a non-ASCII letter may start one.
+	for _, tc := range []struct{ value, query string }{
+		{"$s3", "s3"},
+		{"$my_skill", "my_skill"},
+		{"$\u00e9cole", "\u00e9cole"},
+	} {
+		t.Run("open"+tc.value, func(t *testing.T) {
+			query, _, _, ok := ActiveSkill(tc.value, len(tc.value))
+			require.True(t, ok)
+			assert.Equal(t, tc.query, query)
+		})
+	}
+
+	// A bare '$' must still open the picker; that is how you browse the list.
+	_, _, _, ok := ActiveSkill("$", 1)
+	assert.True(t, ok, "a bare $ opens the picker")
+}
