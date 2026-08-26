@@ -166,18 +166,13 @@ func manifestFromRaw(abs, dir, pluginName string, single bool, raw pluginHookRaw
 	}
 	m.Timeout = timeout
 
-	if m.Async && m.Kind != KindPostTool && m.Kind != KindPostTurn &&
-		m.Kind != KindSessionStart && m.Kind != KindSessionShutdown {
-		return Manifest{}, fmt.Errorf(
-			"async is only valid for event %q, %q, %q, or %q",
-			KindPostTool,
-			KindPostTurn,
-			KindSessionStart,
-			KindSessionShutdown,
-		)
+	if m.Async && !asyncKinds[m.Kind] {
+		return Manifest{}, fmt.Errorf("async is only valid for event %s", kindList(asyncKinds))
 	}
-	if m.FailClosed && (m.Kind == KindCommand || m.Kind == KindPostTurn ||
-		m.Kind == KindSessionStart || m.Kind == KindSessionShutdown) {
+	// Fail-closed means "deny when the hook fails", which only makes sense
+	// where the result can still change the outcome. A notification already
+	// happened by the time it runs.
+	if m.FailClosed && notifyKinds[m.Kind] {
 		return Manifest{}, fmt.Errorf("fail_closed is not valid for event %q", m.Kind)
 	}
 
@@ -185,30 +180,15 @@ func manifestFromRaw(abs, dir, pluginName string, single bool, raw pluginHookRaw
 }
 
 func parseEvent(event string) (Kind, error) {
-	switch Kind(strings.TrimSpace(event)) {
-	case KindPreTool:
-		return KindPreTool, nil
-	case KindPostTool:
-		return KindPostTool, nil
-	case KindCommand:
-		return KindCommand, nil
-	case KindSessionStart:
-		return KindSessionStart, nil
-	case KindSessionShutdown:
-		return KindSessionShutdown, nil
-	case KindSessionBeforeSwitch:
-		return KindSessionBeforeSwitch, nil
-	case KindPostTurn:
-		return KindPostTurn, nil
-	case "":
+	trimmed := strings.TrimSpace(event)
+	if trimmed == "" {
 		return "", errors.New("missing required field \"event\"")
-	default:
-		return "", fmt.Errorf(
-			"invalid event %q (want %q, %q, %q, %q, %q, %q, or %q)",
-			event, KindPreTool, KindPostTool, KindCommand, KindPostTurn,
-			KindSessionStart, KindSessionShutdown, KindSessionBeforeSwitch,
-		)
 	}
+	k := Kind(trimmed)
+	if !validKind(k) {
+		return "", fmt.Errorf("invalid event %q (want %s)", event, kindList(nil))
+	}
+	return k, nil
 }
 
 func parseTimeout(raw json.RawMessage) (time.Duration, error) {

@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"slices"
 	"strings"
 	"sync"
 	"unicode/utf8"
@@ -27,6 +28,16 @@ const (
 	KindSessionShutdown     Kind = "session_shutdown"
 	KindSessionBeforeSwitch Kind = "session_before_switch"
 	KindPostTurn            Kind = "post_turn" // TUI: Controller.recordUsage after each completed assistant stream
+	// KindAgentStart and KindAgentEnd bracket one agent turn: the user
+	// prompt goes in, tool rounds run, and the model stops calling tools.
+	// They fire from the engine, so they reach headless runs too, which
+	// post_turn does not.
+	KindAgentStart Kind = "agent_start"
+	KindAgentEnd   Kind = "agent_end"
+	// KindSessionBeforeCompact can veto or adjust compaction; KindSessionCompact
+	// reports that it happened.
+	KindSessionBeforeCompact Kind = "session_before_compact"
+	KindSessionCompact       Kind = "session_compact"
 )
 
 // Entry wraps a Hook with per-registration metadata.
@@ -39,14 +50,68 @@ type Entry struct {
 	Async      bool // Post / post_turn / session_start / session_shutdown: fire-and-forget
 }
 
+// allKinds lists every event a hook may subscribe to, in the order shown in
+// error messages. One table keeps the validator and the messages in step.
+var allKinds = []Kind{
+	KindPreTool, KindPostTool, KindCommand, KindPostTurn,
+	KindAgentStart, KindAgentEnd,
+	KindSessionStart, KindSessionShutdown, KindSessionBeforeSwitch,
+	KindSessionBeforeCompact, KindSessionCompact,
+}
+
+// notifyKinds are events that report something that already happened. A hook
+// result cannot change the outcome, so fail_closed is meaningless for them.
+var notifyKinds = map[Kind]bool{
+	KindCommand:         true,
+	KindPostTurn:        true,
+	KindAgentStart:      true,
+	KindAgentEnd:        true,
+	KindSessionStart:    true,
+	KindSessionShutdown: true,
+	KindSessionCompact:  true,
+}
+
+// asyncKinds are events that may be detached. Nothing waits on the result, so
+// only events that cannot deny qualify.
+var asyncKinds = map[Kind]bool{
+	KindPostTool:        true,
+	KindPostTurn:        true,
+	KindAgentStart:      true,
+	KindAgentEnd:        true,
+	KindSessionStart:    true,
+	KindSessionShutdown: true,
+	KindSessionCompact:  true,
+}
+
 func validKind(k Kind) bool {
+	return slices.Contains(allKinds, k)
+}
+
+// IsSessionKind reports whether k is delivered through the Session path rather
+// than the tool loop. Callers use it instead of repeating the list.
+func IsSessionKind(k Kind) bool {
 	switch k {
-	case KindPreTool, KindPostTool, KindCommand, KindPostTurn,
-		KindSessionStart, KindSessionShutdown, KindSessionBeforeSwitch:
-		return true
-	default:
+	case KindPreTool, KindPostTool, KindCommand:
 		return false
+	default:
+		return validKind(k)
 	}
+}
+
+// kindList renders kinds for an error message, keeping the order of allKinds
+// so the text is stable.
+func kindList(want map[Kind]bool) string {
+	var b strings.Builder
+	for _, k := range allKinds {
+		if want != nil && !want[k] {
+			continue
+		}
+		if b.Len() > 0 {
+			b.WriteString(", ")
+		}
+		fmt.Fprintf(&b, "%q", k)
+	}
+	return b.String()
 }
 
 // NewManager returns a manager over entries. Nil Hook entries are skipped.
@@ -360,6 +425,34 @@ func (m *Manager) SessionShutdown(ctx context.Context, ev SessionEvent) SessionO
 func (m *Manager) PostTurn(ctx context.Context, ev SessionEvent) {
 	ev.Kind = KindPostTurn
 	m.runSessionNotify(ctx, KindPostTurn, ev)
+}
+
+// AgentStart runs agent_start entries (parallel; Async detached) when a user
+// prompt begins a turn. Results are audit-only: the turn has already begun.
+func (m *Manager) AgentStart(ctx context.Context, ev SessionEvent) {
+	ev.Kind = KindAgentStart
+	m.runSessionNotify(ctx, KindAgentStart, ev)
+}
+
+// AgentEnd runs agent_end entries (parallel; Async detached) when the turn
+// stops, including on error or cancellation. Results are audit-only.
+func (m *Manager) AgentEnd(ctx context.Context, ev SessionEvent) {
+	ev.Kind = KindAgentEnd
+	m.runSessionNotify(ctx, KindAgentEnd, ev)
+}
+
+// SessionBeforeCompact runs session_before_compact entries serially. First
+// Deny wins, which cancels compaction for this turn.
+func (m *Manager) SessionBeforeCompact(ctx context.Context, ev SessionEvent) SessionOutcome {
+	ev.Kind = KindSessionBeforeCompact
+	return m.runSessionGate(ctx, KindSessionBeforeCompact, ev)
+}
+
+// SessionCompact runs session_compact entries (parallel; Async detached) after
+// the summary is written. Results are audit-only.
+func (m *Manager) SessionCompact(ctx context.Context, ev SessionEvent) {
+	ev.Kind = KindSessionCompact
+	m.runSessionNotify(ctx, KindSessionCompact, ev)
 }
 
 func (m *Manager) runSessionGate(ctx context.Context, kind Kind, ev SessionEvent) SessionOutcome {

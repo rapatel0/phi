@@ -88,10 +88,7 @@ func (h *Host) OnSession(kind hooks.Kind, fn SessionFunc) {
 	if h == nil || fn == nil {
 		return
 	}
-	switch kind {
-	case hooks.KindSessionStart, hooks.KindSessionShutdown,
-		hooks.KindSessionBeforeSwitch, hooks.KindPostTurn:
-	default:
+	if !hooks.IsSessionKind(kind) {
 		return
 	}
 	h.mu.Lock()

@@ -326,6 +326,16 @@ func (engine *Engine) Loop(ctx context.Context, prompt string, opts LoopOpts) it
 			return
 		}
 
+		// agent_start and agent_end bracket the turn. The end must fire on
+		// every exit, including error, cancellation, and a caller that stops
+		// consuming, so it is deferred rather than placed at the return.
+		// Firing from here rather than the TUI means headless runs get it too.
+		engine.fireAgent(ctx, hooks.KindAgentStart, "", 0)
+		lastMessageID, lastUsage := "", 0
+		defer func() {
+			engine.fireAgent(context.WithoutCancel(ctx), hooks.KindAgentEnd, lastMessageID, lastUsage)
+		}()
+
 		toolRounds := 0
 		for {
 			if ctx.Err() != nil {
@@ -368,6 +378,9 @@ func (engine *Engine) Loop(ctx context.Context, prompt string, opts LoopOpts) it
 				yield(nil, err)
 				return
 			}
+			// Append records the entry id, which identifies the assistant
+			// message this turn ends on.
+			lastMessageID, lastUsage = engine.session.LastID(), msg.Usage.TotalTokens
 
 			if len(msg.ToolCalls) == 0 {
 				// Turn finished — compact using this assistant's usage (pi agent_end).
@@ -405,6 +418,26 @@ func (engine *Engine) Loop(ctx context.Context, prompt string, opts LoopOpts) it
 //		goal func(snapshot) bool,
 //		maxAttempts int,
 //	) (bool, error)
+//
+// fireAgent reports the start or end of an agent turn. It is audit-only: the
+// turn runs whether or not a hook answers, so a nil manager is not an error.
+func (engine *Engine) fireAgent(ctx context.Context, kind hooks.Kind, messageID string, totalTokens int) {
+	if engine == nil || engine.hooks == nil || engine.session == nil {
+		return
+	}
+	ev := hooks.SessionEvent{
+		SessionID: engine.session.ID(),
+		Cwd:       engine.session.Cwd(),
+		MessageID: messageID,
+		Usage:     hooks.SessionUsage{TotalTokens: totalTokens},
+	}
+	if kind == hooks.KindAgentStart {
+		engine.hooks.AgentStart(ctx, ev)
+		return
+	}
+	engine.hooks.AgentEnd(ctx, ev)
+}
+
 func (engine *Engine) maybeCompact(
 	ctx context.Context,
 	yield func(session.Event, error) bool,
@@ -420,6 +453,19 @@ func (engine *Engine) maybeCompact(
 	}
 	if prep.FirstKeptEntryId == "" {
 		return nil
+	}
+
+	// Ask before doing the work. A hook that denies keeps the turn intact,
+	// so this is not an error: compaction is an optimization.
+	if engine.hooks != nil {
+		out := engine.hooks.SessionBeforeCompact(ctx, hooks.SessionEvent{
+			SessionID: engine.session.ID(),
+			Cwd:       engine.session.Cwd(),
+			Usage:     hooks.SessionUsage{TotalTokens: usage},
+		})
+		if out.Denied {
+			return nil
+		}
 	}
 
 	id := fmt.Sprintf("compaction-%d", time.Now().UnixNano())
@@ -441,6 +487,17 @@ func (engine *Engine) maybeCompact(
 		_ = yield(session.CompactionComplete{ID: id, Failed: true}, nil)
 		return err
 	}
+	// Report only after the summary is written, so a hook that reads the
+	// session sees the compacted state.
+	if engine.hooks != nil {
+		engine.hooks.SessionCompact(ctx, hooks.SessionEvent{
+			SessionID: engine.session.ID(),
+			Cwd:       engine.session.Cwd(),
+			MessageID: result.FirstKeptEntryID,
+			Usage:     hooks.SessionUsage{TotalTokens: result.TokensBefore},
+		})
+	}
+
 	if !yield(session.CompactionComplete{ID: id}, nil) {
 		return context.Canceled
 	}

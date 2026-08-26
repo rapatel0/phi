@@ -413,3 +413,46 @@ func TestManagerPostTurn(t *testing.T) {
 	assert.Equal(t, "assistant-1", got.MessageID)
 	assert.Equal(t, 25, got.Usage.CachedTokens)
 }
+
+// The kind tables drive validation and the error text, so they must stay in
+// step with each other. Among session events, only the two that can veto may
+// be fail_closed, and neither may be async: nothing waits for a detached
+// answer, so a denial would be discarded.
+//
+// post_tool is deliberately in both tables. It belongs to the tool loop, where
+// async and fail_closed are per-entry alternatives rather than a property of
+// the kind.
+func TestKindTablesAgree(t *testing.T) {
+	vetoable := map[Kind]bool{KindSessionBeforeSwitch: true, KindSessionBeforeCompact: true}
+
+	for _, k := range allKinds {
+		if !IsSessionKind(k) {
+			continue
+		}
+		if got := !notifyKinds[k]; got != vetoable[k] {
+			t.Errorf("%q: fail_closed allowed = %v, want %v", k, got, vetoable[k])
+		}
+		if vetoable[k] && asyncKinds[k] {
+			t.Errorf("%q can deny, so it must not be async", k)
+		}
+	}
+}
+
+// Every kind the engine and controller fire must be routed by the Session
+// path, or the hook is registered and never runs.
+func TestSessionKindsRouted(t *testing.T) {
+	for _, k := range []Kind{
+		KindPostTurn, KindAgentStart, KindAgentEnd,
+		KindSessionStart, KindSessionShutdown, KindSessionBeforeSwitch,
+		KindSessionBeforeCompact, KindSessionCompact,
+	} {
+		if !IsSessionKind(k) {
+			t.Errorf("%q must route through Session", k)
+		}
+	}
+	for _, k := range []Kind{KindPreTool, KindPostTool, KindCommand} {
+		if IsSessionKind(k) {
+			t.Errorf("%q is not a session event", k)
+		}
+	}
+}

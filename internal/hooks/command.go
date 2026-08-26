@@ -102,15 +102,10 @@ func (h *CommandHook) Command(ctx context.Context, ev CommandEvent) (CommandResu
 
 // Session runs a session lifecycle hook; other kinds return allow.
 func (h *CommandHook) Session(ctx context.Context, ev SessionEvent) (SessionResult, error) {
-	switch h.kind {
-	case KindSessionStart, KindSessionShutdown, KindSessionBeforeSwitch, KindPostTurn:
-		if h.kind != ev.Kind {
-			return SessionResult{Action: ActionAllow}, nil
-		}
-		return h.runSession(ctx, ev)
-	default:
+	if !IsSessionKind(h.kind) || h.kind != ev.Kind {
 		return SessionResult{Action: ActionAllow}, nil
 	}
+	return h.runSession(ctx, ev)
 }
 
 type wireIn struct {
