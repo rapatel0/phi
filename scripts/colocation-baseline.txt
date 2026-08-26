@@ -1,0 +1,31 @@
+# Test files with no matching source file, kept so the rule can ratchet.
+# A new orphan fails internal/agent TestTestFilesAreColocated. Fix the file
+# and delete its line; entries are never added without a reason.
+# External test packages (package x_test) are exempt automatically.
+
+internal/agent/architecture_test.go
+internal/agent/prompt/skills_test.go
+internal/components/chat/chat_test.go
+internal/components/cjk_render_test.go
+internal/components/splash/preview_main_test.go
+internal/components/transcript/message_test.go
+internal/llm/anthropic/anthropic_test.go
+internal/llm/modellist/list_extra_test.go
+internal/permission/mode_test.go
+internal/session/manager_concurrent_test.go
+internal/toolmanager/download_integration_test.go
+internal/tools/skilltool/skill_extra_test.go
+internal/tools/webfetchtool/fetch_extra_test.go
+internal/tools/websearchtool/ddg_extra_test.go
+internal/tools/websearchtool/native_extra_test.go
+internal/tui/commands/commands_test.go
+internal/tui/commands/ext_cmds_test.go
+internal/tui/composer/cmd_keys_test.go
+internal/tui/composer/mention_search_test.go
+internal/tui/composer/session_overlay_test.go
+internal/tui/composer/skill_picker_test.go
+internal/tui/controller/controller_construct_test.go
+internal/tui/controller/controller_progress_test.go
+internal/tui/controller/ext_hooks_test.go
+internal/tui/editor/branch_test.go
+internal/tui/editor/keys_test.go
