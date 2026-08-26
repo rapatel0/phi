@@ -27,8 +27,25 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
   unset. Command hooks receive both `ALPHA_HOOK_*` and `PHI_HOOK_*`.
   Update your scripts: the legacy names are deprecated.
 
+### Fixed
+
+- Images are no longer degraded on the way to the model. Two defects, both
+  silent. Every GIF was re-encoded as JPEG, so a 4 KB file already inside every
+  limit came back twice as large, and an animation was flattened to one frame.
+  An image within the limits is now sent byte for byte. Downscaling also
+  sampled one source pixel per output pixel, which stepped over thin features
+  and dropped them, so a screenshot of text could lose whole rows of strokes at
+  one size and survive at the next. It now averages the pixels it covers.
+
 ### Added
 
+- `read_image` takes an optional `region` in pixels, to read one part of an
+  image. A whole image is shrunk to fit the model's limits, so small text in a
+  large screenshot arrives unreadable. Reading a region spends the same budget
+  on that area instead: on a 6000px screenshot, strokes that render at 0.34
+  contrast in the whole image return at 0.996. A small region is enlarged.
+  Coordinates are clamped to the image, and a region entirely outside it
+  reports the real dimensions so the next attempt can be aimed.
 - `$` completes skill names in the composer, following the Codex convention.
   Accepting inserts the literal `$name` token, so `$code-review the auth
   package` reads as written and the model loads that skill before it answers.
