@@ -33,9 +33,10 @@ type Command struct {
 
 // SessionFunc handles a session lifecycle event.
 //
-// Returning a non-nil error on KindSessionBeforeSwitch denies the switch. The
-// other kinds report the error and continue, because a session that has already
-// started cannot be un-started.
+// Returning a non-nil error denies the event when it can be denied:
+// KindSessionBeforeSwitch blocks the switch, KindSessionBeforeCompact skips
+// compaction. The other kinds report the error and continue, because work that
+// already happened cannot be undone. hooks.CanDeny reports which is which.
 type SessionFunc func(ctx context.Context, ev hooks.SessionEvent) error
 
 // PreFunc runs before a tool, after the model asks for it and before the
@@ -138,9 +139,11 @@ func (h *Host) HookEntries() []hooks.Entry {
 	}
 	for _, sub := range sessions {
 		entries = append(entries, hooks.Entry{
-			Hook:  hooks.FuncHook{HookName: "ext:" + string(sub.kind), Sess: sessionAdapter(sub)},
-			Kind:  sub.kind,
-			Async: sub.kind != hooks.KindSessionBeforeSwitch,
+			Hook: hooks.FuncHook{HookName: "ext:" + string(sub.kind), Sess: sessionAdapter(sub)},
+			Kind: sub.kind,
+			// An event that can deny must be waited on, or the denial
+			// arrives after the decision it was meant to change.
+			Async: !hooks.CanDeny(sub.kind),
 		})
 	}
 	for _, sub := range toolSubs {
@@ -201,7 +204,9 @@ func commandAdapter(cmd Command) func(context.Context, hooks.CommandEvent) (hook
 func sessionAdapter(sub sessionSub) func(context.Context, hooks.SessionEvent) (hooks.SessionResult, error) {
 	return func(ctx context.Context, ev hooks.SessionEvent) (hooks.SessionResult, error) {
 		if err := sub.fn(ctx, ev); err != nil {
-			if sub.kind == hooks.KindSessionBeforeSwitch {
+			// On a reporting event the work already happened, so the error
+			// is recorded rather than acted on.
+			if hooks.CanDeny(sub.kind) {
 				return hooks.SessionResult{Action: hooks.ActionDeny, Reason: err.Error()}, nil
 			}
 			return hooks.SessionResult{Action: hooks.ActionAllow, Reason: err.Error()}, nil

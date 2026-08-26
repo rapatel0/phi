@@ -87,6 +87,14 @@ func validKind(k Kind) bool {
 	return slices.Contains(allKinds, k)
 }
 
+// CanDeny reports whether a hook result can still change the outcome of k.
+// Callers use it instead of naming individual kinds, which drifts as events
+// are added: a kind that is missed here is silently downgraded to a
+// notification, and its denial is discarded.
+func CanDeny(k Kind) bool {
+	return validKind(k) && !notifyKinds[k]
+}
+
 // IsSessionKind reports whether k is delivered through the Session path rather
 // than the tool loop. Callers use it instead of repeating the list.
 func IsSessionKind(k Kind) bool {

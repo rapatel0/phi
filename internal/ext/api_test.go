@@ -120,7 +120,7 @@ func TestOnSessionRejectsUnknownKind(t *testing.T) {
 	require.Empty(t, h.HookEntries(), "only session kinds with a callback subscribe")
 }
 
-// before_switch is the one session event a hook can veto.
+// before_switch is one of the two session events a hook can veto.
 func TestOnSessionBeforeSwitchDenies(t *testing.T) {
 	h := ext.NewHost()
 	h.OnSession(hooks.KindSessionBeforeSwitch, func(context.Context, hooks.SessionEvent) error {
@@ -266,4 +266,93 @@ func TestEntriesMergeWithOtherHooks(t *testing.T) {
 		names = append(names, e.Hook.Name())
 	}
 	require.ElementsMatch(t, []string{"discovered", "fromext"}, names)
+}
+
+// A Go extension must be able to subscribe to the turn and compaction events,
+// not just the session ones. Host.OnSession drops kinds it does not recognize,
+// so an unlisted kind fails silently at registration.
+func TestOnSessionAcceptsTurnAndCompactionKinds(t *testing.T) {
+	for _, kind := range []hooks.Kind{
+		hooks.KindAgentStart, hooks.KindAgentEnd,
+		hooks.KindSessionBeforeCompact, hooks.KindSessionCompact,
+	} {
+		t.Run(string(kind), func(t *testing.T) {
+			h := ext.NewHost()
+			h.OnSession(kind, func(context.Context, hooks.SessionEvent) error { return nil })
+			require.Len(t, h.HookEntries(), 1, "%q must subscribe", kind)
+		})
+	}
+}
+
+// Registration is not delivery. Each new kind must reach the callback through
+// the manager it was registered with.
+func TestOnSessionDeliversAgentEnd(t *testing.T) {
+	h := ext.NewHost()
+	got := make(chan hooks.SessionEvent, 1)
+	h.OnSession(hooks.KindAgentEnd, func(_ context.Context, ev hooks.SessionEvent) error {
+		got <- ev
+		return nil
+	})
+
+	mgr := hooks.NewManager(h.HookEntries()...)
+	mgr.AgentEnd(t.Context(), hooks.SessionEvent{SessionID: "s1", MessageID: "m1"})
+
+	select {
+	case ev := <-got:
+		require.Equal(t, "s1", ev.SessionID)
+		require.Equal(t, "m1", ev.MessageID)
+		require.Equal(t, hooks.KindAgentEnd, ev.Kind, "the manager stamps the kind")
+	case <-time.After(2 * time.Second):
+		t.Fatal("agent_end hook did not fire")
+	}
+}
+
+// An extension that returns an error from a reporting event must not stop the
+// turn: agent_end fires after the work is done.
+func TestOnSessionAgentEndErrorDoesNotDeny(t *testing.T) {
+	h := ext.NewHost()
+	h.OnSession(hooks.KindAgentEnd, func(context.Context, hooks.SessionEvent) error {
+		return errors.New("bookkeeping failed")
+	})
+
+	mgr := hooks.NewManager(h.HookEntries()...)
+	require.NotPanics(t, func() {
+		mgr.AgentEnd(t.Context(), hooks.SessionEvent{SessionID: "s1"})
+	})
+}
+
+// A compaction veto from Go code must reach the engine as a denial.
+func TestOnSessionBeforeCompactDenies(t *testing.T) {
+	h := ext.NewHost()
+	h.OnSession(hooks.KindSessionBeforeCompact, func(context.Context, hooks.SessionEvent) error {
+		return errors.New("keep the transcript")
+	})
+
+	mgr := hooks.NewManager(h.HookEntries()...)
+	out := mgr.SessionBeforeCompact(t.Context(), hooks.SessionEvent{SessionID: "s1"})
+	require.True(t, out.Denied, "an error from a vetoable event denies")
+	require.Contains(t, out.Reason, "keep the transcript")
+}
+
+// Every kind that can deny must produce a synchronous entry. An async entry is
+// not waited on, so its denial would arrive after the decision it was meant to
+// change. This is the bug that shipped when the adapter named before_switch
+// directly instead of asking hooks.CanDeny.
+func TestVetoableKindsAreSynchronous(t *testing.T) {
+	for _, kind := range []hooks.Kind{
+		hooks.KindSessionStart, hooks.KindSessionShutdown,
+		hooks.KindSessionBeforeSwitch, hooks.KindSessionBeforeCompact,
+		hooks.KindSessionCompact, hooks.KindAgentStart, hooks.KindAgentEnd,
+		hooks.KindPostTurn,
+	} {
+		t.Run(string(kind), func(t *testing.T) {
+			h := ext.NewHost()
+			h.OnSession(kind, func(context.Context, hooks.SessionEvent) error { return nil })
+
+			entries := h.HookEntries()
+			require.Len(t, entries, 1)
+			require.Equal(t, hooks.CanDeny(kind), !entries[0].Async,
+				"%q: async must be the opposite of CanDeny", kind)
+		})
+	}
 }

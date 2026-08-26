@@ -252,3 +252,68 @@ func TestParsePluginFileMissing(t *testing.T) {
 	_, err := ParsePlugin(filepath.Join(t.TempDir(), "missing", PluginFileName))
 	require.Error(t, err)
 }
+
+// A shell hook must be able to declare the turn and compaction events, with
+// the async and fail_closed rules the tables allow.
+func TestParsePluginTurnAndCompactionEvents(t *testing.T) {
+	dir := t.TempDir()
+	path := writePluginJSON(t, dir, `{
+  "hooks": [
+    {"name":"begin","event":"agent_start","run":"./a.sh","async":true},
+    {"name":"finish","event":"agent_end","run":"./b.sh","async":true},
+    {"name":"veto","event":"session_before_compact","run":"./c.sh","fail_closed":true},
+    {"name":"note","event":"session_compact","run":"./d.sh","async":true}
+  ]
+}`)
+	ms, err := ParsePlugin(path)
+	require.NoError(t, err)
+	require.Len(t, ms, 4)
+
+	assert.Equal(t, KindAgentStart, ms[0].Kind)
+	assert.True(t, ms[0].Async)
+	assert.Equal(t, KindAgentEnd, ms[1].Kind)
+	assert.True(t, ms[1].Async)
+	assert.Equal(t, KindSessionBeforeCompact, ms[2].Kind)
+	assert.True(t, ms[2].FailClosed, "the compaction veto is the point of the event")
+	assert.Equal(t, KindSessionCompact, ms[3].Kind)
+	assert.True(t, ms[3].Async)
+}
+
+// fail_closed means "deny when the hook fails". On an event that only reports,
+// nothing can be denied, so the manifest must be rejected rather than silently
+// ignored.
+func TestParsePluginRejectsFailClosedOnNotifyEvents(t *testing.T) {
+	for _, event := range []string{"agent_start", "agent_end", "session_compact"} {
+		t.Run(event, func(t *testing.T) {
+			dir := t.TempDir()
+			path := writePluginJSON(t, dir, `{"hooks":[
+        {"name":"x","event":"`+event+`","run":"./a.sh","fail_closed":true}]}`)
+			_, err := ParsePlugin(path)
+			require.Error(t, err)
+			assert.Contains(t, err.Error(), "fail_closed is not valid")
+		})
+	}
+}
+
+// An event that can deny must not be detached: nothing would wait for the
+// answer, so the denial would be discarded.
+func TestParsePluginRejectsAsyncOnVetoEvents(t *testing.T) {
+	dir := t.TempDir()
+	path := writePluginJSON(t, dir, `{"hooks":[
+    {"name":"x","event":"session_before_compact","run":"./a.sh","async":true}]}`)
+	_, err := ParsePlugin(path)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "async is only valid")
+}
+
+// The error text is generated from allKinds. If a kind is added to the table
+// but the message is built some other way, the two drift apart.
+func TestInvalidEventErrorListsEveryKind(t *testing.T) {
+	dir := t.TempDir()
+	path := writePluginJSON(t, dir, `{"hooks":[{"name":"x","event":"nope","run":"./a.sh"}]}`)
+	_, err := ParsePlugin(path)
+	require.Error(t, err)
+	for _, k := range allKinds {
+		assert.Contains(t, err.Error(), string(k), "the invalid-event error must name %q", k)
+	}
+}
