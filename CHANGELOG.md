@@ -111,6 +111,11 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ### Fixed
 
+- A Go extension that vetoed compaction was ignored. The adapter in
+  `internal/ext` named `session_before_switch` as the only event that could
+  deny, so a `session_before_compact` subscription was registered as
+  fire-and-forget and its denial arrived after the decision it was meant to
+  change. Both the adapter and the async rule now ask `hooks.CanDeny`.
 - The `@` file picker started a search for every keystroke and never stopped
   the previous one. On a large tree each search walked the whole directory, so
   the searches piled up faster than they finished: six keystrokes left four
