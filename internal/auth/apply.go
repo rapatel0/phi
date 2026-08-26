@@ -49,6 +49,9 @@ func Apply(ctx context.Context, cfg *llm.ModelConfig, storePath string) error {
 	if provider == ProviderGemini && cfg.BaseURL == "" {
 		cfg.BaseURL = "https://generativelanguage.googleapis.com/v1beta"
 	}
+	if provider == ProviderAntigravity && cfg.BaseURL == "" {
+		cfg.BaseURL = antigravityBase
+	}
 	return nil
 }
 
@@ -63,6 +66,13 @@ func ProviderFor(cfg llm.ModelConfig) string { return providerFor(cfg) }
 func providerFor(cfg llm.ModelConfig) string {
 	base := strings.ToLower(cfg.BaseURL)
 	name := strings.ToLower(cfg.Name)
+	// Antigravity is checked first because it serves Claude and Gemini
+	// models. A config naming one of those over the antigravity endpoint
+	// would otherwise match the Anthropic or Gemini rule below and be sent
+	// that provider's token.
+	if strings.Contains(base, "cloudcode-pa.googleapis.com") || strings.HasPrefix(name, "antigravity-") {
+		return ProviderAntigravity
+	}
 	if strings.Contains(base, "anthropic") || strings.HasPrefix(name, "claude") {
 		return ProviderAnthropic
 	}
@@ -88,6 +98,8 @@ func refresh(ctx context.Context, provider, refreshToken string) (Credential, er
 		return RefreshCodex(ctx, refreshToken)
 	case ProviderXAI:
 		return RefreshXAI(ctx, refreshToken)
+	case ProviderAntigravity:
+		return RefreshAntigravity(ctx, refreshToken)
 	default:
 		return Credential{}, nil
 	}

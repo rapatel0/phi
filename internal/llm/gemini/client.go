@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/base64"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"iter"
@@ -64,10 +65,13 @@ func IsProvider(cfg llm.ModelConfig) bool {
 	base := strings.ToLower(cfg.BaseURL)
 	name := strings.ToLower(cfg.Name)
 	if strings.Contains(base, "generativelanguage.googleapis.com") ||
-		strings.Contains(base, "aiplatform.googleapis.com") {
+		strings.Contains(base, "aiplatform.googleapis.com") ||
+		// Antigravity speaks the same request body, so it is routed
+		// here and only the transport differs.
+		strings.Contains(base, "cloudcode-pa.googleapis.com") {
 		return true
 	}
-	return strings.HasPrefix(name, "gemini")
+	return strings.HasPrefix(name, "gemini") || strings.HasPrefix(name, "antigravity-")
 }
 
 func normalizeBase(base string) string {
@@ -359,7 +363,7 @@ func Compact(ctx context.Context, httpClient *http.Client, cfg llm.ModelConfig, 
 		}
 	}
 	if b.Len() == 0 {
-		return "", fmt.Errorf("gemini API error: empty response")
+		return "", errors.New("gemini API error: empty response")
 	}
 	return b.String(), nil
 }

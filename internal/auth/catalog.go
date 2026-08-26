@@ -10,6 +10,8 @@ const (
 	anthropicBase = "https://api.anthropic.com"
 	geminiBase    = "https://generativelanguage.googleapis.com/v1beta"
 	xaiBase       = "https://api.x.ai/v1"
+	// antigravityBase is the daily Cloud Code endpoint the IDE uses.
+	antigravityBase = "https://daily-cloudcode-pa.googleapis.com"
 )
 
 // Catalog is the TUI palette list for a logged-in provider. Names already in
@@ -39,6 +41,18 @@ func Catalog(provider string) []llm.ModelConfig {
 		return []llm.ModelConfig{
 			entry("gemini-2.5-pro", geminiBase, 1_000_000),
 			entry("gemini-2.5-flash", geminiBase, 1_000_000),
+		}
+	case ProviderAntigravity:
+		// Names keep the antigravity- prefix so they cannot collide
+		// with the public Gemini models in the same palette. The
+		// transport strips it before sending.
+		return []llm.ModelConfig{
+			entry("antigravity-gemini-3.1-pro", antigravityBase, 1_000_000),
+			entry("antigravity-gemini-3.7-flash", antigravityBase, 1_000_000),
+			entry("antigravity-gemini-3.6-flash", antigravityBase, 1_000_000),
+			entry("antigravity-claude-sonnet-4-6-thinking", antigravityBase, 200_000),
+			entry("antigravity-claude-opus-4-6-thinking", antigravityBase, 200_000),
+			entry("antigravity-gpt-oss-120b-medium", antigravityBase, 128_000),
 		}
 	default:
 		return nil

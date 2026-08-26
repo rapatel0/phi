@@ -64,6 +64,20 @@ func loginCmd(args []string) int {
 		fmt.Fprintln(os.Stderr)
 		_ = auth.OpenBrowser(sess.VerificationURL)
 		cred, err = auth.CompleteXAIDevice(ctx, sess)
+	case "antigravity", "google-antigravity":
+		fmt.Fprintln(os.Stderr, "Google Antigravity login. A browser window should open.")
+		fmt.Fprintln(os.Stderr, "Approve the consent screen, then paste the URL you land on here.")
+		fmt.Fprintln(os.Stderr, "The page will not load: copy the address from the browser bar.")
+		paste := stdinLines(ctx)
+		cred, err = auth.LoginAntigravity(ctx, auth.LoginOpts{
+			OpenBrowser: auth.OpenBrowser,
+			OnURL: func(u string) {
+				fmt.Fprintln(os.Stderr)
+				fmt.Fprintln(os.Stderr, u)
+				fmt.Fprintln(os.Stderr)
+			},
+			Paste: paste,
+		})
 	case "gemini", "google":
 		fmt.Fprintln(os.Stderr, "Paste a Gemini API key (AI Studio / GEMINI_API_KEY).")
 		fmt.Fprint(os.Stderr, "key: ")
@@ -92,7 +106,8 @@ func loginCmd(args []string) int {
 		_ = auth.OpenBrowser(sess.VerificationURL)
 		cred, err = auth.CompleteCodexDevice(ctx, sess)
 	default:
-		fmt.Fprintf(os.Stderr, "alpha login: unknown provider %q (want anthropic, codex, xai, gemini)\n", provider)
+		fmt.Fprintf(os.Stderr,
+			"alpha login: unknown provider %q (want anthropic, codex, xai, gemini, antigravity)\n", provider)
 		return ExitUsage
 	}
 	if err != nil {
@@ -131,8 +146,14 @@ func printLoginUsage(w *os.File) {
   alpha login codex       ChatGPT Codex (device code)
   alpha login xai         SuperGrok / X Premium (device code)
   alpha login gemini      Google Gemini API key (AI Studio)
+  alpha login antigravity Google Antigravity (browser OAuth)
 
-Credentials are stored in ~/.alpha/auth.json (mode 0600).
+Credentials are stored in the active profile's auth.json (mode 0600).
+See 'alpha profile --help' to keep several logins side by side.
 Config models[].api_key still wins when set.
+
+antigravity reaches Gemini and Claude models through Google's internal
+Antigravity endpoint. It is undocumented and can stop working without
+notice; alpha reports that as a distinct error rather than a login problem.
 `)
 }

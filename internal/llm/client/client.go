@@ -108,7 +108,13 @@ func (c *Client) Stream(ctx context.Context, messages []llm.Message) iter.Seq2[l
 		}
 		if c.gemini {
 			req := gemini.BuildRequest(c.cfg, sys, messages, c.tools)
-			for ev, err := range gemini.Stream(ctx, c.httpClient, c.cfg, req) {
+			// Antigravity speaks the same body but wraps it and needs
+			// the IDE's headers, so it cannot be a base URL alone.
+			stream := gemini.Stream
+			if gemini.IsAntigravity(c.cfg) {
+				stream = gemini.StreamAntigravity
+			}
+			for ev, err := range stream(ctx, c.httpClient, c.cfg, req) {
 				if !yield(ev, err) {
 					return
 				}
