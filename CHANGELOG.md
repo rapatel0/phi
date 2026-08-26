@@ -29,7 +29,10 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
   package` reads as written and the model loads that skill before it answers.
   The picker lists the same skills the `skill` tool loads, so it cannot offer
   one that fails to load. Shell text such as `$HOME`, `${VAR}`, `$(cmd)`, `$$`,
-  and `$5` leaves the picker closed.
+  and `$5` leaves the picker closed. A name must start with a letter, so shell
+  text such as `$_` and `$1` stays quiet too. The variable check is
+  case-sensitive, so a skill named `home` still completes as `$home`. A
+  plugin-qualified name such as `$plugin:skill` is one token.
 - Go extensions can register slash commands, watch session lifecycle events,
   and observe the tool loop. `ext.Host` gains `RegisterCommand`, `OnSession`,
   and `OnTool`; the controller merges the result with hooks discovered from
@@ -96,6 +99,21 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ### Fixed
 
+- The `@` file picker started a search for every keystroke and never stopped
+  the previous one. On a large tree each search walked the whole directory, so
+  the processes piled up faster than they finished: six keystrokes left four
+  concurrent walks running. A new keystroke now cancels the search in flight,
+  and closing the picker cancels it too.
+- The `@` file picker was about 4x slower than it needed to be on a large
+  tree. It ran `fd` from a working directory instead of naming the root, so
+  `--full-path` rebuilt a full path for every file walked: 5.3s versus 1.3s
+  across 363k files. A search that matched nothing used to exceed the 3s
+  deadline; it now finishes in about 1.5s.
+- The `@` file picker showed `fd: signal: killed` when a search hit its
+  deadline. It now reports `Search timed out — type more of the path`.
+- The `@` file picker silently cut its list at 20 matches, so a missing file
+  looked absent rather than out of view. It now says `First 20 matches — type
+  more to narrow` when more exist.
 - Ctrl+B hid the TASKS sidebar for one frame then immediately re-showed it whenever sub-agents were running. Hide is now sticky until you toggle again. `Ctrl+T` is the same binding (tmux eats Ctrl+B).
 - `/resume` with no id now continues the latest session for this directory (it used to only print usage). Replay restores tool rows and sub-agent cards, not just user/assistant text.
 - TUI model palette only listed `config.yaml` entries, so Anthropic / Codex / Grok / Gemini never appeared after `alpha login`. Logged-in (or env-keyed) providers now inject their catalog into settings → model.
