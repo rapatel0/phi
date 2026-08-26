@@ -97,6 +97,14 @@ func Normalize(img llm.Image) (llm.Image, error) {
 		}
 		return img, nil
 	}
+	// Fast path: an image already inside every limit is sent byte for byte.
+	// Re-encoding it would only lose information. A GIF is the clearest case:
+	// the stdlib has no animated encoder, so a round trip through the budget
+	// below silently flattens it to a single JPEG frame and can inflate a
+	// 4 KB file into something larger.
+	if w, h := PixelSize(img.Data); withinLimits(len(img.Data), w, h) {
+		return img, nil
+	}
 	decoded, err := decode(img.Data, mime)
 	if err != nil {
 		// Unreadable but sniffed: pass through if already small.
@@ -179,38 +187,6 @@ func decode(data []byte, mime string) (image.Image, error) {
 		img, _, err := image.Decode(r)
 		return img, err
 	}
-}
-
-func fit(src image.Image, maxSide int) image.Image {
-	b := src.Bounds()
-	w, h := b.Dx(), b.Dy()
-	if w <= 0 || h <= 0 {
-		return src
-	}
-	if w <= maxSide && h <= maxSide {
-		return src
-	}
-	scale := float64(maxSide) / float64(w)
-	if h > w {
-		scale = float64(maxSide) / float64(h)
-	}
-	nw := int(float64(w)*scale + 0.5)
-	nh := int(float64(h)*scale + 0.5)
-	if nw < 1 {
-		nw = 1
-	}
-	if nh < 1 {
-		nh = 1
-	}
-	dst := image.NewRGBA(image.Rect(0, 0, nw, nh))
-	for y := 0; y < nh; y++ {
-		sy := b.Min.Y + y*h/nh
-		for x := 0; x < nw; x++ {
-			sx := b.Min.X + x*w/nw
-			dst.Set(x, y, src.At(sx, sy))
-		}
-	}
-	return dst
 }
 
 func encodeBudget(src image.Image, origMIME string) ([]byte, string, error) {
