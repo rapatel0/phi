@@ -38,6 +38,13 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
   text such as `$_` and `$1` stays quiet too. The variable check is
   case-sensitive, so a skill named `home` still completes as `$home`. A
   plugin-qualified name such as `$plugin:skill` is one token.
+- Four hook events: `agent_start`, `agent_end`, `session_before_compact`, and
+  `session_compact`. The turn events fire from the engine rather than the TUI,
+  so a headless `alpha run` gets them too; it previously fired no turn event at
+  all, because `post_turn` comes from the interactive controller.
+  `agent_end` is deferred, so it also fires when a turn ends by error,
+  cancellation, or a caller that stops reading. `session_before_compact` can
+  deny, which skips compaction and leaves the turn intact.
 - Go extensions can register slash commands, watch session lifecycle events,
   and observe the tool loop. `ext.Host` gains `RegisterCommand`, `OnSession`,
   and `OnTool`; the controller merges the result with hooks discovered from

@@ -125,21 +125,43 @@ nothing reaches its `init`.
 
 ## Event coverage
 
-Alpha fires 7 hook kinds. Pi fires 26. Add events by demand, not for symmetry.
+Alpha fires 11 hook kinds. Pi fires 26. Add events by demand, not for symmetry.
 
 Present: `session_start`, `session_shutdown`, `session_before_switch`,
+`session_before_compact`, `session_compact`, `agent_start`, `agent_end`,
 `pre_tool`, `post_tool`, `command`, `post_turn`.
 
-Worth adding, with the number of pi extensions that use each:
+`allKinds` in [`internal/hooks/manager.go`](../internal/hooks/manager.go) is the
+single list. `notifyKinds` and `asyncKinds` derive the rules from it, and error
+messages render it, so adding a kind in one place updates the validator and the
+text together.
 
-| Event | Users | Note |
-| --- | --- | --- |
-| `agent_end` | 10 | Fires once per agent completion. `post_turn` fires per assistant stream, which is not the same. |
-| `agent_start` | 11 | Pairs with `agent_end`. |
-| `session_compact` | 7 | Compaction already exists in `internal/session/compaction`. |
-| `session_before_compact` | 6 | Lets an extension veto or adjust. |
+### Turn events
 
-The remaining events have one or two users each. Leave them out.
+`agent_start` and `agent_end` bracket one agent turn: the prompt goes in, tool
+rounds run, and the model stops calling tools. They fire from `Engine.Loop`,
+not from the TUI, which matters more than it first appears.
+
+`post_turn` fires from `Controller.recordUsage`, so it exists only in the
+interactive shell. A headless `alpha run` fired no turn event at all. Putting
+the turn events in the engine covers both modes from one call site.
+
+`agent_end` is deferred, so it fires on every exit: a clean finish, an error, a
+cancelled context, and a caller that stops consuming the iterator. A hook that
+allocates on `agent_start` can rely on the pairing. The deferred call uses
+`context.WithoutCancel`, or the cancelled turn could not report its own end.
+
+### Compaction events
+
+`session_before_compact` is the second event a hook can veto. It fires after
+`PrepareCompact` decides there is something to compact and before the summary
+is built, so a denial costs nothing and leaves the turn intact. A denial is not
+an error: compaction is an optimization.
+
+`session_compact` fires after the summary is written, so a hook that reads the
+session sees the compacted state rather than a state that is about to change.
+
+The remaining pi events have one or two users each. Leave them out.
 
 ## What stays out of scope
 
@@ -225,14 +247,18 @@ Each test was verified by injecting the violation it guards against. Moving
 
 Each step is useful on its own and does not require the next.
 
-1. **`RegisterCommand`.** Unblocks 16 of 17 measured extensions. The registry
-   path already exists; this exposes it to Go.
-2. **`OnSession`.** Lets an extension react to session lifecycle events. Enough
-   to port `b2-sync`, which needs `session_shutdown` and a periodic trigger.
-3. **`agent_start` / `agent_end`.** The most requested missing events.
-4. **Compaction events.** Needed for an observational-memory extension.
-5. **`OnTool`.** Lowest demand. The tool loop is already gated for external
+All five steps are done.
+
+1. ~~**`RegisterCommand`.**~~ Unblocks 16 of 17 measured extensions. The registry
+   path already existed; this exposed it to Go.
+2. ~~**`OnSession`.**~~ Lets an extension react to session lifecycle events.
+3. ~~**`agent_start` / `agent_end`.**~~ The most requested missing events, and
+   the only turn events a headless run fires.
+4. ~~**Compaction events.**~~ Needed for an observational-memory extension.
+5. ~~**`OnTool`.**~~ Lowest demand. The tool loop was already gated for external
    hooks, so this is a convenience for Go code.
+
+Add the next event when an extension needs it.
 
 ## Constraints
 

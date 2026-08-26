@@ -133,12 +133,12 @@ A file is either `{"name":"plugin-id","hooks":[…]}` or a top-level `[…]` arr
 | `name` (plugin) | string | no | directory name | Optional plugin id |
 | `hooks` | array | yes* | — | Hook entries (`*` not needed for a top-level array) |
 | `name` (hook) | string | yes† | plugin `name` | Unique id; used for user/project override. †Optional only when the file has exactly one hook and the plugin has a name |
-| `event` | string | yes | — | `pre_tool`, `post_tool`, `post_turn`, `command`, `session_start`, `session_shutdown`, or `session_before_switch` |
+| `event` | string | yes | — | `pre_tool`, `post_tool`, `post_turn`, `command`, `agent_start`, `agent_end`, `session_start`, `session_shutdown`, `session_before_switch`, `session_before_compact`, or `session_compact` |
 | `match` | string | no | `*` | Exact tool name, or `*` for all tools. Not a regex. Ignored for `command` and session events. |
 | `run` | string | yes | — | Executable path relative to `plugin.json`'s directory, or absolute. Executed directly (no shell). |
 | `timeout` | string \| number | no | `5s` | Go duration string (e.g. `"5s"`) or seconds as a number. Maximum `60s`. |
 | `fail_closed` | boolean | no | `false` | On failure, deny (Pre / before_switch) / stop (Post). Invalid on `command`, `session_start`, `session_shutdown`. |
-| `async` | boolean | no | `false` | `post_tool` / `post_turn` / `session_start` / `session_shutdown`: fire-and-forget; result ignored |
+| `async` | boolean | no | `false` | `post_tool` / `post_turn` / `agent_start` / `agent_end` / `session_start` / `session_shutdown` / `session_compact`: fire-and-forget; result ignored |
 | `disabled` | boolean | no | `false` | Skip loading this hook |
 
 ### PreTool response
@@ -222,10 +222,18 @@ The TUI runs at most one hook command at a time (like `!` bash). Reload drops in
 | Event | When | Can block? |
 | --- | --- | --- |
 | `session_before_switch` | Before `/clear` or `/resume` replaces the engine | Yes — `action: deny` or exit `2` |
+| `session_before_compact` | Before a turn's context is compacted | Yes — `action: deny` or exit `2` |
 | `session_shutdown` | Leaving a session (`new` / `resume` / `quit`) | No |
 | `session_start` | After a session is ready (`startup` / `new` / `resume`) | No |
+| `session_compact` | After the compaction summary is written | No |
+| `agent_start` | A user prompt starts an agent turn | No |
+| `agent_end` | The turn stops, including on error or cancel | No |
 
-`async: true` is allowed on `session_start` and `session_shutdown` (fire-and-forget). `fail_closed` is allowed only on `session_before_switch`. `match` is ignored.
+`async: true` is allowed on the events that cannot deny. `fail_closed` is allowed only on events that can: `session_before_switch` and `session_before_compact`. `match` is ignored.
+
+`agent_start` and `agent_end` bracket one agent turn and fire from the engine, so they also fire in headless `alpha run`. `post_turn` comes from the interactive TUI and has no headless equivalent. `agent_end` fires on every exit, including error and cancellation, so a hook that allocates on `agent_start` can rely on the pair.
+
+Denying `session_before_compact` skips compaction for that turn and leaves the session intact. It is not an error: compaction is an optimization.
 
 stdin:
 
