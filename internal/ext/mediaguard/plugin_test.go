@@ -19,10 +19,12 @@ func TestPluginTrimsThroughHost(t *testing.T) {
 
 	p := &Plugin{}
 	require.NoError(t, p.Register(ext.NewHost()))
-	p.budget = Budget{MaxBytes: 150, MaxImages: 10}
 
+	// Gemini has the smallest budget, so build a payload that exceeds it.
+	big := BudgetFor("gemini").MaxBytes
 	got := hooks.ApplyProviderHooks(t.Context(), hooks.ProviderRequest{
-		Messages: []llm.Message{img("old.png", 100), img("new.png", 100)},
+		Provider: "gemini",
+		Messages: []llm.Message{img("old.png", big), img("new.png", big)},
 	})
 
 	require.Len(t, got, 2)
@@ -30,10 +32,39 @@ func TestPluginTrimsThroughHost(t *testing.T) {
 	assert.Len(t, got[1].Images, 1)
 }
 
+// The hook must size the budget from the request's provider. Using a stored
+// default would apply one provider's limit to another's request.
+func TestPluginUsesTheRequestProvider(t *testing.T) {
+	hooks.ResetProviderHooks()
+	t.Cleanup(hooks.ResetProviderHooks)
+
+	p := &Plugin{}
+	require.NoError(t, p.Register(ext.NewHost()))
+
+	// A payload that fits OpenAI's budget but not Gemini's.
+	size := BudgetFor("gemini").MaxBytes - 1
+
+	got := hooks.ApplyProviderHooks(t.Context(), hooks.ProviderRequest{
+		Provider: "openai",
+		Messages: []llm.Message{img("a.png", size), img("b.png", size)},
+	})
+	assert.Len(t, got[0].Images, 1, "openai has room for both")
+	_, _, provider, _ := p.led.snapshot()
+	assert.Equal(t, "openai", provider)
+
+	got = hooks.ApplyProviderHooks(t.Context(), hooks.ProviderRequest{
+		Provider: "gemini",
+		Messages: []llm.Message{img("a.png", size), img("b.png", size)},
+	})
+	assert.Empty(t, got[0].Images, "gemini cannot fit both")
+	_, _, provider, _ = p.led.snapshot()
+	assert.Equal(t, "gemini", provider)
+}
+
 // /media before any request must say so rather than report a zero budget as if
 // it were a real measurement.
 func TestCommandBeforeAnyRequest(t *testing.T) {
-	p := &Plugin{budget: DefaultBudget()}
+	p := &Plugin{}
 	res, err := p.run(t.Context(), nil)
 	require.NoError(t, err)
 	assert.Contains(t, res.Toast, "No model request")
@@ -42,13 +73,15 @@ func TestCommandBeforeAnyRequest(t *testing.T) {
 // After a request /media reports what happened and reassures that the session
 // still holds the media.
 func TestCommandReportsLastDecision(t *testing.T) {
-	p := &Plugin{budget: Budget{MaxBytes: 150, MaxImages: 10}}
-	_, d := Apply([]llm.Message{img("old.png", 100), img("new.png", 100)}, p.budget)
-	p.led.record(d)
+	p := &Plugin{}
+	b := Budget{MaxBytes: 150, MaxImages: 10}
+	_, d := Apply([]llm.Message{img("old.png", 100), img("new.png", 100)}, b)
+	p.led.record(d, b, "anthropic")
 
 	res, err := p.run(t.Context(), nil)
 	require.NoError(t, err)
-	assert.Contains(t, res.Toast, "Media budget:")
+	assert.Contains(t, res.Toast, "Media budget")
+	assert.Contains(t, res.Toast, "anthropic", "the report must name the provider it applied")
 	assert.Contains(t, res.Toast, "1 of 2 img")
 	assert.Contains(t, res.Toast, "stays in the session")
 }
@@ -65,10 +98,10 @@ func TestFooterOnlySpeaksWhenItTrims(t *testing.T) {
 	bits := h.FooterBits()
 	assert.Empty(t, bits, "no request yet, so nothing to report")
 
-	p.led.record(Decision{ImagesBefore: 3, ImagesKept: 1, BytesKept: 10})
+	p.led.record(Decision{ImagesBefore: 3, ImagesKept: 1, BytesKept: 10}, DefaultBudget(), "anthropic")
 	require.Len(t, h.FooterBits(), 1)
 	assert.Contains(t, h.FooterBits()[0], "media:")
 
-	p.led.record(Decision{ImagesBefore: 2, ImagesKept: 2, BytesKept: 10})
+	p.led.record(Decision{ImagesBefore: 2, ImagesKept: 2, BytesKept: 10}, DefaultBudget(), "anthropic")
 	assert.Empty(t, h.FooterBits(), "nothing was trimmed, so stay quiet")
 }

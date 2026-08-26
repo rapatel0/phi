@@ -133,29 +133,33 @@ func (c *Client) Stream(ctx context.Context, messages []llm.Message) iter.Seq2[l
 	}
 }
 
-// Provider names the backend this client sends to. The branches below mirror
-// the dispatch order in Stream, so a hook sees the provider that will actually
-// receive the request rather than one inferred from the model name.
+// Provider names the backend this client sends to, using the same names as
+// internal/auth so a hook can key limits off one vocabulary.
+//
+// It prefers the dispatch flags, which decide which branch Stream actually
+// takes, and falls back to auth's detection for backends that share the
+// OpenAI-compatible path. xAI is the case that matters: it is reached through
+// that path, so treating it as OpenAI would apply a budget three times its
+// documented limit.
 func (c *Client) Provider() string {
 	switch {
 	case c.anthropic:
-		return ProviderAnthropic
+		return auth.ProviderAnthropic
 	case c.gemini:
-		return ProviderGemini
-	case openai.UseCodexBackend(c.cfg):
-		return ProviderCodex
-	default:
-		return ProviderOpenAI
+		return auth.ProviderGemini
 	}
+	if p := auth.ProviderFor(c.cfg); p != "" && p != auth.ProviderCodex {
+		return p
+	}
+	if openai.UseCodexBackend(c.cfg) {
+		return auth.ProviderCodex
+	}
+	return ProviderOpenAI
 }
 
-// Provider names, as seen by a before_provider_request hook.
-const (
-	ProviderAnthropic = "anthropic"
-	ProviderGemini    = "gemini"
-	ProviderCodex     = "codex"
-	ProviderOpenAI    = "openai"
-)
+// ProviderOpenAI is the fallback for an OpenAI-compatible endpoint that auth
+// does not recognize. The other names come from internal/auth.
+const ProviderOpenAI = "openai"
 
 // Compact sends a single non-streaming chat request and returns the
 // assistant text. It satisfies llm.Compactor for session compaction.

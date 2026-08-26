@@ -9,6 +9,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
+	"github.com/rapatel0/alpha/internal/auth"
 	"github.com/rapatel0/alpha/internal/hooks"
 	"github.com/rapatel0/alpha/internal/llm"
 )
@@ -201,17 +202,30 @@ func TestProviderMatchesDispatch(t *testing.T) {
 		{
 			"anthropic",
 			llm.ModelConfig{Name: "claude-sonnet-4", BaseURL: "https://api.anthropic.com"},
-			ProviderAnthropic,
+			auth.ProviderAnthropic,
 		},
 		{
 			"gemini",
 			llm.ModelConfig{Name: "gemini-2.0-flash", BaseURL: "https://generativelanguage.googleapis.com"},
-			ProviderGemini,
+			auth.ProviderGemini,
 		},
 		{
 			"openai",
 			llm.ModelConfig{Name: "gpt-4o", BaseURL: "https://api.openai.com/v1"},
 			ProviderOpenAI,
+		},
+		{
+			// xAI is served over the OpenAI-compatible path. Reporting it as
+			// openai would apply a budget over three times its documented
+			// per-image limit.
+			"xai by base url",
+			llm.ModelConfig{Name: "grok-4.6", BaseURL: "https://api.x.ai/v1"},
+			auth.ProviderXAI,
+		},
+		{
+			"xai by model name",
+			llm.ModelConfig{Name: "grok-4.5"},
+			auth.ProviderXAI,
 		},
 	}
 	for _, tc := range cases {
@@ -243,6 +257,6 @@ func TestStreamPassesProviderToHooks(t *testing.T) {
 	c := NewClient(cfg, nil, "sys")
 	for range c.Stream(t.Context(), []llm.Message{{Role: llm.RoleUser, Content: "hi"}}) { //nolint:revive // drain
 	}
-	assert.Equal(t, ProviderAnthropic, got.Provider)
+	assert.Equal(t, auth.ProviderAnthropic, got.Provider)
 	assert.Equal(t, "claude-sonnet-4", got.Model)
 }

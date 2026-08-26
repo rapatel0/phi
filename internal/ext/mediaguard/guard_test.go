@@ -1,6 +1,7 @@
 package mediaguard
 
 import (
+	"encoding/base64"
 	"strings"
 	"testing"
 
@@ -149,4 +150,75 @@ func TestApplyJoinsMultipleNotes(t *testing.T) {
 	assert.Contains(t, out[0].Content, "a.png")
 	assert.Contains(t, out[0].Content, "b.png")
 	assert.Contains(t, out[0].Content, "; ", "the notes must be joined into one list")
+}
+
+// Every provider states its limit on the base64 payload, which is 4/3 the raw
+// size. A budget that ignores that overshoots by a third: the shipped default
+// was once 12 MiB raw, or 16 MiB on the wire, against a 20 MB request cap.
+func TestBudgetsStayUnderDocumentedEncodedLimits(t *testing.T) {
+	// Documented request-level limits, in decimal MB as the providers state
+	// them. Sources are recorded in doc/media-limits.md.
+	limits := map[string]float64{
+		"anthropic": 32,  // 32 MB per request
+		"openai":    512, // 512 MB total payload
+		"gemini":    20,  // 20 MB for the whole inline request
+		"xai":       20,  // 20 MiB per image
+	}
+	for provider, mb := range limits {
+		b := BudgetFor(provider)
+		encoded := float64(b.EncodedBytes()) / 1e6
+		assert.Less(t, encoded, mb,
+			"%s: %.1f MB encoded must stay under the documented %.0f MB", provider, encoded, mb)
+	}
+}
+
+// Gemini's 20 MB covers the whole request, not just images, so the image share
+// must leave room for the prompt, tool schemas, and the rest of the turn.
+func TestGeminiBudgetLeavesRoomForTheRequest(t *testing.T) {
+	encoded := float64(BudgetFor("gemini").EncodedBytes()) / 1e6
+	assert.Less(t, encoded, 10.0, "images must not claim more than half of Gemini's 20 MB")
+}
+
+// EncodedBytes must report the wire size, which is what a provider limit
+// applies to.
+func TestEncodedBytesMatchesBase64(t *testing.T) {
+	b := Budget{MaxBytes: 3 << 20}
+	assert.Equal(t, base64.StdEncoding.EncodedLen(3<<20), b.EncodedBytes(),
+		"the reported encoded size must match what the encoder produces")
+}
+
+// An unknown provider must get the conservative default, not the largest
+// budget: guessing high is what produces an opaque provider rejection.
+func TestUnknownProviderGetsTheDefault(t *testing.T) {
+	assert.Equal(t, DefaultBudget(), BudgetFor(""))
+	assert.Equal(t, DefaultBudget(), BudgetFor("some-new-provider"))
+
+	def := DefaultBudget().MaxBytes
+	for _, p := range []string{"anthropic", "openai", "codex", "xai"} {
+		assert.GreaterOrEqual(t, BudgetFor(p).MaxBytes, def,
+			"%s should not be tighter than the unknown-provider fallback", p)
+	}
+}
+
+func TestBudgetForKnownProviders(t *testing.T) {
+	for _, p := range []string{"anthropic", "openai", "codex", "gemini", "xai"} {
+		b := BudgetFor(p)
+		assert.Positive(t, b.MaxBytes, "%s must have a byte budget", p)
+		assert.Positive(t, b.MaxImages, "%s must have an image budget", p)
+	}
+}
+
+// Anthropic applies a stricter per-image dimension limit above 20 images, so
+// the budget must not exceed that threshold.
+func TestAnthropicImageCountStaysUnderTheStricterTier(t *testing.T) {
+	assert.LessOrEqual(t, BudgetFor("anthropic").MaxImages, 20)
+}
+
+// xAI is served over the OpenAI-compatible path, so it is the case most likely
+// to be mislabeled. Its documented per-image limit is 20 MiB, well under
+// OpenAI's, and applying OpenAI's budget to it would overshoot.
+func TestXAIBudgetIsTighterThanOpenAI(t *testing.T) {
+	assert.Less(t, BudgetFor("xai").MaxBytes, BudgetFor("openai").MaxBytes)
+	encoded := float64(BudgetFor("xai").EncodedBytes())
+	assert.Less(t, encoded, 20*1024*1024.0, "must stay under the documented 20 MiB")
 }

@@ -55,6 +55,11 @@ func Apply(ctx context.Context, cfg *llm.ModelConfig, storePath string) error {
 // CodexBackendBaseURL is the ChatGPT Codex responses endpoint origin.
 const CodexBackendBaseURL = "https://chatgpt.com/backend-api/codex"
 
+// ProviderFor names the backend a model config points at, or "" when it is
+// not recognized. Callers outside auth use it to apply provider-specific
+// limits, so the rules live in one place rather than being restated.
+func ProviderFor(cfg llm.ModelConfig) string { return providerFor(cfg) }
+
 func providerFor(cfg llm.ModelConfig) string {
 	base := strings.ToLower(cfg.BaseURL)
 	name := strings.ToLower(cfg.Name)

@@ -18,24 +18,74 @@ import (
 	"github.com/rapatel0/alpha/internal/llm"
 )
 
-// Defaults chosen to sit under the smallest limit among supported providers
-// rather than to match any one of them.
+// Budgets are expressed in raw bytes, but every provider states its limit on
+// the base64-encoded payload, which is 4/3 the size. Counting raw bytes
+// against a base64 limit overshoots by a third: a 12 MiB raw budget is 16 MiB
+// on the wire. The constants below are therefore raw values derived from the
+// documented encoded limit.
 const (
-	// DefaultMaxBytes caps the total image payload for one request.
-	DefaultMaxBytes = 12 << 20 // 12 MiB
-	// DefaultMaxImages caps how many images one request may carry.
+	// DefaultMaxBytes caps the total image payload for one request. It is the
+	// raw budget whose encoded form stays under the smallest documented
+	// request limit, which is Gemini's 20 MB for the whole request. Half of
+	// that is left for prompt text, tool schemas, and the rest of the turn.
+	DefaultMaxBytes = 7 << 20 // 7 MiB raw is about 9.8 MB base64
+	// DefaultMaxImages caps how many images one request may carry. Anthropic
+	// applies a stricter per-image dimension limit above 20 images, so 20 is
+	// the point where behavior changes rather than an arbitrary count.
 	DefaultMaxImages = 20
 )
 
+// encodedRatio converts a raw byte count to its base64 size.
+const encodedRatio = 4.0 / 3.0
+
 // Budget is the aggregate limit applied to one request.
 type Budget struct {
+	// MaxBytes is the total raw image payload allowed, before base64.
 	MaxBytes  int
 	MaxImages int
 }
 
-// DefaultBudget returns the shipped limits.
+// EncodedBytes reports what MaxBytes becomes on the wire, which is the number
+// a provider limit actually applies to.
+func (b Budget) EncodedBytes() int { return int(float64(b.MaxBytes) * encodedRatio) }
+
+// DefaultBudget returns the limits used when the provider is unknown.
 func DefaultBudget() Budget {
 	return Budget{MaxBytes: DefaultMaxBytes, MaxImages: DefaultMaxImages}
+}
+
+// BudgetFor returns the budget for a provider, falling back to DefaultBudget
+// for one that is not recognized.
+//
+// The values come from each provider's published limits. They are deliberately
+// conservative: a request that is refused costs a turn, while one that is
+// trimmed too eagerly only loses an older image that the note still describes.
+//
+// Anthropic and OpenAI both downscale server-side, so sending more pixels than
+// their tiers accept buys nothing. The budgets here bound total payload, not
+// resolution, and leave resolution to the provider.
+func BudgetFor(provider string) Budget {
+	switch provider {
+	case "anthropic":
+		// 32 MB per request, and 10 MB per image on the direct API but 5 MB
+		// on Bedrock and Vertex. Sizing for the 5 MB floor keeps the same
+		// build working on every platform.
+		return Budget{MaxBytes: 18 << 20, MaxImages: 20}
+	case "openai", "codex":
+		// 512 MB per request and 1500 images, far above anything a terminal
+		// session produces. The cap here exists to bound context growth, not
+		// to satisfy the API.
+		return Budget{MaxBytes: 24 << 20, MaxImages: 40}
+	case "gemini":
+		// 20 MB covers the whole inline request, not just images, so the
+		// image share must leave room for everything else in the turn.
+		return Budget{MaxBytes: 7 << 20, MaxImages: 20}
+	case "xai":
+		// 20 MiB per image with no documented image count limit.
+		return Budget{MaxBytes: 14 << 20, MaxImages: 20}
+	default:
+		return DefaultBudget()
+	}
 }
 
 // Decision records what one pass did, for /media and for tests.
@@ -186,19 +236,24 @@ func humanBytes(n int) string {
 
 // ledger holds the most recent decision for the footer and /media.
 type ledger struct {
-	mu   sync.RWMutex
-	last Decision
-	seen bool
+	mu sync.RWMutex
+	// budget and provider are recorded with the decision because the budget
+	// is chosen per request: reporting a stored default would describe a
+	// limit that was never applied.
+	last     Decision
+	budget   Budget
+	provider string
+	seen     bool
 }
 
-func (l *ledger) record(d Decision) {
+func (l *ledger) record(d Decision, b Budget, provider string) {
 	l.mu.Lock()
 	defer l.mu.Unlock()
-	l.last, l.seen = d, true
+	l.last, l.budget, l.provider, l.seen = d, b, provider, true
 }
 
-func (l *ledger) snapshot() (Decision, bool) {
+func (l *ledger) snapshot() (Decision, Budget, string, bool) {
 	l.mu.RLock()
 	defer l.mu.RUnlock()
-	return l.last, l.seen
+	return l.last, l.budget, l.provider, l.seen
 }

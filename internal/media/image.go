@@ -16,9 +16,20 @@ import (
 )
 
 const (
-	maxInBytes  = 25 << 20 // refuse to slurp more than this from disk/clipboard
-	maxOutBytes = 4 << 20  // provider-safe after compress (Anthropic is 5MB)
-	maxDim      = 2048
+	maxInBytes = 25 << 20 // refuse to slurp more than this from disk/clipboard
+
+	// maxOutBytes is a raw budget, but every provider states its per-image
+	// limit on the base64 payload, which is 4/3 the size. The smallest such
+	// limit is 5 MB, on Bedrock and Vertex. 4 MiB raw encodes to 5.6 MB and
+	// would breach it, so the budget is set from the encoded limit instead.
+	maxOutBytes = 3 << 20 // 3 MiB raw is about 4.2 MB base64
+
+	// maxDim bounds the longest side. Anthropic downscales server-side to
+	// 1568 px (2576 px on newer models) and OpenAI tiles from 2048 px, so
+	// sending more than this buys nothing and costs upload time. It stays
+	// above those tiers rather than matching one, because a provider that
+	// does not resize still gets a usable image.
+	maxDim = 2048
 
 	// A crop smaller than this is enlarged so thin strokes stay legible.
 	minZoomSide   = 768

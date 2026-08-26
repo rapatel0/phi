@@ -2,12 +2,16 @@ package media
 
 import (
 	"bytes"
+	"encoding/base64"
 	"image"
 	"image/color"
 	"image/png"
 	"os"
 	"path/filepath"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 
 	"github.com/rapatel0/alpha/internal/llm"
 )
@@ -82,4 +86,32 @@ func TestLoadFile(t *testing.T) {
 	if img.Filename != "x.png" {
 		t.Fatalf("name %q", img.Filename)
 	}
+}
+
+// Providers state their per-image limit on the base64 payload, which is 4/3
+// the raw size. The smallest documented limit is 5 MB, on Bedrock and Vertex.
+// A 4 MiB raw cap encodes to 5.6 MB and would breach it.
+func TestOutputBudgetStaysUnderTheSmallestEncodedLimit(t *testing.T) {
+	const smallestEncodedLimitMB = 5.0 // Bedrock and Vertex, per Anthropic docs
+	encoded := float64(base64.StdEncoding.EncodedLen(maxOutBytes)) / 1e6
+	assert.Less(t, encoded, smallestEncodedLimitMB,
+		"a normalized image is %.2f MB base64, over the %.0f MB floor", encoded, smallestEncodedLimitMB)
+}
+
+// Every image the model receives must fit that budget, not just the constant.
+func TestNormalizeOutputFitsTheEncodedLimit(t *testing.T) {
+	const n = 4000
+	src := image.NewRGBA(image.Rect(0, 0, n, n))
+	for y := range n {
+		for x := range n {
+			src.Set(x, y, color.RGBA{uint8(x % 251), uint8(y % 253), uint8((x ^ y) % 249), 255})
+		}
+	}
+	var buf bytes.Buffer
+	require.NoError(t, png.Encode(&buf, src))
+
+	out, err := Normalize(llm.Image{Data: buf.Bytes(), Filename: "big.png"})
+	require.NoError(t, err)
+	encoded := float64(base64.StdEncoding.EncodedLen(len(out.Data))) / 1e6
+	assert.Less(t, encoded, 5.0, "the encoded image must fit the smallest provider limit")
 }
