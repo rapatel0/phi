@@ -1,7 +1,11 @@
 package mediaguard
 
 import (
+	"bytes"
 	"encoding/base64"
+	"image"
+	"image/color"
+	"image/gif"
 	"strings"
 	"testing"
 
@@ -221,4 +225,67 @@ func TestXAIBudgetIsTighterThanOpenAI(t *testing.T) {
 	assert.Less(t, BudgetFor("xai").MaxBytes, BudgetFor("openai").MaxBytes)
 	encoded := float64(BudgetFor("xai").EncodedBytes())
 	assert.Less(t, encoded, 20*1024*1024.0, "must stay under the documented 20 MiB")
+}
+
+func gifMessage(t *testing.T, name string) llm.Message {
+	t.Helper()
+	src := image.NewPaletted(image.Rect(0, 0, 120, 120), []color.Color{color.Black, color.White})
+	for y := range 120 {
+		for x := range 120 {
+			src.SetColorIndex(x, y, uint8((x/6+y/6)%2))
+		}
+	}
+	var buf bytes.Buffer
+	require.NoError(t, gif.Encode(&buf, src, nil))
+	return llm.Message{
+		Role:    llm.RoleUser,
+		Content: "look",
+		Images:  []llm.Image{{MIME: "image/gif", Filename: name, Data: buf.Bytes()}},
+	}
+}
+
+// xAI documents JPEG and PNG only. A GIF reaching it is rejected outright, so
+// it must be converted before the request is built.
+func TestToAcceptedFormatsConvertsForXAI(t *testing.T) {
+	in := []llm.Message{gifMessage(t, "a.gif")}
+	out, n := ToAcceptedFormats(in, "xai")
+	assert.Equal(t, Converted(1), n)
+	assert.Equal(t, "image/png", out[0].Images[0].MIME)
+	assert.Equal(t, "image/gif", in[0].Images[0].MIME, "the input must not be modified")
+}
+
+// A provider that documents the format must receive it unchanged.
+func TestToAcceptedFormatsLeavesOpenAIAlone(t *testing.T) {
+	in := []llm.Message{gifMessage(t, "a.gif")}
+	out, n := ToAcceptedFormats(in, "openai")
+	assert.Zero(t, n)
+	assert.Equal(t, "image/gif", out[0].Images[0].MIME)
+}
+
+// Gemini documents WebP but not GIF.
+func TestToAcceptedFormatsConvertsGIFForGemini(t *testing.T) {
+	out, n := ToAcceptedFormats([]llm.Message{gifMessage(t, "a.gif")}, "gemini")
+	assert.Equal(t, Converted(1), n)
+	assert.Equal(t, "image/png", out[0].Images[0].MIME)
+}
+
+// Messages without images, and PNG images, must pass through as the same slice
+// so an ordinary turn costs nothing.
+func TestToAcceptedFormatsIsAPassthroughWhenNothingChanges(t *testing.T) {
+	in := []llm.Message{{Role: llm.RoleUser, Content: "hi"}, img("a.png", 10)}
+	out, n := ToAcceptedFormats(in, "xai")
+	assert.Zero(t, n)
+	assert.Equal(t, in, out)
+}
+
+// An image that cannot be decoded must be left alone rather than costing the
+// turn: a certain failure is worse than a possible rejection.
+func TestToAcceptedFormatsKeepsUndecodableImages(t *testing.T) {
+	in := []llm.Message{{
+		Role:   llm.RoleUser,
+		Images: []llm.Image{{MIME: "image/gif", Filename: "bad.gif", Data: []byte("nope")}},
+	}}
+	out, n := ToAcceptedFormats(in, "xai")
+	assert.Zero(t, n)
+	assert.Equal(t, "image/gif", out[0].Images[0].MIME)
 }

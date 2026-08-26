@@ -87,9 +87,38 @@ likely to be mislabeled. `client.Provider` asks `auth.ProviderFor` rather than
 assuming OpenAI, because OpenAI's budget is over three times xAI's documented
 per-image limit.
 
-xAI does not list GIF or WebP. `media.Normalize` can emit either when the input
-is already small enough to pass through untouched. This is a known gap: the
-budget is enforced per provider, but the format is not.
+xAI does not list GIF or WebP, and `media.Normalize` can emit either when the
+input is small enough to pass through untouched. `mediaguard` converts such an
+image to PNG before the request is built. See "Formats" below.
+
+## Formats
+
+A provider rejects an undocumented format outright rather than degrading it, so
+the whole request fails. The documented lists differ:
+
+| Provider | Documented formats |
+| --- | --- |
+| Anthropic | JPEG, PNG, GIF, WebP |
+| OpenAI | PNG, JPEG, WebP, non-animated GIF |
+| Gemini | PNG, JPEG, WebP, HEIC, HEIF (no GIF) |
+| xAI | JPEG and PNG only |
+
+JPEG and PNG are the intersection, so conversion always has a target.
+`media.Accepts` answers the question and `media.ToAccepted` converts, both
+keyed on the provider name from `client.Provider`.
+
+Conversion targets PNG rather than JPEG: an image that needed converting is
+usually a screenshot or a diagram, and JPEG ringing around text is the damage
+most likely to matter. An animation keeps only its first frame, because the
+standard library has no animated encoder. One readable frame beats a rejected
+request.
+
+An image that cannot be decoded is sent unchanged. Failing the turn to avoid a
+possible rejection trades a certain loss for an uncertain one.
+
+Gemini documents HEIC and HEIF, but `media.DetectMIME` does not sniff either,
+so such a file is refused on load. That is a missed capability rather than a
+wrong request.
 
 ## Why the client still resizes
 

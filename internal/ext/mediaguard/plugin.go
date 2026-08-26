@@ -24,8 +24,11 @@ func (p *Plugin) Register(h *ext.Host) error {
 		// The budget is chosen per request because the provider can change
 		// between turns: the user can switch models mid-session, and the
 		// documented limits differ by more than a factor of three.
+		// Convert before trimming: a conversion changes the byte count, so
+		// budgeting first would measure sizes the request never has.
+		msgs, _ := ToAcceptedFormats(req.Messages, req.Provider)
 		b := BudgetFor(req.Provider)
-		out, d := Apply(req.Messages, b)
+		out, d := Apply(msgs, b)
 		p.led.record(d, b, req.Provider)
 		return out, nil
 	})

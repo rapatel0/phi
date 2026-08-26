@@ -15,7 +15,9 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/rapatel0/alpha/internal/debuglog"
 	"github.com/rapatel0/alpha/internal/llm"
+	"github.com/rapatel0/alpha/internal/media"
 )
 
 // Budgets are expressed in raw bytes, but every provider states its limit on
@@ -256,4 +258,52 @@ func (l *ledger) snapshot() (Decision, Budget, string, bool) {
 	l.mu.RLock()
 	defer l.mu.RUnlock()
 	return l.last, l.budget, l.provider, l.seen
+}
+
+// Converted counts images rewritten to a format the provider accepts.
+type Converted int
+
+// ToAcceptedFormats rewrites any image whose format the provider does not
+// document, returning the messages unchanged when every image is acceptable.
+//
+// A provider rejects an undocumented format outright rather than degrading it,
+// so the whole request fails. xAI is the case that matters: it documents JPEG
+// and PNG only, and it is reached over the OpenAI-compatible path, so a GIF or
+// WebP that any other provider would accept arrives there and is refused.
+//
+// An image that cannot be converted is left alone. Failing the turn to avoid a
+// possible rejection trades a certain loss for an uncertain one.
+func ToAcceptedFormats(messages []llm.Message, provider string) ([]llm.Message, Converted) {
+	var n Converted
+	out := messages
+	copied := false
+	for mi, m := range messages {
+		var newImgs []llm.Image
+		for ii, img := range m.Images {
+			if img.MIME == "" || media.Accepts(provider, img.MIME) {
+				continue
+			}
+			conv, err := media.ToAccepted(img, provider)
+			if err != nil {
+				debuglog.Logf("mediaguard: %s stays %s for %s: %v", img.Filename, img.MIME, provider, err)
+				continue
+			}
+			if newImgs == nil {
+				newImgs = make([]llm.Image, len(m.Images))
+				copy(newImgs, m.Images)
+			}
+			newImgs[ii] = conv
+			n++
+		}
+		if newImgs == nil {
+			continue
+		}
+		if !copied {
+			out = make([]llm.Message, len(messages))
+			copy(out, messages)
+			copied = true
+		}
+		out[mi].Images = newImgs
+	}
+	return out, n
 }

@@ -105,3 +105,27 @@ func TestFooterOnlySpeaksWhenItTrims(t *testing.T) {
 	p.led.record(Decision{ImagesBefore: 2, ImagesKept: 2, BytesKept: 10}, DefaultBudget(), "anthropic")
 	assert.Empty(t, h.FooterBits(), "nothing was trimmed, so stay quiet")
 }
+
+// The whole path must work through the real hook registry: a GIF sent to xAI
+// arrives as PNG, because xAI documents JPEG and PNG only.
+func TestPluginConvertsFormatsThroughHost(t *testing.T) {
+	hooks.ResetProviderHooks()
+	t.Cleanup(hooks.ResetProviderHooks)
+
+	p := &Plugin{}
+	require.NoError(t, p.Register(ext.NewHost()))
+
+	got := hooks.ApplyProviderHooks(t.Context(), hooks.ProviderRequest{
+		Provider: "xai",
+		Messages: []llm.Message{gifMessage(t, "shot.gif")},
+	})
+	require.Len(t, got[0].Images, 1)
+	assert.Equal(t, "image/png", got[0].Images[0].MIME)
+
+	// The same image is left alone for a provider that documents GIF.
+	got = hooks.ApplyProviderHooks(t.Context(), hooks.ProviderRequest{
+		Provider: "openai",
+		Messages: []llm.Message{gifMessage(t, "shot.gif")},
+	})
+	assert.Equal(t, "image/gif", got[0].Images[0].MIME)
+}
