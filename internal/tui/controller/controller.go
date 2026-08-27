@@ -144,6 +144,8 @@ func NewController(bus *Bus, proj *project.Project, cwd string) (*Controller, er
 	c.startJobProgress()
 	ext.Default().SetQuestionAsker(c.askQuestion)
 	ext.Default().SetSideChannel(c.startSide)
+	ext.Default().SetWake(c.wake)
+	c.startBackgroundExtensions()
 	c.emitSessionStart("startup", eng.SessionID(), "")
 	return c, nil
 }
@@ -847,8 +849,45 @@ func (c *Controller) Cancel() {
 }
 
 // Close cancels the stream and shuts down the job manager.
+// wake starts a turn with text the user did not type.
+//
+// It refuses while a turn is already streaming, because two prompts in flight
+// would interleave. A scheduled loop is told, so it can record the reason and
+// try again on its next slot rather than assume it fired.
+func (c *Controller) wake(text string) error {
+	text = strings.TrimSpace(text)
+	if text == "" {
+		return errors.New("wake: empty prompt")
+	}
+	c.streamMu.Lock()
+	streaming := c.streamCancel != nil
+	c.streamMu.Unlock()
+	if streaming {
+		return errors.New("wake: a turn is already running")
+	}
+	c.publish(SubmitMsg{Text: text})
+	return nil
+}
+
+// startBackgroundExtensions hands the permission gate to extensions that own
+// background work and lets them start.
+//
+// The gate goes first: an extension that runs commands must not run one before
+// it can be judged.
+func (c *Controller) startBackgroundExtensions() {
+	for _, bg := range ext.Default().Backgrounds() {
+		bg.SetGate(c.gate)
+		bg.Start(context.Background())
+	}
+}
+
 func (c *Controller) Close() {
 	c.Detach()
+	// Background work stops first, so a build cannot outlive the session
+	// that started it.
+	for _, bg := range ext.Default().Backgrounds() {
+		bg.Stop()
+	}
 	if c.children != nil {
 		c.children.cancelAll()
 	}

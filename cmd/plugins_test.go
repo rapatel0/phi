@@ -40,3 +40,25 @@ func TestBundledExtensionHookKinds(t *testing.T) {
 	assert.Positive(t, kinds[hooks.KindPostTool], "tool loop observation")
 	assert.Positive(t, kinds[hooks.KindSessionStart], "session lifecycle")
 }
+
+// The blank import in plugins.go is what puts the loop tools on the model.
+// Without it the extension compiles and does nothing.
+func TestLoopExtensionIsWired(t *testing.T) {
+	found := map[string]bool{}
+	for _, tool := range ext.Default().Tools() {
+		found[tool.Definition.Name] = true
+	}
+	for _, name := range []string{
+		"LoopCreate", "LoopList", "LoopUpdate", "LoopDelete",
+		"MonitorCreate", "MonitorList", "MonitorLogs", "MonitorStop",
+	} {
+		assert.True(t, found[name], "%s is not registered: the blank import in plugins.go is missing", name)
+	}
+	assert.Contains(t, ext.Default().Names(), "loop")
+}
+
+// The shell has to be able to find background work to stop it at shutdown.
+func TestLoopExtensionIsBackgroundWork(t *testing.T) {
+	require.NotEmpty(t, ext.Default().Backgrounds(),
+		"no background extension registered: the shell cannot stop it at shutdown")
+}

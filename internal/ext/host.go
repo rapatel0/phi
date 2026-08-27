@@ -6,6 +6,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/rapatel0/alpha/internal/permission"
 	"github.com/rapatel0/alpha/internal/tools"
 )
 
@@ -48,7 +49,16 @@ type Host struct {
 	onToolResult []resultSub
 	onPrompt     []PromptFunc
 	side         SideFunc
+	wake         WakeFunc
+	background   []Background
 }
+
+// WakeFunc starts a turn with text the user did not type.
+//
+// A scheduled loop that fires while nobody is watching has to reach the agent
+// somehow, and only the shell owns the input path. The TUI supplies this, the
+// same way it supplies the side channel.
+type WakeFunc func(text string) error
 
 // SideRequest asks for one side conversation: a sub-agent run that does not
 // enter the main thread's context.
@@ -73,6 +83,9 @@ type SideFunc func(ctx context.Context, req SideRequest) (SideResult, error)
 var errNoSideChannel = errors.New(
 	"side conversations need the interactive shell with sub-agents enabled")
 
+var errNoWake = errors.New(
+	"scheduled work needs the interactive shell: nothing is listening for a turn")
+
 var defaultHost = NewHost()
 
 // Default is the process-wide host. cmd wires it into the engine and TUI.
@@ -80,6 +93,31 @@ func Default() *Host { return defaultHost }
 
 // NewHost returns an empty host (tests).
 func NewHost() *Host { return &Host{} }
+
+// Background is implemented by an extension that owns work outliving a turn.
+//
+// The shell drives it: nothing may run before the permission gate exists, and
+// nothing may outlive the session. An extension cannot arrange either on its
+// own, because it is registered at init and knows nothing about the shell.
+type Background interface {
+	// SetGate supplies the permission gate. Work that runs commands must
+	// refuse until it arrives.
+	SetGate(gate permission.Gate)
+	// Start begins background work.
+	Start(ctx context.Context)
+	// Stop halts it and waits.
+	Stop()
+}
+
+// Backgrounds returns the registered extensions that own background work.
+func (h *Host) Backgrounds() []Background {
+	if h == nil {
+		return nil
+	}
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	return append([]Background(nil), h.background...)
+}
 
 // Register adds p to the default host. Panics on error (init-time).
 func Register(p Plugin) {
@@ -98,6 +136,9 @@ func (h *Host) Add(p Plugin) error {
 	}
 	h.mu.Lock()
 	h.names = append(h.names, p.Name())
+	if bg, ok := p.(Background); ok {
+		h.background = append(h.background, bg)
+	}
 	h.mu.Unlock()
 	return nil
 }
@@ -184,6 +225,33 @@ func (h *Host) SetSideChannel(fn SideFunc) {
 	h.mu.Lock()
 	defer h.mu.Unlock()
 	h.side = fn
+}
+
+// SetWake installs the turn starter. The TUI provides it, because only the
+// shell owns the input path. Without it, Wake reports that nothing is
+// listening, which is the correct answer in a headless run: a loop that cannot
+// reach the agent must say so rather than discard the work.
+func (h *Host) SetWake(fn WakeFunc) {
+	if h == nil {
+		return
+	}
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	h.wake = fn
+}
+
+// Wake starts a turn with text the user did not type.
+func (h *Host) Wake(text string) error {
+	if h == nil {
+		return errNoWake
+	}
+	h.mu.Lock()
+	fn := h.wake
+	h.mu.Unlock()
+	if fn == nil {
+		return errNoWake
+	}
+	return fn(text)
 }
 
 // StartSide runs a side conversation and returns its summary.
