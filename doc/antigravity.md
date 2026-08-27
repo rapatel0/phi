@@ -7,8 +7,16 @@ through an internal Cloud Code endpoint rather than the public Gemini API.
 alpha login antigravity
 ```
 
-The browser opens a Google consent screen. Approve it, then paste the URL you
-land on. The page does not load; copy the address from the browser bar.
+The browser opens a Google consent screen. Approve it, and the login finishes
+by itself: the consent redirects to a local server on the port registered with
+the OAuth client.
+
+If the browser runs on another machine, that redirect cannot reach this
+process. Paste the URL you land on instead. The page will not load, so copy the
+address from the browser bar.
+
+The same applies when the port is already held by another alpha. Binding it is
+not required, because paste always works.
 
 ## Models
 
