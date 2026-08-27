@@ -1,12 +1,15 @@
 package auth
 
 import (
+	"fmt"
 	"io"
+	"net"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -193,4 +196,184 @@ func TestRefreshAntigravityKeepsOrdinaryErrorsDistinct(t *testing.T) {
 	require.Error(t, err)
 	assert.NotErrorIs(t, err, ErrUnavailable)
 	assert.Contains(t, err.Error(), "expired or revoked")
+}
+
+// stubTokenEndpoint points the code exchange at a local server and returns the
+// form it received.
+func stubTokenEndpoint(t *testing.T, reply string) *url.Values {
+	t.Helper()
+	got := &url.Values{}
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		body, _ := io.ReadAll(r.Body)
+		form, _ := url.ParseQuery(string(body))
+		*got = form
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = io.WriteString(w, reply)
+	}))
+	t.Cleanup(srv.Close)
+
+	old := antigravityTokenURL
+	antigravityTokenURL = srv.URL
+	t.Cleanup(func() { antigravityTokenURL = old })
+	return got
+}
+
+// login runs LoginAntigravity in the background on a free callback port.
+//
+// It hands back the consent URL's state and a function to await the result, so
+// each test can drive the browser redirect or the paste without repeating the
+// goroutine plumbing.
+type loginRun struct {
+	port  int
+	state string
+	wait  func() (Credential, error)
+	paste chan string
+}
+
+func startLogin(t *testing.T) *loginRun {
+	t.Helper()
+
+	port := freePort(t)
+	old := antigravityCallbackPort
+	antigravityCallbackPort = port
+	t.Cleanup(func() { antigravityCallbackPort = old })
+
+	run := &loginRun{port: port, paste: make(chan string, 1)}
+	urlCh := make(chan string, 1)
+	type outcome struct {
+		cred Credential
+		err  error
+	}
+	done := make(chan outcome, 1)
+
+	go func() {
+		cred, err := LoginAntigravity(t.Context(), LoginOpts{
+			OnURL: func(u string) { urlCh <- u },
+			Paste: run.paste,
+		})
+		done <- outcome{cred, err}
+	}()
+
+	select {
+	case u := <-urlCh:
+		parsed, err := url.Parse(u)
+		require.NoError(t, err)
+		run.state = parsed.Query().Get("state")
+		require.NotEmpty(t, run.state, "the consent URL must carry state")
+	case <-time.After(5 * time.Second):
+		t.Fatal("the login never produced a consent URL")
+	}
+
+	run.wait = func() (Credential, error) {
+		select {
+		case o := <-done:
+			return o.cred, o.err
+		case <-time.After(5 * time.Second):
+			t.Fatal("the login never returned")
+			return Credential{}, nil
+		}
+	}
+	return run
+}
+
+// redirect is what the browser does after consent.
+func (r *loginRun) redirect(t *testing.T, query string) {
+	t.Helper()
+	req, err := http.NewRequestWithContext(t.Context(), http.MethodGet,
+		fmt.Sprintf("http://127.0.0.1:%d%s?%s", r.port, antigravityCallbackPath, query), http.NoBody)
+	require.NoError(t, err)
+
+	client := &http.Client{Timeout: 5 * time.Second}
+	resp, err := client.Do(req)
+	require.NoError(t, err)
+	require.NoError(t, resp.Body.Close())
+}
+
+// The point of the callback server: a local browser finishes the login by
+// itself, with nothing to copy.
+func TestLoginAntigravityCompletesFromTheRedirect(t *testing.T) {
+	form := stubTokenEndpoint(t, `{"access_token":"at","refresh_token":"rt","expires_in":3600}`)
+	run := startLogin(t)
+
+	run.redirect(t, "code=the-code&state="+run.state)
+
+	cred, err := run.wait()
+	require.NoError(t, err)
+	assert.Equal(t, "at", cred.AccessToken)
+	assert.Equal(t, "rt", cred.RefreshToken)
+	assert.Equal(t, "the-code", form.Get("code"))
+	assert.Equal(t, antigravityRedirectURI, form.Get("redirect_uri"),
+		"the exchange must repeat the registered redirect URI")
+	assert.NotEmpty(t, form.Get("code_verifier"), "PKCE must be completed")
+}
+
+// State is what stops a redirect from another login being accepted.
+func TestLoginAntigravityRejectsAForeignState(t *testing.T) {
+	stubTokenEndpoint(t, `{"access_token":"at"}`)
+	run := startLogin(t)
+
+	run.redirect(t, "code=c&state=not-the-state")
+
+	_, err := run.wait()
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "different login")
+}
+
+// Over SSH the browser runs elsewhere and its redirect to localhost cannot
+// reach this process, so paste has to keep working.
+func TestLoginAntigravityStillAcceptsAPaste(t *testing.T) {
+	form := stubTokenEndpoint(t, `{"access_token":"at","expires_in":3600}`)
+	run := startLogin(t)
+
+	run.paste <- antigravityRedirectURI + "?code=pasted&state=" + run.state
+
+	cred, err := run.wait()
+	require.NoError(t, err)
+	assert.Equal(t, "at", cred.AccessToken)
+	assert.Equal(t, "pasted", form.Get("code"))
+}
+
+// A user who cancels at the consent screen must be told why, not left waiting.
+func TestLoginAntigravityReportsARefusal(t *testing.T) {
+	run := startLogin(t)
+
+	run.redirect(t, "error=access_denied&error_description=denied+by+user")
+
+	_, err := run.wait()
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "denied by user")
+}
+
+// The callback port is fixed by the registered redirect URI, so another alpha
+// holding it must not break the login: paste still finishes it.
+func TestLoginAntigravityFallsBackWhenThePortIsTaken(t *testing.T) {
+	form := stubTokenEndpoint(t, `{"access_token":"at"}`)
+
+	port := freePort(t)
+	old := antigravityCallbackPort
+	antigravityCallbackPort = port
+	t.Cleanup(func() { antigravityCallbackPort = old })
+
+	var lc net.ListenConfig
+	blocker, err := lc.Listen(t.Context(), "tcp", fmt.Sprintf("127.0.0.1:%d", port))
+	require.NoError(t, err)
+	defer func() { _ = blocker.Close() }()
+
+	paste := make(chan string, 1)
+	done := make(chan error, 1)
+	go func() {
+		_, lerr := LoginAntigravity(t.Context(), LoginOpts{
+			OnURL: func(string) { paste <- "bare-code-abc" },
+			Paste: paste,
+		})
+		done <- lerr
+	}()
+
+	select {
+	case lerr := <-done:
+		require.NoError(t, lerr, "a taken port must not fail the login")
+	case <-time.After(5 * time.Second):
+		t.Fatal("the login never returned")
+	}
+	assert.Equal(t, "bare-code-abc", form.Get("code"), "a bare code must be accepted")
 }

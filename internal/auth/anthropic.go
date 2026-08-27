@@ -6,7 +6,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"net"
 	"net/http"
 	"net/url"
 	"strings"
@@ -39,6 +38,9 @@ func anthropicRedirectURI() string {
 	return fmt.Sprintf("http://localhost:%d%s", anthropicCallbackPort, anthropicCallbackPath)
 }
 
+const anthropicSuccessHTML = `<!doctype html><title>alpha</title>` +
+	`<p>Claude login complete. You can close this tab.</p>`
+
 // LoginOpts configures an interactive OAuth login.
 type LoginOpts struct {
 	OpenBrowser func(string) error
@@ -58,44 +60,8 @@ func LoginAnthropic(ctx context.Context, opts LoginOpts) (Credential, error) {
 		opts.OnURL(authURL)
 	}
 
-	codeCh := make(chan string, 1)
-	ln, err := net.Listen("tcp", fmt.Sprintf("%s:%d", anthropicCallbackHost, anthropicCallbackPort))
-	if err != nil {
-		// Registered redirect still has to be that port; paste the final URL.
-		ln = nil
-	}
-	mux := http.NewServeMux()
-	mux.HandleFunc(anthropicCallbackPath, func(w http.ResponseWriter, r *http.Request) {
-		q := r.URL.Query()
-		if e := q.Get("error"); e != "" {
-			http.Error(w, "authentication failed: "+e, http.StatusBadRequest)
-			return
-		}
-		code := q.Get("code")
-		st := q.Get("state")
-		if code == "" || st != state {
-			http.Error(w, "missing code or state mismatch", http.StatusBadRequest)
-			return
-		}
-		w.Header().Set("Content-Type", "text/html; charset=utf-8")
-		_, _ = io.WriteString(
-			w,
-			`<!doctype html><title>alpha</title><p>Claude login complete. You can close this tab.</p>`,
-		)
-		select {
-		case codeCh <- code:
-		default:
-		}
-	})
-	if ln != nil {
-		srv := &http.Server{Handler: mux}
-		go func() { _ = srv.Serve(ln) }()
-		defer func() {
-			shut, cancel := context.WithTimeout(context.Background(), 2*time.Second)
-			defer cancel()
-			_ = srv.Shutdown(shut)
-		}()
-	}
+	srv := listenCallback(ctx, anthropicCallbackPort, anthropicCallbackPath, state, anthropicSuccessHTML)
+	defer srv.close()
 
 	if opts.OpenBrowser != nil {
 		_ = opts.OpenBrowser(authURL)
@@ -105,7 +71,14 @@ func LoginAnthropic(ctx context.Context, opts LoginOpts) (Credential, error) {
 	select {
 	case <-ctx.Done():
 		return Credential{}, ctx.Err()
-	case code = <-codeCh:
+	case got := <-srv.wait():
+		if got.err != nil {
+			return Credential{}, fmt.Errorf("auth: %w", got.err)
+		}
+		if got.state != state {
+			return Credential{}, fmt.Errorf("auth: OAuth state mismatch")
+		}
+		code = got.code
 	case pasted := <-waitPaste(opts.Paste):
 		c, st := parseAuthorizationInput(pasted)
 		if st != "" && st != state {
@@ -120,12 +93,32 @@ func LoginAnthropic(ctx context.Context, opts LoginOpts) (Credential, error) {
 	return exchangeAnthropicCode(ctx, code, state, verifier, redirect)
 }
 
+// waitPaste yields pasted lines, and nothing at all when there are none.
+//
+// The caller's channel closes when stdin ends, which happens immediately when
+// stdin is not a terminal. A receive from a closed channel returns an empty
+// string at once, so a select over it would take the paste branch before the
+// browser could redirect and fail the login with "missing authorization
+// code". Dropping that value leaves the callback server as the only way to
+// finish, which is correct: nobody is there to paste.
 func waitPaste(paste <-chan string) <-chan string {
-	if paste != nil {
-		return paste
+	if paste == nil {
+		return nil
 	}
-	ch := make(chan string)
-	return ch
+	out := make(chan string, 1)
+	go func() {
+		// Not closed on the empty path: closing would hand the caller the
+		// zero value, which is the bug this exists to prevent. The
+		// goroutine ends either way.
+		for line := range paste {
+			if strings.TrimSpace(line) == "" {
+				continue
+			}
+			out <- line
+			return
+		}
+	}()
+	return out
 }
 
 func exchangeAnthropicCode(ctx context.Context, code, state, verifier, redirect string) (Credential, error) {

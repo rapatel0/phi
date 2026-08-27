@@ -35,9 +35,17 @@ var (
 )
 
 const (
-	antigravityAuthURL     = "https://accounts.google.com/o/oauth2/v2/auth"
-	antigravityRedirectURI = "http://localhost:51121/oauth-callback"
+	antigravityAuthURL = "https://accounts.google.com/o/oauth2/v2/auth"
+
+	// Registered with the OAuth client, so the path is fixed: Google will
+	// redirect here and nowhere else.
+	antigravityCallbackPath = "/oauth-callback"
+	antigravityRedirectURI  = "http://localhost:51121/oauth-callback"
 )
+
+// A var, like antigravityTokenURL, so a test can bind a free port instead of
+// the registered one and avoid colliding with a real login.
+var antigravityCallbackPort = 51121
 
 // A var, like anthropicTokenURL, so a test can point it at a local server
 // instead of Google.
@@ -82,14 +90,18 @@ func AntigravityAuthURL(challenge, state string) string {
 
 // LoginAntigravity runs the Google OAuth flow and returns a credential.
 //
-// The flow matches the Anthropic one: open a browser, let the user consent,
-// and take the redirect URL back by paste. A local callback server would be
-// closer to what the IDE does, but paste also works over SSH, where a browser
-// redirect to localhost cannot reach this machine.
+// Like the Anthropic flow, a local server on the registered callback port and
+// a pasted URL race each other. The server finishes the login by itself when
+// the browser runs on this machine. Paste covers the rest: over SSH the
+// browser is elsewhere and its redirect to localhost cannot reach this
+// process, and the port may already be taken by another alpha.
 func LoginAntigravity(ctx context.Context, opts LoginOpts) (Credential, error) {
 	verifier, challenge := generatePKCE()
 	state := generateState()
 	authURL := AntigravityAuthURL(challenge, state)
+
+	srv := listenCallback(ctx, antigravityCallbackPort, antigravityCallbackPath, state, antigravitySuccessHTML)
+	defer srv.close()
 
 	if opts.OnURL != nil {
 		opts.OnURL(authURL)
@@ -98,20 +110,38 @@ func LoginAntigravity(ctx context.Context, opts LoginOpts) (Credential, error) {
 		_ = opts.OpenBrowser(authURL)
 	}
 
+	var code string
 	select {
+	case got := <-srv.wait():
+		if got.err != nil {
+			return Credential{}, fmt.Errorf("antigravity: %w", got.err)
+		}
+		if got.state != state {
+			return Credential{}, errors.New("antigravity: state mismatch: this redirect is from a different login")
+		}
+		code = got.code
 	case line := <-waitPaste(opts.Paste):
-		code, gotState, err := parseAntigravityRedirect(line)
+		pasted, gotState, err := parseAntigravityRedirect(line)
 		if err != nil {
 			return Credential{}, err
 		}
+		// A bare code carries no state, so it can only be checked when the
+		// whole URL was pasted.
 		if gotState != "" && gotState != state {
 			return Credential{}, errors.New("antigravity: state mismatch: the pasted URL is from a different login")
 		}
-		return exchangeAntigravityCode(ctx, code, verifier)
+		code = pasted
 	case <-ctx.Done():
 		return Credential{}, ctx.Err()
 	}
+
+	return exchangeAntigravityCode(ctx, code, verifier)
 }
+
+// The browser lands here after consent, so it has to say the login worked.
+// Without it the user sees a connection error and assumes it failed.
+const antigravitySuccessHTML = `<!doctype html><title>alpha</title>` +
+	`<p>Antigravity login complete. You can close this tab.</p>`
 
 // parseAntigravityRedirect accepts either the whole redirect URL or a bare
 // authorization code, because a user who copies from the address bar and one
