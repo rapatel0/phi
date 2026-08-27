@@ -2,10 +2,12 @@ package auth
 
 import (
 	"encoding/json"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/require"
 )
@@ -56,4 +58,81 @@ func TestRefreshCodex(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, "hdr.payload.sig", cred.AccessToken)
 	require.Equal(t, ProviderCodex, cred.Provider)
+}
+
+// A rate limit must not end a login the user is about to approve. Aborting
+// throws away a code that is still valid and makes the user start again.
+func TestPollCodexApprovalSurvivesARateLimit(t *testing.T) {
+	oldStep := codexSlowDownStep
+	codexSlowDownStep = 20 * time.Millisecond
+	t.Cleanup(func() { codexSlowDownStep = oldStep })
+
+	var calls int
+	var gaps []time.Duration
+	last := time.Now()
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		calls++
+		gaps = append(gaps, time.Since(last))
+		last = time.Now()
+		switch calls {
+		case 1:
+			w.WriteHeader(http.StatusTooManyRequests)
+		case 2:
+			w.WriteHeader(http.StatusForbidden) // not approved yet
+		default:
+			w.WriteHeader(http.StatusOK)
+			_, _ = io.WriteString(w, `{"authorization_code":"ac","code_verifier":"cv"}`)
+		}
+	}))
+	t.Cleanup(srv.Close)
+
+	old := codexDeviceURL
+	codexDeviceURL = srv.URL
+	t.Cleanup(func() { codexDeviceURL = old })
+
+	sess := &CodexDevice{deviceAuthID: "id", UserCode: "uc", interval: time.Millisecond}
+	approval, err := pollCodexApproval(t.Context(), sess)
+	require.NoError(t, err, "a rate limit must not end the login")
+	require.Equal(t, "ac", approval.AuthorizationCode)
+	require.Len(t, gaps, 3)
+	require.Greater(t, gaps[1], 15*time.Millisecond, "the rate limit must widen the interval")
+}
+
+// An unexpected status is a real failure and must still stop the login rather
+// than polling until the deadline.
+func TestPollCodexApprovalStopsOnAServerError(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusInternalServerError)
+		_, _ = io.WriteString(w, `{"error":"boom"}`)
+	}))
+	t.Cleanup(srv.Close)
+
+	old := codexDeviceURL
+	codexDeviceURL = srv.URL
+	t.Cleanup(func() { codexDeviceURL = old })
+
+	sess := &CodexDevice{deviceAuthID: "id", UserCode: "uc", interval: time.Millisecond}
+	_, err := pollCodexApproval(t.Context(), sess)
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "500")
+}
+
+// The user may approve before the first interval elapses, and waiting first
+// adds that delay to every login.
+func TestPollCodexApprovalPollsBeforeWaiting(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		_, _ = io.WriteString(w, `{"authorization_code":"ac","code_verifier":"cv"}`)
+	}))
+	t.Cleanup(srv.Close)
+
+	old := codexDeviceURL
+	codexDeviceURL = srv.URL
+	t.Cleanup(func() { codexDeviceURL = old })
+
+	sess := &CodexDevice{deviceAuthID: "id", UserCode: "uc", interval: 30 * time.Second}
+	start := time.Now()
+	_, err := pollCodexApproval(t.Context(), sess)
+	require.NoError(t, err)
+	require.Less(t, time.Since(start), 5*time.Second, "the first poll must not wait for the interval")
 }

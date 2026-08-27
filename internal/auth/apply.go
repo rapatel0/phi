@@ -2,6 +2,7 @@ package auth
 
 import (
 	"context"
+	"fmt"
 	"strings"
 
 	"github.com/rapatel0/alpha/internal/llm"
@@ -91,6 +92,28 @@ func providerFor(cfg llm.ModelConfig) string {
 }
 
 func refresh(ctx context.Context, provider, refreshToken string) (Credential, error) {
+	fresh, err := refreshFor(ctx, provider, refreshToken)
+	if err != nil {
+		return Credential{}, err
+	}
+	// The caller stores what comes back, so an empty token here replaces a
+	// working credential with a broken one and logs the user out. A provider
+	// that reports success without a token is misbehaving; say so instead.
+	if provider != "" && fresh.AccessToken == "" {
+		return Credential{}, fmt.Errorf("auth: %s returned no access token", provider)
+	}
+	return fresh, nil
+}
+
+// refreshHook stands in for a provider during tests. It is the only way to
+// reach the empty-token guard below, because every provider compiled in today
+// makes that check itself. The guard exists for the next one that does not.
+var refreshHook func(ctx context.Context, provider, refreshToken string) (Credential, error)
+
+func refreshFor(ctx context.Context, provider, refreshToken string) (Credential, error) {
+	if refreshHook != nil {
+		return refreshHook(ctx, provider, refreshToken)
+	}
 	switch provider {
 	case ProviderAnthropic:
 		return RefreshAnthropic(ctx, refreshToken)

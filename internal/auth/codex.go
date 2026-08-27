@@ -25,6 +25,10 @@ const (
 var (
 	codexTokenURL  = "https://auth.openai.com/oauth/token"
 	codexDeviceURL = "https://auth.openai.com/api/accounts/deviceauth"
+
+	// codexSlowDownStep is added to the poll interval each time the server
+	// says we are polling too fast. A var so a test can shorten it.
+	codexSlowDownStep = 5 * time.Second
 )
 
 // CodexDevice is an in-progress ChatGPT device login. Display UserCode and
@@ -96,12 +100,11 @@ type codexApproval struct {
 func pollCodexApproval(ctx context.Context, sess *CodexDevice) (*codexApproval, error) {
 	deadline := time.NewTimer(codexDeviceMaxWait)
 	defer deadline.Stop()
-	ticker := time.NewTicker(sess.interval)
-	defer ticker.Stop()
 	payload := map[string]string{
 		"device_auth_id": sess.deviceAuthID,
 		"user_code":      sess.UserCode,
 	}
+	interval := sess.interval
 	for {
 		status, body, err := postJSON(ctx, codexDeviceURL+"/token", payload)
 		switch {
@@ -118,6 +121,10 @@ func pollCodexApproval(ctx context.Context, sess *CodexDevice) (*codexApproval, 
 			return &approval, nil
 		case status == http.StatusForbidden, status == http.StatusNotFound:
 			// not approved yet
+		case status == http.StatusTooManyRequests:
+			// Polling too fast. Aborting here would end a login the user may
+			// be about to approve, so wait longer and keep going.
+			interval += codexSlowDownStep
 		default:
 			return nil, fmt.Errorf("auth: Codex device (%d): %s", status, truncateBody(body))
 		}
@@ -126,7 +133,7 @@ func pollCodexApproval(ctx context.Context, sess *CodexDevice) (*codexApproval, 
 			return nil, ctx.Err()
 		case <-deadline.C:
 			return nil, fmt.Errorf("auth: Codex device timed out after %s", codexDeviceMaxWait)
-		case <-ticker.C:
+		case <-time.After(interval):
 		}
 	}
 }

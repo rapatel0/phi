@@ -22,6 +22,22 @@ const (
 
 var xaiTokenURL = xaiTokenDefault
 
+// xaiSlowDownStep is what RFC 8628 section 3.5 adds to the interval on each
+// slow_down. A var so a test can shorten it instead of sleeping.
+var xaiSlowDownStep = 5 * time.Second
+
+// pollState says whether a poll produced a credential, and if not, why.
+//
+// A bool cannot carry this: slow_down and authorization_pending both mean
+// "keep waiting", but only slow_down also means "wait longer".
+type pollState int
+
+const (
+	pendingNone     pollState = iota // the token arrived
+	pendingApproval                  // the user has not approved yet
+	pendingSlowDown                  // polling too fast; widen the interval
+)
+
 // XAIDevice is an in-progress SuperGrok device login.
 type XAIDevice struct {
 	VerificationURL string
@@ -96,30 +112,38 @@ func CompleteXAIDevice(ctx context.Context, sess *XAIDevice) (Credential, error)
 	if sess == nil {
 		return Credential{}, fmt.Errorf("auth: nil xAI device session")
 	}
-	ticker := time.NewTicker(sess.interval)
-	defer ticker.Stop()
 	deadline := time.NewTimer(time.Until(sess.expires))
 	defer deadline.Stop()
+
+	// Poll once before waiting. The user may approve while the interval is
+	// still running, and waiting first adds that delay to every login.
+	interval := sess.interval
 	for {
+		cred, pending, err := pollXAIToken(ctx, sess.deviceCode, "")
+		if err != nil {
+			return Credential{}, err
+		}
+		if pending == pendingNone {
+			return cred, nil
+		}
+		if pending == pendingSlowDown {
+			// RFC 8628 section 3.5: slow_down means this client is polling
+			// too fast, and the interval must grow. Polling on unchanged
+			// means the server keeps refusing.
+			interval += xaiSlowDownStep
+		}
+
 		select {
 		case <-ctx.Done():
 			return Credential{}, ctx.Err()
 		case <-deadline.C:
 			return Credential{}, fmt.Errorf("auth: xAI device code expired")
-		case <-ticker.C:
-			cred, pending, err := pollXAIToken(ctx, sess.deviceCode, "")
-			if err != nil {
-				return Credential{}, err
-			}
-			if pending {
-				continue
-			}
-			return cred, nil
+		case <-time.After(interval):
 		}
 	}
 }
 
-func pollXAIToken(ctx context.Context, deviceCode, refreshTok string) (Credential, bool, error) {
+func pollXAIToken(ctx context.Context, deviceCode, refreshTok string) (Credential, pollState, error) {
 	data := url.Values{
 		"client_id": {xaiClientID},
 	}
@@ -132,13 +156,13 @@ func pollXAIToken(ctx context.Context, deviceCode, refreshTok string) (Credentia
 	}
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, xaiTokenURL, strings.NewReader(data.Encode()))
 	if err != nil {
-		return Credential{}, false, err
+		return Credential{}, pendingNone, err
 	}
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	req.Header.Set("Accept", "application/json")
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
-		return Credential{}, false, fmt.Errorf("auth: xAI token: %w", err)
+		return Credential{}, pendingNone, fmt.Errorf("auth: xAI token: %w", err)
 	}
 	defer resp.Body.Close()
 	raw, _ := io.ReadAll(resp.Body)
@@ -149,20 +173,20 @@ func pollXAIToken(ctx context.Context, deviceCode, refreshTok string) (Credentia
 		Error        string `json:"error"`
 	}
 	_ = json.Unmarshal(raw, &body)
-	if body.Error == "authorization_pending" {
-		return Credential{}, true, nil
-	}
-	if body.Error == "slow_down" {
-		return Credential{}, true, nil
+	switch body.Error {
+	case "authorization_pending":
+		return Credential{}, pendingApproval, nil
+	case "slow_down":
+		return Credential{}, pendingSlowDown, nil
 	}
 	if resp.StatusCode != http.StatusOK {
 		if body.Error != "" {
-			return Credential{}, false, fmt.Errorf("auth: xAI token: %s", body.Error)
+			return Credential{}, pendingNone, fmt.Errorf("auth: xAI token: %s", body.Error)
 		}
-		return Credential{}, false, fmt.Errorf("auth: xAI token (%d): %s", resp.StatusCode, truncateBody(raw))
+		return Credential{}, pendingNone, fmt.Errorf("auth: xAI token (%d): %s", resp.StatusCode, truncateBody(raw))
 	}
 	if body.AccessToken == "" {
-		return Credential{}, false, fmt.Errorf("auth: xAI token missing access_token")
+		return Credential{}, pendingNone, fmt.Errorf("auth: xAI token missing access_token")
 	}
 	if body.RefreshToken == "" {
 		body.RefreshToken = refreshTok
@@ -171,7 +195,7 @@ func pollXAIToken(ctx context.Context, deviceCode, refreshTok string) (Credentia
 	if body.ExpiresIn > 0 {
 		cred.ExpiresAt = time.Now().Add(time.Duration(body.ExpiresIn)*time.Second - 5*time.Minute)
 	}
-	return cred, false, nil
+	return cred, pendingNone, nil
 }
 
 // RefreshXAI exchanges a SuperGrok refresh token.
@@ -179,6 +203,22 @@ func RefreshXAI(ctx context.Context, refreshToken string) (Credential, error) {
 	if strings.TrimSpace(refreshToken) == "" {
 		return Credential{}, fmt.Errorf("auth: missing xAI refresh token")
 	}
-	cred, _, err := pollXAIToken(ctx, "", refreshToken)
-	return cred, err
+	cred, pending, err := pollXAIToken(ctx, "", refreshToken)
+	if err != nil {
+		return Credential{}, err
+	}
+	// A refresh is not a device login, so there is nobody to approve and
+	// nothing to wait for. Reporting success here would hand the caller an
+	// empty credential, which it stores over the working one.
+	if pending != pendingNone {
+		return Credential{}, fmt.Errorf("auth: xAI refused the refresh: %s", pendingReason(pending))
+	}
+	return cred, nil
+}
+
+func pendingReason(p pollState) string {
+	if p == pendingSlowDown {
+		return "rate limited"
+	}
+	return "authorization pending"
 }
