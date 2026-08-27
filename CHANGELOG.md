@@ -32,6 +32,12 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 - `alpha login antigravity` now reads OAuth client credentials from
   `ALPHA_ANTIGRAVITY_CLIENT_ID` and `ALPHA_ANTIGRAVITY_CLIENT_SECRET`.
   Alpha does not store these credentials in the source tree.
+- Changing model no longer drops OAuth token refresh. The engine took the
+  credential store as an option but did not keep it, so rebuilding the client
+  for a new model built one without it. Renewal then stopped silently and the
+  next expiry returned 401 with nothing to act on.
+- `alpha profile create` no longer reports "created" for a profile that
+  already exists, which read as having replaced the credentials in it.
 - `alpha login anthropic` no longer fails at once when stdin is not a
   terminal. The paste channel closes when stdin ends, and a receive from a
   closed channel returns an empty string, so the login took the paste branch
@@ -70,6 +76,10 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
   environment wins, so one shell or one project can differ from the rest. The
   default profile keeps `~/.alpha/auth.json`, so nothing has to move. See
   [doc/profiles.md](doc/profiles.md).
+- The footer always names the active profile, and `/profile <name>` switches
+  the running session without discarding the conversation. A profile that is
+  not logged in to the model in use is refused with that reason, and nothing
+  changes.
 - **Antigravity provider.** `alpha login antigravity` reaches Gemini 3 and
   Claude 4.6 through Google's Antigravity endpoint. The browser redirect
   finishes the login, with a pasted URL as the fallback for SSH. That endpoint

@@ -31,6 +31,29 @@ alpha profile delete <name>   delete a profile and its credentials
 active: default (from default)
 ```
 
+## In the TUI
+
+The footer always names the active profile:
+
+```text
+gemini · profile:work · 2 jobs
+```
+
+`/profile` lists the profiles and marks the active one. `/profile <name>`
+switches the running session: the conversation is kept and the next request
+uses the other account. The palette has the same entry under
+settings -> profile (Ctrl+K).
+
+A switch re-resolves the current model against the new credentials. If that
+profile is not logged in to that model, the switch is refused and nothing
+changes:
+
+```text
+profile personal has no model claude-sonnet-4-6: log in to it first
+```
+
+Log in to the profile first, then switch.
+
 ## Selecting a profile
 
 The active profile is chosen in this order:
