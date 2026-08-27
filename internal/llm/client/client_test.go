@@ -260,3 +260,13 @@ func TestStreamPassesProviderToHooks(t *testing.T) {
 	assert.Equal(t, auth.ProviderAnthropic, got.Provider)
 	assert.Equal(t, "claude-sonnet-4", got.Model)
 }
+
+// AuthFile reports the credential store, which the engine needs so rebuilding
+// the client does not silently drop OAuth refresh.
+func TestAuthFileIsReported(t *testing.T) {
+	withAuth := NewClientWithAuth(llm.ModelConfig{}, nil, "", "/tmp/auth.json")
+	assert.Equal(t, "/tmp/auth.json", withAuth.AuthFile())
+
+	plain := NewClient(llm.ModelConfig{}, nil, "")
+	assert.Empty(t, plain.AuthFile(), "a client without credentials must report none")
+}

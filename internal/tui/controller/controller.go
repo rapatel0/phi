@@ -20,6 +20,7 @@ import (
 	"github.com/rapatel0/alpha/internal/llm/modellist"
 	"github.com/rapatel0/alpha/internal/mcp"
 	"github.com/rapatel0/alpha/internal/permission"
+	"github.com/rapatel0/alpha/internal/profile"
 	"github.com/rapatel0/alpha/internal/project"
 	"github.com/rapatel0/alpha/internal/session"
 )
@@ -109,7 +110,7 @@ func NewController(bus *Bus, proj *project.Project, cwd string) (*Controller, er
 	c.children = newChildRegistry()
 	jobs, err := agent.NewJobManager(proj.JobsDir(), c.modelCfg, func() llm.ModelConfig {
 		return c.modelCfg
-	}, c.Hooks, proj.Global().AuthFile(), c)
+	}, c.Hooks, c.authFile, c)
 	if err != nil {
 		return nil, err
 	}
@@ -387,6 +388,77 @@ func (c *Controller) askContinue(ctx context.Context, maxRounds int) (bool, erro
 		c.publish(ContinueDismissMsg{})
 		return false, nil
 	}
+}
+
+// Profile returns the active credential profile name.
+func (c *Controller) Profile() string {
+	if c == nil || c.proj == nil {
+		return ""
+	}
+	return c.proj.Global().Profile()
+}
+
+// Profiles lists the credential profiles available to switch to.
+func (c *Controller) Profiles() []string {
+	if c == nil || c.proj == nil {
+		return nil
+	}
+	return profile.List(c.proj.Global().Root())
+}
+
+// SetProfile switches the credential set the running session uses.
+//
+// The session tree is kept, so the conversation survives the switch. The
+// current model has to be re-resolved because credentials are folded into the
+// config when it loads: keeping the old connection would send the previous
+// account's token to the provider.
+//
+// A model that the new profile cannot reach is a failure, and the profile is
+// put back rather than leaving the session pointed at a model it cannot use.
+func (c *Controller) SetProfile(name string) error {
+	name = strings.TrimSpace(name)
+	if name == "" {
+		return errors.New("empty profile name")
+	}
+	if c == nil || c.proj == nil {
+		return errors.New("project not available")
+	}
+	previous := c.proj.Global().Profile()
+	if name == previous {
+		return nil
+	}
+	if c.engine == nil {
+		return errors.New("agent not configured")
+	}
+
+	// A switch mid-stream would answer the running request with the other
+	// account's credential.
+	c.Cancel()
+
+	if err := c.proj.UseProfile(name); err != nil {
+		return err
+	}
+
+	cfg := c.proj.Config()
+	if cfg == nil {
+		_ = c.proj.UseProfile(previous)
+		return errors.New("project not available")
+	}
+	model := cfg.ConnectionForName(c.modelCfg.Name)
+	if model.Name == "" {
+		_ = c.proj.UseProfile(previous)
+		return fmt.Errorf("profile %s has no model %s: log in to it first", name, c.modelCfg.Name)
+	}
+
+	c.engine.SetAuthFile(c.proj.Global().AuthFile())
+	if err := c.engine.SetModel(model); err != nil {
+		_ = c.proj.UseProfile(previous)
+		c.engine.SetAuthFile(c.proj.Global().AuthFile())
+		return err
+	}
+	c.modelCfg = model
+
+	return nil
 }
 
 // SetModel replaces the LLM client while keeping the same session tree.

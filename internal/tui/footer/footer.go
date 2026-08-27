@@ -34,6 +34,7 @@ type FooterChrome struct {
 	composer     labelComposer
 	labelContext func() session.Snapshot
 	liveJobs     func() int
+	profile      func() string
 	attachHint   string
 	streamAt     time.Time
 }
@@ -76,6 +77,16 @@ func (f *FooterChrome) BindComposer(c labelComposer) {
 func (f *FooterChrome) SetLabelContext(fn func() session.Snapshot) {
 	if f != nil {
 		f.labelContext = fn
+	}
+}
+
+// SetProfile supplies the active credential profile for the footer.
+//
+// It is always shown. A wrong account is a costly mistake, and an indicator
+// that appears only sometimes cannot be told apart from a missing one.
+func (f *FooterChrome) SetProfile(fn func() string) {
+	if f != nil {
+		f.profile = fn
 	}
 }
 
@@ -215,6 +226,16 @@ func (f *FooterChrome) Draw(ctx components.DrawContext, width int) components.Su
 			msg = hs
 		} else {
 			msg = hs + " · " + msg
+		}
+	}
+	if f.profile != nil {
+		if p := strings.TrimSpace(f.profile()); p != "" {
+			bit := "profile:" + p
+			if msg == "" {
+				msg = bit
+			} else {
+				msg = msg + " · " + bit
+			}
 		}
 	}
 	for _, bit := range ext.Default().FooterBits() {

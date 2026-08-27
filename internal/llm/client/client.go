@@ -182,6 +182,16 @@ func (c *Client) Compact(ctx context.Context, prompt string) (string, error) {
 	return openai.Compact(ctx, c.httpClient, c.cfg, prompt)
 }
 
+// AuthFile returns the credential store this client refreshes from, empty when
+// it has none. The engine reads it back when it rebuilds the client, so the
+// refresh survives a model change.
+func (c *Client) AuthFile() string {
+	if c == nil {
+		return ""
+	}
+	return c.authFile
+}
+
 func (c *Client) refresh(ctx context.Context) error {
 	if c.authFile == "" {
 		return nil

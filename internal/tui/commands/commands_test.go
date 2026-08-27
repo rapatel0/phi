@@ -126,7 +126,7 @@ func TestSkillsCommand_Empty(t *testing.T) {
 
 func TestFilterSlashCommands(t *testing.T) {
 	all := FilterSlashCommands("")
-	require.Len(t, all, 4)
+	require.Len(t, all, 5)
 
 	resu := FilterSlashCommands("resu")
 	require.Len(t, resu, 1)
@@ -197,9 +197,17 @@ func TestCommandRegistry_BuildPalette(t *testing.T) {
 	})
 	require.GreaterOrEqual(t, len(cmds), 6)
 
-	// settings → model → gpt
-	require.NotEmpty(t, cmds[0].Submenu)
-	cmds[0].Submenu[0].Run()
+	// settings → model → gpt. Selected by ID: the palette is sorted, so an
+	// index breaks whenever a command is added.
+	var modelCmd palette.PaletteCommand
+	for _, c := range cmds {
+		if c.ID == "settings-model" {
+			modelCmd = c
+			break
+		}
+	}
+	require.NotEmpty(t, modelCmd.Submenu, "settings-model must be registered")
+	modelCmd.Submenu[0].Run()
 	assert.Equal(t, "gpt", model)
 
 	// hooks → list uses PushSubmenu, not *palette

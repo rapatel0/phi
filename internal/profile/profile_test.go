@@ -9,6 +9,13 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+// mustCreate makes a profile and fails the test if it cannot.
+func mustCreate(t *testing.T, root, name string) {
+	t.Helper()
+	_, err := Create(root, name)
+	require.NoError(t, err)
+}
+
 // An install that never uses profiles must keep its credentials where they
 // were, or upgrading looks like being logged out.
 func TestDefaultProfileKeepsTheOriginalPaths(t *testing.T) {
@@ -53,7 +60,7 @@ func TestValidateNameRejectsOverlongNames(t *testing.T) {
 // machine-wide choice.
 func TestResolvePrefersTheEnvironment(t *testing.T) {
 	root := t.TempDir()
-	require.NoError(t, Create(root, "pointed"))
+	mustCreate(t, root, "pointed")
 	require.NoError(t, Use(root, "pointed"))
 
 	t.Setenv(EnvVar, "fromenv")
@@ -64,7 +71,7 @@ func TestResolvePrefersTheEnvironment(t *testing.T) {
 
 func TestResolveFallsBackToThePointer(t *testing.T) {
 	root := t.TempDir()
-	require.NoError(t, Create(root, "work"))
+	mustCreate(t, root, "work")
 	require.NoError(t, Use(root, "work"))
 
 	t.Setenv(EnvVar, "")
@@ -102,27 +109,28 @@ func TestCreateAndList(t *testing.T) {
 	root := t.TempDir()
 	assert.Equal(t, []string{Default}, List(root))
 
-	require.NoError(t, Create(root, "work"))
-	require.NoError(t, Create(root, "personal"))
+	mustCreate(t, root, "work")
+	mustCreate(t, root, "personal")
 	assert.Equal(t, []string{Default, "personal", "work"}, List(root))
 }
 
 // Creating twice must not fail, so the command is safe to repeat.
 func TestCreateIsRepeatable(t *testing.T) {
 	root := t.TempDir()
-	require.NoError(t, Create(root, "work"))
-	require.NoError(t, Create(root, "work"))
+	mustCreate(t, root, "work")
+	mustCreate(t, root, "work")
 }
 
 func TestCreateRejectsBadNames(t *testing.T) {
-	assert.Error(t, Create(t.TempDir(), "../escape"))
+	_, err := Create(t.TempDir(), "../escape")
+	assert.Error(t, err)
 }
 
 func TestExists(t *testing.T) {
 	root := t.TempDir()
 	assert.True(t, Exists(root, Default), "the default is the root, which always exists")
 	assert.False(t, Exists(root, "work"))
-	require.NoError(t, Create(root, "work"))
+	mustCreate(t, root, "work")
 	assert.True(t, Exists(root, "work"))
 }
 
@@ -138,7 +146,7 @@ func TestUseRequiresAnExistingProfile(t *testing.T) {
 // it: the file exists only while a named profile is chosen.
 func TestUseDefaultClearsThePointer(t *testing.T) {
 	root := t.TempDir()
-	require.NoError(t, Create(root, "work"))
+	mustCreate(t, root, "work")
 	require.NoError(t, Use(root, "work"))
 	require.FileExists(t, filepath.Join(root, pointerFile))
 
@@ -155,7 +163,7 @@ func TestUseDefaultIsRepeatable(t *testing.T) {
 
 func TestDeleteRemovesTheCredentials(t *testing.T) {
 	root := t.TempDir()
-	require.NoError(t, Create(root, "work"))
+	mustCreate(t, root, "work")
 	require.NoError(t, os.WriteFile(AuthFile(root, "work"), []byte(`{"credentials":{}}`), 0o600))
 
 	require.NoError(t, Delete(root, "work"))
@@ -166,7 +174,7 @@ func TestDeleteRemovesTheCredentials(t *testing.T) {
 // A pointer to a deleted profile would resolve to a directory that is gone.
 func TestDeleteClearsAPointerToItself(t *testing.T) {
 	root := t.TempDir()
-	require.NoError(t, Create(root, "work"))
+	mustCreate(t, root, "work")
 	require.NoError(t, Use(root, "work"))
 
 	require.NoError(t, Delete(root, "work"))
@@ -179,8 +187,8 @@ func TestDeleteClearsAPointerToItself(t *testing.T) {
 // Deleting one profile must not disturb a pointer aimed at another.
 func TestDeleteKeepsAnUnrelatedPointer(t *testing.T) {
 	root := t.TempDir()
-	require.NoError(t, Create(root, "work"))
-	require.NoError(t, Create(root, "personal"))
+	mustCreate(t, root, "work")
+	mustCreate(t, root, "personal")
 	require.NoError(t, Use(root, "work"))
 
 	require.NoError(t, Delete(root, "personal"))
@@ -214,4 +222,42 @@ func TestListIgnoresNonDirectories(t *testing.T) {
 	require.NoError(t, os.WriteFile(filepath.Join(root, "profiles", "stray.txt"), []byte("x"), 0o600))
 
 	assert.Equal(t, []string{Default}, List(root))
+}
+
+// Repeating the command is safe, but the caller has to be able to say
+// "already exists" instead of "created", which reads as having replaced the
+// credentials that were there.
+func TestCreateReportsWhetherItWasNew(t *testing.T) {
+	root := t.TempDir()
+
+	created, err := Create(root, "work")
+	require.NoError(t, err)
+	assert.True(t, created, "the first create must report a new profile")
+
+	created, err = Create(root, "work")
+	require.NoError(t, err)
+	assert.False(t, created, "the second create must report that it existed")
+}
+
+// The default profile is the global directory, which always exists.
+func TestCreateDefaultIsNeverNew(t *testing.T) {
+	created, err := Create(t.TempDir(), Default)
+	require.NoError(t, err)
+	assert.False(t, created)
+}
+
+// Credentials must survive a repeated create, or the command destroys the
+// thing it claims to make.
+func TestCreateKeepsExistingCredentials(t *testing.T) {
+	root := t.TempDir()
+	mustCreate(t, root, "work")
+
+	path := AuthFile(root, "work")
+	require.NoError(t, os.WriteFile(path, []byte(`{"credentials":{}}`), 0o600))
+
+	_, err := Create(root, "work")
+	require.NoError(t, err)
+
+	_, err = os.Stat(path)
+	assert.NoError(t, err, "the credential file must survive")
 }

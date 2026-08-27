@@ -3,6 +3,7 @@ package editor
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -105,6 +106,12 @@ func NewEditor(
 	e.transcript.SetOnOpenJob(e.viewChild)
 	e.footer.BindComposer(e.composer)
 	e.footer.SetLabelContext(e.transcript.Snapshot)
+	e.footer.SetProfile(func() string {
+		if e.ctrl != nil {
+			return e.ctrl.Profile()
+		}
+		return ""
+	})
 	e.footer.SetLiveJobs(func() int {
 		if e.ctrl != nil {
 			return e.ctrl.LiveJobCount()
@@ -906,6 +913,22 @@ func newCommandBridge(
 	}
 }
 
+// setProfile switches the credential set the session uses.
+//
+// A refusal is reported and nothing changes: the usual cause is a profile that
+// is not logged in to the model in use.
+func (b *commandBridge) setProfile(name string) error {
+	if b == nil || b.ctrl == nil {
+		return errors.New("agent not configured")
+	}
+	if err := b.ctrl.SetProfile(name); err != nil {
+		b.toast.Show(err.Error(), toast.ToastError, 8*time.Second)
+		return err
+	}
+	b.toast.Show("Profile: "+name, toast.ToastSuccess, 3*time.Second)
+	return nil
+}
+
 func (b *commandBridge) context() commands.CommandContext {
 	if b == nil {
 		return commands.CommandContext{}
@@ -927,6 +950,19 @@ func (b *commandBridge) context() commands.CommandContext {
 			b.sessions.Clear()
 		},
 		SetModel: b.setModel,
+		Profile: func() string {
+			if b.ctrl == nil {
+				return ""
+			}
+			return b.ctrl.Profile()
+		},
+		Profiles: func() []string {
+			if b.ctrl == nil {
+				return nil
+			}
+			return b.ctrl.Profiles()
+		},
+		SetProfile: b.setProfile,
 		ListModels: func() []string {
 			if b.ctrl == nil {
 				return b.modelNames

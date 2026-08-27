@@ -3,6 +3,7 @@ package project
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -10,6 +11,8 @@ import (
 
 	"github.com/rapatel0/alpha/internal/auth"
 	"github.com/rapatel0/alpha/internal/llm"
+
+	"github.com/rapatel0/alpha/internal/profile"
 )
 
 // discoverInTempHome runs Discover("") with HOME redirected to a temp dir so
@@ -360,4 +363,129 @@ func TestLoadConfigOAuthOnly(t *testing.T) {
 	cfg := p.Config()
 	assert.Equal(t, "claude-opus-5", cfg.Model().Name)
 	assert.Equal(t, "sk-ant-oat-x", cfg.Model().APIKey)
+}
+
+// A profile switch has to repoint the credential store, or the session keeps
+// using the account the user just switched away from.
+func TestUseProfileRepointsCredentials(t *testing.T) {
+	p := discoverInTempHome(t)
+	root := p.Global().Root()
+	_, err := profile.Create(root, "work")
+	require.NoError(t, err)
+
+	before := p.Global().AuthFile()
+	require.NoError(t, p.UseProfile("work"))
+
+	after := p.Global().AuthFile()
+	assert.NotEqual(t, before, after)
+	assert.Equal(t, profile.AuthFile(root, "work"), after)
+	assert.Equal(t, "work", p.Global().Profile())
+}
+
+// Only credentials are per profile. Sessions, skills, and hooks describe the
+// machine, so moving them would lose a conversation on every switch.
+func TestUseProfileKeepsSharedDirectories(t *testing.T) {
+	p := discoverInTempHome(t)
+	_, err := profile.Create(p.Global().Root(), "work")
+	require.NoError(t, err)
+
+	sessions := p.Global().SessionBase()
+	skills := p.Global().SkillsDir()
+
+	require.NoError(t, p.UseProfile("work"))
+
+	assert.Equal(t, sessions, p.Global().SessionBase(), "sessions must be shared")
+	assert.Equal(t, skills, p.Global().SkillsDir(), "skills must be shared")
+}
+
+// Switching to a profile that was never created is a mistake worth reporting,
+// not an empty credential store that reads as being logged out.
+func TestUseProfileRejectsAMissingProfile(t *testing.T) {
+	p := discoverInTempHome(t)
+	before := p.Global().AuthFile()
+
+	require.Error(t, p.UseProfile("nope"))
+	assert.Equal(t, before, p.Global().AuthFile(), "a failed switch must change nothing")
+}
+
+// The config folds in the active profile's credentials, so a switch has to
+// rebuild it. Keeping it would send the previous account's token.
+func TestUseProfileReloadsTheConfig(t *testing.T) {
+	p := discoverInTempHome(t)
+	root := p.Global().Root()
+	_, err := profile.Create(root, "work")
+	require.NoError(t, err)
+
+	// Both profiles need a model, or loading stops before the credentials
+	// matter.
+	writeModelConfig(t, p.Global().ConfigFile())
+	require.NoError(t, p.LoadConfig())
+	require.NotNil(t, p.Config())
+	before := p.Config()
+
+	require.NoError(t, p.UseProfile("work"))
+	require.NotNil(t, p.Config(), "the config must be reloaded, not left nil")
+	assert.NotSame(t, before, p.Config(), "the previous config must not be reused")
+}
+
+// writeModelConfig gives a profile one model, which is the minimum a config
+// needs to load.
+func writeModelConfig(t *testing.T, path string) {
+	t.Helper()
+	body := "models:\n  - name: test-model\n    base_url: https://example.invalid\n    api_key: k\n"
+	require.NoError(t, os.WriteFile(path, []byte(body), 0o600))
+}
+
+// Switching to the profile already in use must not disturb anything.
+func TestUseProfileToDefaultWorks(t *testing.T) {
+	p := discoverInTempHome(t)
+	_, err := profile.Create(p.Global().Root(), "work")
+	require.NoError(t, err)
+
+	require.NoError(t, p.UseProfile("work"))
+	require.NoError(t, p.UseProfile(profile.Default))
+	assert.Equal(t, profile.Default, p.Global().Profile())
+}
+
+// The config folds in the credentials of the active profile, so a switch has
+// to rebuild it from the new store. Models written in config.yaml are shared;
+// the OAuth ones come from the profile and must change with it.
+func TestUseProfileRebuildsFromTheNewCredentials(t *testing.T) {
+	p := discoverInTempHome(t)
+	root := p.Global().Root()
+	_, err := profile.Create(root, "work")
+	require.NoError(t, err)
+
+	writeModelConfig(t, p.Global().ConfigFile())
+	writeGeminiCredential(t, profile.AuthFile(root, profile.Default), "default-token")
+	writeGeminiCredential(t, profile.AuthFile(root, "work"), "work-token")
+
+	require.NoError(t, p.LoadConfig())
+	assert.Equal(t, "default-token", geminiKey(t, p.Config()))
+
+	require.NoError(t, p.UseProfile("work"))
+	assert.Equal(t, "work-token", geminiKey(t, p.Config()),
+		"the switch must pick up the other profile's token")
+}
+
+// writeGeminiCredential puts one OAuth credential in a profile's store, which
+// is what makes its models differ from another profile's.
+func writeGeminiCredential(t *testing.T, path, token string) {
+	t.Helper()
+	require.NoError(t, os.MkdirAll(filepath.Dir(path), 0o700))
+	body := `{"credentials":{"gemini":{"provider":"gemini","access_token":"` + token + `"}}}`
+	require.NoError(t, os.WriteFile(path, []byte(body), 0o600))
+}
+
+// geminiKey returns the API key of the injected gemini model.
+func geminiKey(t *testing.T, cfg *Config) string {
+	t.Helper()
+	require.NotNil(t, cfg)
+	for _, m := range cfg.Models {
+		if strings.Contains(strings.ToLower(m.Name), "gemini") {
+			return m.APIKey
+		}
+	}
+	t.Fatal("no gemini model was injected from the credential store")
+	return ""
 }

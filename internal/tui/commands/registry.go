@@ -24,6 +24,9 @@ type CommandContext struct {
 	ClearSession  func() // may toast internally if busy
 
 	SetModel        func(name string)
+	Profile         func() string
+	Profiles        func() []string
+	SetProfile      func(name string) error
 	ListModels      func() []string // live provider /models; nil → ModelNames
 	ApplyTheme      func(name string)
 	SetPermissions  func(bypass bool)

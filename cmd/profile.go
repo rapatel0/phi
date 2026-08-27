@@ -36,7 +36,7 @@ func profileCmd(args []string) int {
 	case "show", "current":
 		return profileShow(root)
 	case "create", "new":
-		return profileMutate(root, args[1:], "create", profile.Create)
+		return profileCreate(root, args[1:])
 	case "use", "switch":
 		return profileMutate(root, args[1:], "use", profile.Use)
 	case "delete", "rm", "remove":
@@ -77,6 +77,32 @@ func profileShow(root string) int {
 	return ExitOK
 }
 
+// profileCreate makes a profile, saying plainly when it already existed.
+//
+// Repeating the command is safe and keeps the credentials, but reporting
+// "created" a second time reads as having replaced them.
+func profileCreate(root string, args []string) int {
+	if len(args) == 0 {
+		fmt.Fprintln(os.Stderr, "alpha profile create: need a profile name")
+		return ExitUsage
+	}
+	name := strings.TrimSpace(args[0])
+
+	created, err := profile.Create(root, name)
+	if err != nil {
+		fmt.Fprintln(os.Stderr, "alpha profile:", err)
+		return ExitError
+	}
+	if !created {
+		fmt.Fprintf(os.Stderr, "profile %s already exists; its credentials are unchanged\n", name)
+		return ExitOK
+	}
+
+	fmt.Fprintf(os.Stderr, "created profile %s\n", name)
+	fmt.Fprintf(os.Stderr, "log in to it with:  %s=%s alpha login anthropic\n", profile.EnvVar, name)
+	return ExitOK
+}
+
 // profileMutate runs one name-taking subcommand and reports the result.
 func profileMutate(root string, args []string, verb string, fn func(string, string) error) int {
 	if len(args) == 0 {
@@ -90,9 +116,6 @@ func profileMutate(root string, args []string, verb string, fn func(string, stri
 	}
 
 	switch verb {
-	case "create":
-		fmt.Fprintf(os.Stderr, "created profile %s\n", name)
-		fmt.Fprintf(os.Stderr, "log in to it with:  %s=%s alpha login anthropic\n", profile.EnvVar, name)
 	case "use":
 		fmt.Fprintf(os.Stderr, "now using profile %s\n", name)
 		if env := strings.TrimSpace(os.Getenv(profile.EnvVar)); env != "" && env != name {

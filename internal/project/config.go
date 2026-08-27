@@ -15,6 +15,13 @@ import (
 	"github.com/rapatel0/alpha/internal/permission"
 )
 
+// ErrNoModels reports a config with no usable model.
+//
+// A profile that was created but never logged in to is the ordinary cause, so
+// a caller switching profiles treats it as an empty profile rather than a
+// broken one.
+var ErrNoModels = errors.New("missing models")
+
 // Config is the project-level configuration loaded from ~/.alpha/config.yaml.
 // All models live in one flat list under the models key; DefaultModel names
 // the entry used to start sessions (empty → the first entry).
@@ -165,7 +172,11 @@ func loadConfig(global GlobalLayout) (*Config, error) {
 	applyProviderEnvKeys(cfg)
 
 	if len(cfg.Models) == 0 {
-		return nil, fmt.Errorf("missing models (add at least one model in %s, or run alpha login)", global.ConfigFile())
+		return nil, fmt.Errorf(
+			"%w (add at least one model in %s, or run alpha login)",
+			ErrNoModels,
+			global.ConfigFile(),
+		)
 	}
 	def := cfg.defaultEntry()
 	if def.Name == "" {

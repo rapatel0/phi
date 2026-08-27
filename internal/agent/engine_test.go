@@ -613,3 +613,33 @@ func TestBeforeAgentStartErrorLeavesPromptAlone(t *testing.T) {
 	drain(t.Context(), t, engine)
 	assert.Equal(t, before, engine.client.SystemPrompt(), "a failed hook must not change the prompt")
 }
+
+// Changing the model rebuilds the LLM client. Rebuilding it without the
+// credential store silently drops OAuth refresh, and the token then expires
+// mid-session with a 401 the user cannot act on.
+func TestSetModelKeepsOAuthRefresh(t *testing.T) {
+	eng, err := NewEngine(EngineOpts{
+		Model:       llm.ModelConfig{Name: "a"},
+		SessionOpts: SessionOpts{Cwd: t.TempDir(), SessionDir: t.TempDir()},
+		AuthFile:    "/tmp/auth.json",
+	})
+	require.NoError(t, err)
+	require.Equal(t, "/tmp/auth.json", eng.client.AuthFile())
+
+	require.NoError(t, eng.SetModel(llm.ModelConfig{Name: "b"}))
+	assert.Equal(t, "/tmp/auth.json", eng.client.AuthFile(),
+		"the credential store must survive a model change")
+}
+
+// A profile switch points the engine at another credential store.
+func TestSetAuthFileSwitchesTheStore(t *testing.T) {
+	eng, err := NewEngine(EngineOpts{
+		Model:       llm.ModelConfig{Name: "a"},
+		SessionOpts: SessionOpts{Cwd: t.TempDir(), SessionDir: t.TempDir()},
+		AuthFile:    "/tmp/default.json",
+	})
+	require.NoError(t, err)
+
+	eng.SetAuthFile("/tmp/work.json")
+	assert.Equal(t, "/tmp/work.json", eng.client.AuthFile())
+}

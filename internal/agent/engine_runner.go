@@ -34,7 +34,20 @@ type EngineRunner struct {
 	Hooks     *hooks.Manager         // shared with parent; nil = no hooks
 	HooksFn   func() *hooks.Manager  // if set, preferred over Hooks
 	AuthFile  string
-	Hub       ChildHub // optional; TUI live-attach. nil in headless runs
+	// AuthFn is preferred over AuthFile, so a profile switch reaches
+	// sub-agents started later instead of leaving them on the old account.
+	AuthFn func() string
+	Hub    ChildHub // optional; TUI live-attach. nil in headless runs
+}
+
+// authFile prefers the live getter, falling back to the fixed path.
+func (r EngineRunner) authFile() string {
+	if r.AuthFn != nil {
+		if p := r.AuthFn(); p != "" {
+			return p
+		}
+	}
+	return r.AuthFile
 }
 
 // Run implements [job.Runner].
@@ -84,7 +97,7 @@ func (r EngineRunner) Run(ctx context.Context, env job.RunEnv) (string, error) {
 		Tools:     toolList,
 		MaxRounds: r.MaxRounds,
 		Hooks:     hookMgr,
-		AuthFile:  r.AuthFile,
+		AuthFile:  r.authFile(),
 		SessionOpts: SessionOpts{
 			Cwd:        cwd,
 			SessionDir: sessionDir,

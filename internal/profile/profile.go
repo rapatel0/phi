@@ -121,16 +121,25 @@ func Exists(root, name string) bool {
 	return err == nil && st.IsDir()
 }
 
-// Create makes a profile directory. Creating one that exists is not an error,
-// so the command is safe to repeat.
-func Create(root, name string) error {
+// Create makes a profile directory, reporting whether it was new.
+//
+// Creating one that exists is not an error, so the command is safe to repeat.
+// The caller needs the distinction to avoid saying "created" about a profile
+// that already holds credentials, which reads as having replaced them.
+func Create(root, name string) (created bool, err error) {
 	if err := ValidateName(name); err != nil {
-		return err
+		return false, err
 	}
 	if name == Default {
-		return nil
+		return false, nil
 	}
-	return os.MkdirAll(Dir(root, name), 0o700)
+	if Exists(root, name) {
+		return false, nil
+	}
+	if err := os.MkdirAll(Dir(root, name), 0o700); err != nil {
+		return false, err
+	}
+	return true, nil
 }
 
 // Use persists the profile to fall back on when the environment says nothing.

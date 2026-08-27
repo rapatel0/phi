@@ -11,11 +11,18 @@ import (
 	"github.com/rapatel0/alpha/internal/profile"
 )
 
+// mustCreate makes a profile and fails the test if it cannot.
+func mustCreate(t *testing.T, root, name string) {
+	t.Helper()
+	_, err := profile.Create(root, name)
+	require.NoError(t, err)
+}
+
 // The point of profiles: two logins for the same provider coexist instead of
 // overwriting each other.
 func TestCredentialsAreIsolatedPerProfile(t *testing.T) {
 	root := t.TempDir()
-	require.NoError(t, profile.Create(root, "work"))
+	mustCreate(t, root, "work")
 
 	def := auth.OpenStore(profile.AuthFile(root, profile.Default))
 	work := auth.OpenStore(profile.AuthFile(root, "work"))
@@ -35,7 +42,7 @@ func TestCredentialsAreIsolatedPerProfile(t *testing.T) {
 // A profile with no login must not fall back to another profile's credentials.
 func TestAnEmptyProfileIsNotLoggedIn(t *testing.T) {
 	root := t.TempDir()
-	require.NoError(t, profile.Create(root, "empty"))
+	mustCreate(t, root, "empty")
 
 	require.NoError(t, auth.OpenStore(profile.AuthFile(root, profile.Default)).
 		Put(auth.Credential{Provider: "gemini", AccessToken: "k"}))
@@ -48,7 +55,7 @@ func TestAnEmptyProfileIsNotLoggedIn(t *testing.T) {
 // account stays readable on disk.
 func TestDeleteRemovesStoredTokens(t *testing.T) {
 	root := t.TempDir()
-	require.NoError(t, profile.Create(root, "work"))
+	mustCreate(t, root, "work")
 	require.NoError(t, auth.OpenStore(profile.AuthFile(root, "work")).
 		Put(auth.Credential{Provider: "anthropic", AccessToken: "secret-token"}))
 

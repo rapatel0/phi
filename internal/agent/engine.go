@@ -46,12 +46,16 @@ type Engine struct {
 	skillPath     string
 	contextWindow int
 	modelCfg      llm.ModelConfig
-	gate          permission.Gate
-	ask           permission.AskFunc
-	continueAsk   ContinueFunc
-	jobs          *job.Manager
-	hooks         *hooks.Manager
-	mcp           *mcp.Pool
+	// authFile is kept because rebuilding the client has to rebuild it
+	// with OAuth refresh. Without it a token expires mid-session and the
+	// provider answers 401 with no way to recover.
+	authFile    string
+	gate        permission.Gate
+	ask         permission.AskFunc
+	continueAsk ContinueFunc
+	jobs        *job.Manager
+	hooks       *hooks.Manager
+	mcp         *mcp.Pool
 
 	session *Session
 }
@@ -94,15 +98,30 @@ func NewEngine(opts EngineOpts) (*Engine, error) {
 	if opts.MaxRounds > 0 {
 		engine.maxRounds = opts.MaxRounds
 	}
+	engine.authFile = opts.AuthFile
 	toolList := engine.buildToolList(opts.Tools)
-	defs := tools.Definitions(toolList)
-	if opts.AuthFile != "" {
-		engine.client = llmclient.NewClientWithAuth(cfg, defs, engine.systemPrompt(), opts.AuthFile)
-	} else {
-		engine.client = llmclient.NewClient(cfg, defs, engine.systemPrompt())
-	}
+	engine.client = engine.newClient(tools.Definitions(toolList))
 	engine.bindExecutor(tools.NewRegistry(toolList))
 	return engine, nil
+}
+
+// newClient builds the LLM client, keeping OAuth refresh when a credential
+// store is configured.
+func (engine *Engine) newClient(defs []llm.ToolDefinition) *llmclient.Client {
+	if engine.authFile == "" {
+		return llmclient.NewClient(engine.modelCfg, defs, engine.systemPrompt())
+	}
+	return llmclient.NewClientWithAuth(engine.modelCfg, defs, engine.systemPrompt(), engine.authFile)
+}
+
+// SetAuthFile points the engine at another credential store, which is how a
+// profile switch takes effect without restarting.
+func (engine *Engine) SetAuthFile(path string) {
+	if engine == nil {
+		return
+	}
+	engine.authFile = path
+	engine.rebindTools()
 }
 
 func (engine *Engine) buildToolList(base []tools.Tool) []tools.Tool {
@@ -161,11 +180,7 @@ func (engine *Engine) SetJobs(jobs *job.Manager) {
 
 func (engine *Engine) rebindTools() {
 	toolList := engine.buildToolList(nil)
-	engine.client = llmclient.NewClient(
-		engine.modelCfg,
-		tools.Definitions(toolList),
-		engine.systemPrompt(),
-	)
+	engine.client = engine.newClient(tools.Definitions(toolList))
 	engine.bindExecutor(tools.NewRegistry(toolList))
 }
 

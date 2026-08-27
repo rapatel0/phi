@@ -107,7 +107,7 @@ func runCmd(args []string) int {
 		hooksMgr := engineOpts.Hooks
 		jobs, jobErr := agent.NewJobManager(bs.Proj.JobsDir(), bs.Config.Model(), nil, func() *hooks.Manager {
 			return hooksMgr
-		}, bs.Proj.Global().AuthFile(), nil)
+		}, bs.Proj.Global().AuthFile, nil)
 		if jobErr != nil {
 			fmt.Fprintln(os.Stderr, "alpha run:", jobErr)
 			return ExitUsage

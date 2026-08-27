@@ -1,6 +1,7 @@
 package project
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"os/exec"
@@ -106,6 +107,44 @@ type Project struct {
 // Root returns the working directory the project was resolved from.
 func (p *Project) Root() string { return p.root }
 
+// UseProfile points the project at another credential profile.
+//
+// Only the credential path changes. Sessions, skills, and hooks describe the
+// machine rather than the account, so they stay where they are.
+//
+// The config is dropped because credentials are folded into it when it loads:
+// models gain the keys of the profile that was active, and keeping them would
+// send the previous account's token to the provider.
+//
+// A profile with no models loads no config, which is not an error here: an
+// empty profile is the normal state between creating one and logging in. The
+// caller reports that, because only it knows which model the session needs.
+func (p *Project) UseProfile(name string) error {
+	if p == nil {
+		return errors.New("project: not available")
+	}
+	if err := profile.ValidateName(name); err != nil {
+		return err
+	}
+	if name != profile.Default && !profile.Exists(p.global.root, name) {
+		return fmt.Errorf("project: profile %q does not exist", name)
+	}
+
+	// LoadConfig replaces the config outright, which is what rebuilds the
+	// credentials: they are folded in from the store of whichever profile
+	// is active when it runs.
+	previous, previousCfg := p.global.profile, p.config
+	p.global.profile = name
+	if err := p.LoadConfig(); err != nil {
+		debuglog.Logf("project: profile %q has no usable config: %v", name, err)
+		if !errors.Is(err, ErrNoModels) {
+			p.global.profile, p.config = previous, previousCfg
+			return err
+		}
+	}
+	return nil
+}
+
 // Global returns the global layout (~/.alpha).
 func (p *Project) Global() GlobalLayout { return p.global }
 
@@ -174,7 +213,7 @@ func Discover(startDir string) (*Project, error) {
 	}
 	// A profile selected but never created would silently read an empty
 	// credential store, which looks like being logged out.
-	if err := profile.Create(root, active); err != nil {
+	if _, err := profile.Create(root, active); err != nil {
 		return nil, err
 	}
 	return &Project{root: absRoot, global: global}, nil
