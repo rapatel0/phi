@@ -90,6 +90,44 @@ func (h *Host) OnToolResult(match string, fn ResultFunc)
 `match` takes one tool name, several separated by commas (`"edit,write"`), or
 `""` for every tool.
 
+### Work that outlives a turn
+
+Two more methods cover work that does not end when a turn does. They live in
+[`internal/ext/host.go`](../internal/ext/host.go).
+
+```go
+// Wake starts a turn with text the user did not type.
+func (h *Host) Wake(text string) error
+
+// Backgrounds returns extensions that own background work.
+func (h *Host) Backgrounds() []Background
+```
+
+`Wake` is how a scheduled fire reaches the agent when nobody is typing. The
+shell installs it, the same way it installs the side channel; without it `Wake`
+reports that nothing is listening, which is the correct answer in a headless
+run. It also refuses while a turn is streaming, because two prompts in flight
+would interleave. Treat the error as "try again later", not as a failure.
+
+An extension that owns work outliving a turn implements `Background`:
+
+```go
+type Background interface {
+    SetGate(gate permission.Gate)
+    Start(ctx context.Context)
+    Stop()
+}
+```
+
+The shell drives all three. `SetGate` comes first, so nothing runs a command
+before the permission gate exists. `Stop` runs at shutdown, so nothing outlives
+the session that started it. An extension cannot arrange either on its own,
+because it is registered at init and knows nothing about the shell.
+
+A background command is still a command. Route it through the supplied gate and
+refuse until one arrives, or the tool becomes a way around a denied `bash`
+call. [`internal/ext/loop`](../internal/ext/loop) is the worked example.
+
 `OnToolResult` is how an extension tells the model something about work it just
 did. The returned string is appended to the tool result; returning `""` adds
 nothing, which is the right answer when there is nothing to report. Unlike

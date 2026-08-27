@@ -76,6 +76,12 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
   environment wins, so one shell or one project can differ from the rest. The
   default profile keeps `~/.alpha/auth.json`, so nothing has to move. See
   [doc/profiles.md](doc/profiles.md).
+- **Loops and monitors.** `LoopCreate` runs a prompt on an interval or a cron
+  schedule; `MonitorCreate` runs a long command in the background. Both replace
+  a shell `sleep` in a `bash` call, which holds the tool loop open for the whole
+  wait. Background commands pass the same permission gate as `bash` and stop
+  when the session ends. The footer shows active loops and running commands.
+  See [doc/loops.md](doc/loops.md).
 - The footer always names the active profile, and `/profile <name>` switches
   the running session without discarding the conversation. A profile that is
   not logged in to the model in use is refused with that reason, and nothing
