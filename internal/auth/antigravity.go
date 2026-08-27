@@ -8,6 +8,7 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"os"
 	"strings"
 	"time"
 )
@@ -19,20 +20,21 @@ const ProviderAntigravity = "antigravity"
 // Antigravity is Google's agent IDE. It reaches Gemini and Claude models
 // through an internal Cloud Code endpoint rather than the public API, which is
 // why this cannot reuse the Gemini client's URL or headers.
-//
-// The client id and secret below are embedded in the shipped Antigravity
-// application, so they are not secrets in any useful sense; they identify the
-// application, not the user. Google can revoke or rotate them at any time, and
-// the endpoint is versioned "v1internal" precisely because it carries no
-// compatibility promise. Failure is expected eventually: see ErrUnavailable.
-// Stored encoded, like the Anthropic client id above, so a casual grep of the
-// tree does not look like a leaked secret. Both ship inside the Antigravity
-// application and identify it, not the user.
-var (
-	antigravityClientID = mustDecode(
-		"dGVzdC1jbGllbnQtaWQ===")
-	antigravityClientSecret = mustDecode("R09DU1BYLXRlc3QtY2xpZW50LXNlY3JldA==")
+const (
+	antigravityClientIDEnv     = "ALPHA_ANTIGRAVITY_CLIENT_ID"
+	antigravityClientSecretEnv = "ALPHA_ANTIGRAVITY_CLIENT_SECRET"
 )
+
+// antigravityClientCredentials reads OAuth credentials supplied by the user.
+// They are not stored in source because Google revokes exposed client secrets.
+func antigravityClientCredentials() (string, string, error) {
+	clientID := strings.TrimSpace(os.Getenv(antigravityClientIDEnv))
+	clientSecret := strings.TrimSpace(os.Getenv(antigravityClientSecretEnv))
+	if clientID == "" || clientSecret == "" {
+		return "", "", fmt.Errorf("antigravity: set %s and %s", antigravityClientIDEnv, antigravityClientSecretEnv)
+	}
+	return clientID, clientSecret, nil
+}
 
 const (
 	antigravityAuthURL = "https://accounts.google.com/o/oauth2/v2/auth"
@@ -74,7 +76,7 @@ var ErrUnavailable = errors.New("antigravity: no longer accepted by Google")
 // AntigravityAuthURL builds the consent URL for the login flow.
 func AntigravityAuthURL(challenge, state string) string {
 	q := url.Values{}
-	q.Set("client_id", antigravityClientID)
+	q.Set("client_id", os.Getenv(antigravityClientIDEnv))
 	q.Set("redirect_uri", antigravityRedirectURI)
 	q.Set("response_type", "code")
 	q.Set("scope", strings.Join(antigravityScopes, " "))
@@ -96,6 +98,10 @@ func AntigravityAuthURL(challenge, state string) string {
 // browser is elsewhere and its redirect to localhost cannot reach this
 // process, and the port may already be taken by another alpha.
 func LoginAntigravity(ctx context.Context, opts LoginOpts) (Credential, error) {
+	if _, _, err := antigravityClientCredentials(); err != nil {
+		return Credential{}, err
+	}
+
 	verifier, challenge := generatePKCE()
 	state := generateState()
 	authURL := AntigravityAuthURL(challenge, state)
@@ -171,9 +177,13 @@ func parseAntigravityRedirect(line string) (code, state string, err error) {
 
 // exchangeAntigravityCode trades an authorization code for tokens.
 func exchangeAntigravityCode(ctx context.Context, code, verifier string) (Credential, error) {
+	clientID, clientSecret, err := antigravityClientCredentials()
+	if err != nil {
+		return Credential{}, err
+	}
 	return postAntigravityToken(ctx, url.Values{
-		"client_id":     {antigravityClientID},
-		"client_secret": {antigravityClientSecret},
+		"client_id":     {clientID},
+		"client_secret": {clientSecret},
 		"code":          {code},
 		"code_verifier": {verifier},
 		"grant_type":    {"authorization_code"},
@@ -183,9 +193,13 @@ func exchangeAntigravityCode(ctx context.Context, code, verifier string) (Creden
 
 // RefreshAntigravity exchanges a refresh token for a new access token.
 func RefreshAntigravity(ctx context.Context, refreshToken string) (Credential, error) {
+	clientID, clientSecret, err := antigravityClientCredentials()
+	if err != nil {
+		return Credential{}, err
+	}
 	cred, err := postAntigravityToken(ctx, url.Values{
-		"client_id":     {antigravityClientID},
-		"client_secret": {antigravityClientSecret},
+		"client_id":     {clientID},
+		"client_secret": {clientSecret},
 		"refresh_token": {refreshToken},
 		"grant_type":    {"refresh_token"},
 	})

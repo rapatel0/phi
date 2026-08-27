@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"os"
 	"strings"
 	"testing"
 	"time"
@@ -16,6 +17,21 @@ import (
 
 	"github.com/rapatel0/alpha/internal/llm"
 )
+
+const (
+	testAntigravityClientID     = "test-client-id"
+	testAntigravityClientSecret = "test-client-secret"
+)
+
+func TestMain(m *testing.M) {
+	if err := os.Setenv(antigravityClientIDEnv, testAntigravityClientID); err != nil {
+		panic(err)
+	}
+	if err := os.Setenv(antigravityClientSecretEnv, testAntigravityClientSecret); err != nil {
+		panic(err)
+	}
+	os.Exit(m.Run())
+}
 
 // Google issues a refresh token only when offline access is asked for and
 // consent is forced. Without both, the login lasts an hour.
@@ -30,6 +46,7 @@ func TestAntigravityAuthURLAsksForOfflineAccess(t *testing.T) {
 	assert.Equal(t, "S256", q.Get("code_challenge_method"))
 	assert.Equal(t, "challenge", q.Get("code_challenge"))
 	assert.Equal(t, "state", q.Get("state"))
+	assert.Equal(t, testAntigravityClientID, q.Get("client_id"))
 	assert.Equal(t, antigravityRedirectURI, q.Get("redirect_uri"))
 }
 
@@ -121,14 +138,14 @@ func TestAntigravityCatalogRoutesToItsOwnProvider(t *testing.T) {
 	}
 }
 
-// The embedded application credentials must decode to what Antigravity ships,
-// or every request is refused.
-func TestAntigravityClientCredentialsDecode(t *testing.T) {
-	assert.Equal(t,
-		"test-client-id",
-		antigravityClientID)
-	assert.True(t, strings.HasPrefix(antigravityClientSecret, "GOCSPX-"),
-		"the secret must decode to a Google client secret")
+func TestAntigravityClientCredentialsRequireVariables(t *testing.T) {
+	t.Setenv(antigravityClientIDEnv, "")
+	t.Setenv(antigravityClientSecretEnv, "")
+
+	_, _, err := antigravityClientCredentials()
+	require.Error(t, err)
+	assert.ErrorContains(t, err, antigravityClientIDEnv)
+	assert.ErrorContains(t, err, antigravityClientSecretEnv)
 }
 
 // A refresh response usually omits the refresh token. Dropping it would log

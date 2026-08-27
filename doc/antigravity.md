@@ -50,9 +50,8 @@ when it refuses.
 
 ## This can stop working
 
-The endpoint is undocumented, versioned `v1internal`, and reached with the
-credentials embedded in the shipped Antigravity application. Google can
-withdraw either at any time.
+The endpoint is undocumented and versioned `v1internal`. Google can withdraw
+its client credentials at any time.
 
 That failure arrives as a plain 401, 403, or 404, which is indistinguishable
 from a bad login. Alpha reports it as a distinct condition instead:
@@ -68,11 +67,18 @@ help: the provider is gone rather than the credential being wrong.
 An ordinary server error keeps its own message, so a transient failure is not
 mistaken for a withdrawal.
 
-## Limits
+## Configure OAuth credentials
 
-The embedded client id and secret are stored base64-encoded in
-`internal/auth/antigravity.go`, matching how the Anthropic client id is kept.
-They identify the application, not the user, and are not secrets.
+Set these variables before you run `alpha login antigravity`:
+
+```sh
+export ALPHA_ANTIGRAVITY_CLIENT_ID='your-client-id'
+export ALPHA_ANTIGRAVITY_CLIENT_SECRET='your-client-secret'
+```
+
+Alpha does not store OAuth client credentials in its source tree.
+
+## Limits
 
 Multi-account rotation and quota gating are not ported. Use
 [profiles](profiles.md) to keep more than one Google account.

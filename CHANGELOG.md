@@ -29,6 +29,9 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ### Fixed
 
+- `alpha login antigravity` now reads OAuth client credentials from
+  `ALPHA_ANTIGRAVITY_CLIENT_ID` and `ALPHA_ANTIGRAVITY_CLIENT_SECRET`.
+  Alpha does not store these credentials in the source tree.
 - `alpha login anthropic` no longer fails at once when stdin is not a
   terminal. The paste channel closes when stdin ends, and a receive from a
   closed channel returns an empty string, so the login took the paste branch
