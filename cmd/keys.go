@@ -28,11 +28,11 @@ func keysCmd(args []string) int {
 		fmt.Fprintln(os.Stderr, "alpha keys: terminal UI:", err)
 		return ExitError
 	}
-	enableMacKeyboard(vx)
 	shutdown := closeTerminal(vx)
 	defer shutdown()
 
 	application := app.NewApp(vx)
+	application.AfterQuery = func() { enableMacKeyboard(vx) }
 	probe := &keyProbe{theme: components.DefaultTheme()}
 	if err := application.Run(probe); err != nil {
 		fmt.Fprintln(os.Stderr, "alpha keys:", err)

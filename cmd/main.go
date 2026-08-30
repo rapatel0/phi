@@ -77,7 +77,6 @@ func runTUI() error {
 		fmt.Fprintln(os.Stderr, "alpha: terminal UI:", err)
 		return &exitError{code: ExitError, err: err}
 	}
-	enableMacKeyboard(vx)
 	shutdown := closeTerminal(vx)
 	defer shutdown()
 	sigc := make(chan os.Signal, 1)
@@ -101,6 +100,7 @@ func runTUI() error {
 
 	application := app.NewApp(vx)
 	application.Anim = true
+	application.AfterQuery = func() { enableMacKeyboard(vx) }
 
 	redraw := controller.NewRedrawRelay()
 	bus := controller.NewBus(redraw.Fire)

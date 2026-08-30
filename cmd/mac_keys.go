@@ -11,34 +11,43 @@ import (
 
 // enableMacKeyboard asks the terminal to report Cmd+letter as Super.
 //
-// xui already pushes Kitty flags 7 (disambiguate + events + alternates).
-// Flag 8 (report all keys as escape codes) is what makes Cmd+B / Cmd+O /
-// Cmd+I arrive. Push flags 15 so restoreMacKeyboard can pop them.
+// Call this after xui has pushed Kitty flags 7. SET (CSI = flags u) replaces
+// the current flags without another stack entry, so Close still pops once
+// back to the original mode. A push here would leave flag 8 on after Close.
 func enableMacKeyboard(vx *xui.XUI) {
 	if vx == nil || components.Keys.Name != "cmd" {
 		return
 	}
-	_, _ = vx.WriteRaw([]byte("\x1b[>15u"))
+	_, _ = vx.WriteRaw([]byte("\x1b[=15u"))
 }
 
-// restoreMacKeyboard pops Kitty keyboard mode. Ctrl+C otherwise leaves
-// CSI-u sequences in the shell. Write to stdout so this still runs after
-// xui.Close.
+func writeTTY(seq string) {
+	f, err := os.OpenFile("/dev/tty", os.O_WRONLY, 0)
+	if err != nil {
+		_, _ = os.Stdout.WriteString(seq)
+		return
+	}
+	_, _ = f.WriteString(seq)
+	_ = f.Close()
+}
+
+// restoreMacKeyboard turns Kitty keyboard mode off. Write to /dev/tty after
+// xui.Close so a leftover flag 8 cannot leak CSI-u into the shell.
 func restoreMacKeyboard() {
 	if components.Keys.Name != "cmd" {
 		return
 	}
-	_, _ = os.Stdout.WriteString("\x1b[<u\x1b[<u\x1b[=0u")
+	writeTTY("\x1b[=0u")
 }
 
 func closeTerminal(vx *xui.XUI) func() {
 	var once sync.Once
 	return func() {
 		once.Do(func() {
-			restoreMacKeyboard()
 			if vx != nil {
 				_ = vx.Close()
 			}
+			restoreMacKeyboard()
 		})
 	}
 }

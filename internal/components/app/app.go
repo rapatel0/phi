@@ -23,6 +23,9 @@ type App struct {
 	redraw   bool
 	// Anim requests a redraw on every frame tick (spinners, etc).
 	Anim bool
+	// AfterQuery runs after capability detection. Cmd uses it to SET Kitty
+	// flags 15 once xui has already pushed flags 7.
+	AfterQuery func()
 	// pending is a single push-back slot used when coalesceWheel peeks past a
 	// non-wheel event (must not Post to the end of the queue — that reorders).
 	pending xui.Event
@@ -57,6 +60,9 @@ func (a *App) Run(root components.Widget) error {
 	}
 	a.vx.NotifyWinsize(a.loop)
 	a.vx.QueryTerminal(500 * time.Millisecond)
+	if a.AfterQuery != nil {
+		a.AfterQuery()
+	}
 	_ = a.vx.EnableMouse()
 
 	// Init event
