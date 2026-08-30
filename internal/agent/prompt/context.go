@@ -36,11 +36,11 @@ func loadContextFileFromDir(dir string) *ContextFile {
 }
 
 // loadProjectContextFiles discovers AGENTS.md / CLAUDE.md in the workspace:
-//  1. global agent dir (~/.alpha) first
+//  1. global agent dirs (~/.agents, then ~/.alpha) first
 //  2. then every ancestor from filesystem root down to cwd (cwd last)
 //
 // Each directory contributes at most one file. Paths are deduped.
-func loadProjectContextFiles(cwd, agentDir string) []ContextFile {
+func loadProjectContextFiles(cwd string, agentDirs ...string) []ContextFile {
 	seen := make(map[string]struct{})
 	var out []ContextFile
 
@@ -56,7 +56,10 @@ func loadProjectContextFiles(cwd, agentDir string) []ContextFile {
 		out = append(out, *f)
 	}
 
-	if agentDir != "" {
+	for _, agentDir := range agentDirs {
+		if agentDir == "" {
+			continue
+		}
 		if abs, err := filepath.Abs(agentDir); err == nil {
 			agentDir = abs
 		}
@@ -110,10 +113,10 @@ func formatProjectContext(files []ContextFile) string {
 	return sb.String()
 }
 
-func agentHomeDir() string {
+func agentHomeDirs() []string {
 	home, err := os.UserHomeDir()
 	if err != nil {
-		return ""
+		return nil
 	}
-	return brand.HomeDir(home)
+	return []string{brand.AgentsHome(home), brand.HomeDir(home)}
 }

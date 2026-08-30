@@ -53,7 +53,7 @@ func Build(skillPath string, agentsEnabled bool, mcpServers []string) string {
 		panic(fmt.Sprintf("system prompt: %v", err))
 	}
 	parts := []string{buf.String()}
-	if ctx := formatProjectContext(loadProjectContextFiles(currentDir(), agentHomeDir())); ctx != "" {
+	if ctx := formatProjectContext(loadProjectContextFiles(currentDir(), agentHomeDirs()...)); ctx != "" {
 		parts = append(parts, ctx)
 	}
 	if skillBlock := skillsBlock(skillPath); skillBlock != "" {

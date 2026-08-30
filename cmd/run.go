@@ -149,7 +149,7 @@ func loadRunHooks(bs *runBootstrap) *hooks.Manager {
 	if bs == nil || bs.Proj == nil {
 		return nil
 	}
-	mgr, warns, err := hooks.Load(bs.Proj.Global().HooksDir(), bs.Proj.HooksDir())
+	mgr, warns, err := hooks.LoadFrom(bs.Proj.UserHookDirs(), bs.Proj.ProjectHookDirs())
 	if err != nil {
 		fmt.Fprintln(os.Stderr, "warning: hooks:", err)
 		return nil

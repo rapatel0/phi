@@ -61,11 +61,22 @@ func (g GlobalLayout) LookBin(name string) (string, error) {
 	return p, nil
 }
 
-// SkillsDir returns the directory for SKILL.md files.
-func (g GlobalLayout) SkillsDir() string { return filepath.Join(g.root, "skills") }
+// agentsRoot is ~/.agents, sibling of the alpha state dir (~/.alpha).
+func (g GlobalLayout) agentsRoot() string {
+	return filepath.Join(filepath.Dir(g.root), brand.AgentsDirName)
+}
 
-// HooksDir returns the directory for hook plugins (plugin.json).
-func (g GlobalLayout) HooksDir() string { return filepath.Join(g.root, "hooks") }
+// SkillsDir returns ~/.agents/skills, the shared SKILL.md directory.
+func (g GlobalLayout) SkillsDir() string { return filepath.Join(g.agentsRoot(), "skills") }
+
+// LegacySkillsDir returns ~/.alpha/skills, kept so an older install still loads.
+func (g GlobalLayout) LegacySkillsDir() string { return filepath.Join(g.root, "skills") }
+
+// HooksDir returns ~/.agents/hooks, the shared hook-plugin directory.
+func (g GlobalLayout) HooksDir() string { return filepath.Join(g.agentsRoot(), "hooks") }
+
+// LegacyHooksDir returns ~/.alpha/hooks, kept so an older install still loads.
+func (g GlobalLayout) LegacyHooksDir() string { return filepath.Join(g.root, "hooks") }
 
 // SessionBase returns the root directory for persisted sessions.
 func (g GlobalLayout) SessionBase() string { return filepath.Join(g.root, "session") }
@@ -84,16 +95,53 @@ func (p *Project) JobsDir() string {
 	return p.global.JobsDir()
 }
 
-// HooksDir returns <root>/.alpha/hooks, the per-project hooks directory
+// HooksDir returns <root>/.agents/hooks, the per-project hooks directory
 // (user hooks live under Global().HooksDir()).
 func (p *Project) HooksDir() string {
+	return filepath.Join(brand.AgentsProject(p.root), "hooks")
+}
+
+// LegacyHooksDir returns <root>/.alpha/hooks, kept so an older project still loads.
+func (p *Project) LegacyHooksDir() string {
 	return filepath.Join(brand.ProjectDir(p.root), "hooks")
 }
 
-// MCPConfigFile returns <root>/.alpha/mcp.json, the per-project MCP config
-// file (the user config is ~/.alpha/mcp.json).
+// MCPConfigFile returns <root>/.agents/mcp.json, the per-project MCP config.
 func (p *Project) MCPConfigFile() string {
+	return filepath.Join(brand.AgentsProject(p.root), "mcp.json")
+}
+
+// LegacyMCPConfigFile returns <root>/.alpha/mcp.json.
+func (p *Project) LegacyMCPConfigFile() string {
 	return filepath.Join(brand.ProjectDir(p.root), "mcp.json")
+}
+
+// UserHookDirs is the user hook search path, lowest priority first.
+// ~/.agents/hooks replaces a same-named hook in ~/.alpha/hooks.
+func (p *Project) UserHookDirs() []string {
+	return uniquePaths(p.global.LegacyHooksDir(), p.global.HooksDir())
+}
+
+// ProjectHookDirs is the project hook search path, lowest priority first.
+// <cwd>/.agents/hooks replaces a same-named hook in <cwd>/.alpha/hooks.
+func (p *Project) ProjectHookDirs() []string {
+	return uniquePaths(p.LegacyHooksDir(), p.HooksDir())
+}
+
+func uniquePaths(paths ...string) []string {
+	seen := make(map[string]struct{}, len(paths))
+	out := make([]string, 0, len(paths))
+	for _, p := range paths {
+		if p == "" {
+			continue
+		}
+		if _, ok := seen[p]; ok {
+			continue
+		}
+		seen[p] = struct{}{}
+		out = append(out, p)
+	}
+	return out
 }
 
 // Project is the resolved alpha workspace: the current working directory plus
@@ -162,8 +210,9 @@ func (p *Project) LoadConfig() error {
 	return nil
 }
 
-// ensureGlobalDirs creates the global alpha home directories. It is what makes
-// ~/.alpha/{bin,skills,hooks,session,jobs} exist from the very first startup.
+// ensureGlobalDirs creates the global alpha home directories and the shared
+// ~/.agents/{skills,hooks} trees. Skills and hooks live under ~/.agents so
+// other tools can use the same files. Session state stays under ~/.alpha.
 func ensureGlobalDirs(global GlobalLayout) error {
 	dirs := []string{
 		global.Root(),

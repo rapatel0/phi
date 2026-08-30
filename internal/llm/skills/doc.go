@@ -1,8 +1,9 @@
 // Package skills loads and parses SKILL.md files from skill directories.
 //
 // Each skill is a directory containing a SKILL.md file with YAML frontmatter
-// and a Markdown body. Skills are loaded from ~/.alpha/skills/ (or a
-// custom path set via skill_path in config or ALPHA_SKILL_PATH env var).
+// and a Markdown body. Skills are loaded from ~/.agents/skills/ (then
+// ~/.alpha/skills/ for older installs, or a custom path set via skill_path
+// in config or ALPHA_SKILL_PATH).
 //
 // A skill file looks like:
 //

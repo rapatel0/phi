@@ -86,8 +86,10 @@ func TestHasEnvPrefix(t *testing.T) {
 func TestDirHelpers(t *testing.T) {
 	assert.Equal(t, filepath.Join("/home/u", ".alpha"), HomeDir("/home/u"))
 	assert.Equal(t, filepath.Join("/home/u", ".phi"), LegacyHomeDir("/home/u"))
+	assert.Equal(t, filepath.Join("/home/u", ".agents"), AgentsHome("/home/u"))
 	assert.Equal(t, filepath.Join("/repo", ".alpha"), ProjectDir("/repo"))
 	assert.Equal(t, filepath.Join("/repo", ".phi"), LegacyProjectDir("/repo"))
+	assert.Equal(t, filepath.Join("/repo", ".agents"), AgentsProject("/repo"))
 }
 
 func TestMigrateMovesLegacyDir(t *testing.T) {

@@ -163,6 +163,28 @@ func TestDiscoverAbsoluteRun(t *testing.T) {
 	assert.Equal(t, filepath.Clean(absRun), found[0].RunPath)
 }
 
+func TestDiscoverFromLaterDirWins(t *testing.T) {
+	legacy := t.TempDir()
+	agents := t.TempDir()
+	writePlugin(t, legacy, `{
+  "hooks": [
+    {"name":"guard-bash","event":"pre_tool","match":"bash","run":"./run.sh","fail_closed":false}
+  ]
+}`)
+	writePlugin(t, agents, `{
+  "hooks": [
+    {"name":"guard-bash","event":"pre_tool","match":"bash","run":"./run.sh","fail_closed":true}
+  ]
+}`)
+
+	found, warns, err := DiscoverFrom([]string{legacy, agents}, nil)
+	require.NoError(t, err)
+	assert.Empty(t, warns)
+	require.Len(t, found, 1)
+	assert.True(t, found[0].Manifest.FailClosed)
+	assert.Equal(t, filepath.Join(agents, "run.sh"), found[0].RunPath)
+}
+
 func mustJSONString(s string) string {
 	b, err := json.Marshal(s)
 	if err != nil {

@@ -25,6 +25,9 @@ const (
 	HomeDirName = "." + Name
 	// LegacyHomeDirName is the previous state directory.
 	LegacyHomeDirName = "." + LegacyName
+	// AgentsDirName is the shared agent-content directory (skills, hooks, MCP).
+	// It is not product-branded, so the same files work for other tools.
+	AgentsDirName = ".agents"
 )
 
 // Env returns the value of an ALPHA_* variable.
@@ -88,3 +91,9 @@ func ProjectDir(root string) string { return filepath.Join(root, HomeDirName) }
 
 // LegacyProjectDir returns the previous per-project directory, <root>/.phi.
 func LegacyProjectDir(root string) string { return filepath.Join(root, LegacyHomeDirName) }
+
+// AgentsHome returns the shared agent-content directory, ~/.agents.
+func AgentsHome(home string) string { return filepath.Join(home, AgentsDirName) }
+
+// AgentsProject returns the per-project agent-content directory, <root>/.agents.
+func AgentsProject(root string) string { return filepath.Join(root, AgentsDirName) }

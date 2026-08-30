@@ -6,7 +6,7 @@ Use hooks when you need organization policy, audit trails, or input rewriting th
 
 | Audience | This document |
 | --- | --- |
-| Hook authors | Create and test scripts under `.alpha/hooks/` |
+| Hook authors | Create and test scripts under `.agents/hooks/` |
 | Operators | Deploy user- or project-level policy |
 | Contributors | See [Related code](#related-code) |
 
@@ -39,7 +39,7 @@ folders are ignored). An optional `plugin.json` directly in the hooks root is
 for a single ad-hoc plugin; with more than one plugin, use subdirectories.
 
 ```text
-~/.alpha/hooks/                    # user (lower)
+~/.agents/hooks/                   # user (lower)
   org-policy/
     plugin.json
     guard.sh
@@ -48,7 +48,7 @@ for a single ad-hoc plugin; with more than one plugin, use subdirectories.
     plugin.json
     scan.py
 
-<cwd>/.alpha/hooks/                # project (higher; same hook name replaces user)
+<cwd>/.agents/hooks/               # project (higher; same hook name replaces user)
   guard-bash/
     plugin.json
     run.sh
@@ -56,10 +56,11 @@ for a single ad-hoc plugin; with more than one plugin, use subdirectories.
 
 | Scope | Path | Precedence |
 | --- | --- | --- |
-| User | `~/.alpha/hooks/<plugin>/plugin.json` (and optional `~/.alpha/hooks/plugin.json`) | Lower |
-| Project | `<cwd>/.alpha/hooks/<plugin>/plugin.json` (and optional `<cwd>/.alpha/hooks/plugin.json`) | Higher — same hook `name` replaces the user hook entirely |
+| User | `~/.agents/hooks/<plugin>/plugin.json` (and optional `~/.agents/hooks/plugin.json`) | Lower |
+| Project | `<cwd>/.agents/hooks/<plugin>/plugin.json` (and optional `<cwd>/.agents/hooks/plugin.json`) | Higher — same hook `name` replaces the user hook entirely |
 
-- Alpha creates an empty `~/.alpha/hooks/` on startup if needed.
+- Alpha creates an empty `~/.agents/hooks/` on startup if needed.
+  Older `~/.alpha/hooks/` trees still load.
 - `run` paths are relative to the directory that contains that `plugin.json`.
 - Missing `plugin.json` is fine. Parse errors produce warnings and do not block startup.
 - Duplicate hook names in the same scope: first definition wins (root file, then subdirs in filesystem order); later files warn and skip.
@@ -72,7 +73,7 @@ for a single ad-hoc plugin; with more than one plugin, use subdirectories.
 ### 1. Create a project plugin
 
 ```text
-.alpha/hooks/guard-bash/
+.agents/hooks/guard-bash/
   plugin.json
   run.sh
 ```
@@ -367,7 +368,7 @@ Injected variables:
 | Disable all hooks | `ALPHA_HOOKS=off` |
 | Inspect load warnings | `ALPHA_DEBUG=1` |
 | List / reload in TUI | `Ctrl+K` → **hooks → list** / **hooks → reload** |
-| Override a user hook | Declare the same hook `name` under `<cwd>/.alpha/hooks/<plugin>/plugin.json` |
+| Override a user hook | Declare the same hook `name` under `<cwd>/.agents/hooks/<plugin>/plugin.json` |
 
 Configuration for hooks is **not** stored in `~/.alpha/config.yaml` or managed via `alpha config`.
 

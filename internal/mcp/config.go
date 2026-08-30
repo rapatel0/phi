@@ -35,13 +35,13 @@ func Disabled() bool {
 	return v == "0" || v == "false" || v == "off" || v == "no"
 }
 
-// UserConfigPath returns ~/.alpha/mcp.json.
+// UserConfigPath returns ~/.agents/mcp.json, the shared user MCP config.
 func UserConfigPath() (string, error) {
 	home, err := os.UserHomeDir()
 	if err != nil {
 		return "", err
 	}
-	return filepath.Join(brand.HomeDir(home), "mcp.json"), nil
+	return filepath.Join(brand.AgentsHome(home), "mcp.json"), nil
 }
 
 // LogDir returns ~/.alpha/logs/mcp (or ALPHA_MCP_LOG_DIR if set).
@@ -64,24 +64,46 @@ func LogDir() (string, error) {
 	return dir, nil
 }
 
-// Load merges ~/.alpha/mcp.json with the project config at projectConfigPath
-// (project overrides same name). Missing files yield an empty map without error.
+// Load merges user then project MCP configs. Later files win on the same
+// server name. Missing files yield an empty map without error.
+//
+// User files: ~/.alpha/mcp.json (older), then ~/.agents/mcp.json.
+// Project files: <cwd>/.alpha/mcp.json when projectConfigPath is under
+// .agents, then projectConfigPath itself.
 func Load(projectConfigPath string) (map[string]ServerConfig, error) {
 	servers := map[string]ServerConfig{}
-	userPath, err := UserConfigPath()
+	home, err := os.UserHomeDir()
 	if err != nil {
 		return nil, err
 	}
-	if err := mergeFile(userPath, servers); err != nil {
-		return nil, err
-	}
-	if err := mergeFile(projectConfigPath, servers); err != nil {
-		return nil, err
+	for _, path := range []string{
+		filepath.Join(brand.HomeDir(home), "mcp.json"),
+		filepath.Join(brand.AgentsHome(home), "mcp.json"),
+		legacyProjectMCP(projectConfigPath),
+		projectConfigPath,
+	} {
+		if err := mergeFile(path, servers); err != nil {
+			return nil, err
+		}
 	}
 	return servers, nil
 }
 
+func legacyProjectMCP(projectConfigPath string) string {
+	if projectConfigPath == "" {
+		return ""
+	}
+	dir := filepath.Dir(projectConfigPath)
+	if filepath.Base(dir) != brand.AgentsDirName {
+		return ""
+	}
+	return filepath.Join(filepath.Dir(dir), brand.HomeDirName, filepath.Base(projectConfigPath))
+}
+
 func mergeFile(path string, into map[string]ServerConfig) error {
+	if path == "" {
+		return nil
+	}
 	data, err := os.ReadFile(path)
 	if err != nil {
 		if os.IsNotExist(err) {
@@ -97,7 +119,7 @@ func mergeFile(path string, into map[string]ServerConfig) error {
 	return nil
 }
 
-// SaveUser writes servers to ~/.alpha/mcp.json.
+// SaveUser writes servers to ~/.agents/mcp.json.
 func SaveUser(servers map[string]ServerConfig) error {
 	path, err := UserConfigPath()
 	if err != nil {

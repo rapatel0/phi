@@ -285,7 +285,7 @@ func (c *Controller) ReloadHooks() (loaded int, warns []hooks.Warning, err error
 	if proj == nil {
 		return 0, nil, errors.New("project not available")
 	}
-	found, warns, err := hooks.Discover(proj.Global().HooksDir(), proj.HooksDir())
+	found, warns, err := hooks.DiscoverFrom(proj.UserHookDirs(), proj.ProjectHookDirs())
 	if err != nil {
 		return 0, warns, err
 	}
@@ -311,16 +311,17 @@ func (c *Controller) ListHooks() ([]hooks.Discovered, []hooks.Warning, error) {
 	if proj == nil {
 		return nil, nil, errors.New("project not available")
 	}
-	return hooks.Discover(proj.Global().HooksDir(), proj.HooksDir())
+	return hooks.DiscoverFrom(proj.UserHookDirs(), proj.ProjectHookDirs())
 }
 
-// loadHooksManager discovers ~/.alpha/hooks and <cwd>/.alpha/hooks.
+// loadHooksManager discovers ~/.agents/hooks and <cwd>/.agents/hooks,
+// plus the older ~/.alpha/hooks trees.
 // Load errors are non-fatal (fail-open: no hooks). Child engines stay nil until spawn.
 func loadHooksManager(proj *project.Project) *hooks.Manager {
 	if proj == nil {
 		return nil
 	}
-	mgr, warns, err := hooks.Load(proj.Global().HooksDir(), proj.HooksDir())
+	mgr, warns, err := hooks.LoadFrom(proj.UserHookDirs(), proj.ProjectHookDirs())
 	if err != nil {
 		debuglog.Logf("hooks: load failed: %v", err)
 		return nil

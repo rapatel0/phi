@@ -11,8 +11,9 @@
 //     slash commands, post_turn, and session_start / session_shutdown / session_before_switch.
 //   - Tools / Jobs: what the model can invoke.
 //
-// Configuration is discovered from ~/.alpha/hooks and <cwd>/.alpha/hooks (see
-// doc/hooks.md). It must not be mixed into ~/.alpha/config.yaml.
+// Configuration is discovered from ~/.agents/hooks and <cwd>/.agents/hooks
+// (see doc/hooks.md). Older ~/.alpha/hooks trees still load. It must not be
+// mixed into ~/.alpha/config.yaml.
 //
 // [Manager] fans [Entry] values (Hook + Kind + FailClosed/Async) across the
 // tool loop, [Manager.RunCommand] for KindCommand, and session lifecycle

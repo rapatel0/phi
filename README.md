@@ -89,8 +89,8 @@ make build          # produces ./alpha
 make install        # build and install into $GOBIN
 ```
 
-On first start, alpha automatically creates `~/.alpha/{bin,skills,hooks,session}`. Search
-tools (`fd`, `rg`) download into `~/.alpha/bin` in the background when missing.
+On first start, alpha creates `~/.alpha/{bin,session}` and `~/.agents/{skills,hooks}`.
+Search tools (`fd`, `rg`) download into `~/.alpha/bin` in the background when missing.
 
 The TUI gives the model four core tools — `read`, `write`, `edit`, and
 `bash` — plus `grep`, `find`, `ls`, `read_image`, `skill`, `webfetch`,
@@ -143,7 +143,7 @@ file. Opening the model list fetches live IDs from each provider's `/models`
 API (catalog fallback if the request fails). `ALPHA_MODEL_LIST=0` skips the
 network. Config `api_key` still wins over OAuth.
 
-skill_path: ~/.alpha/skills # where SKILL.md files are loaded from
+skill_path: ~/.agents/skills # where SKILL.md files are loaded from
 
 agents:
   enabled: true           # default; set false to disable agent_* sub-agent tools
@@ -197,16 +197,23 @@ OpenAI-compatible `/chat/completions` path.
 
 ### Workspace layout
 
-```
-~/.alpha/
-├── config.yaml   # global configuration
-├── bin/          # downloaded search tools (fd, ripgrep)
-├── skills/       # SKILL.md skill directories
-├── hooks/        # plugin.json + hook scripts
-├── jobs/         # sub-agent job artifacts (meta, logs, result.md)
-└── session/      # persisted sessions, one dir per working directory
+```text
+~/.alpha/                 # alpha state
+├── config.yaml
+├── auth.json
+├── bin/                  # downloaded search tools (fd, ripgrep)
+├── jobs/                 # sub-agent job artifacts
+└── session/              # persisted sessions, one dir per working directory
     └── <encoded-cwd>/
+
+~/.agents/                # shared agent content (also used by other tools)
+├── skills/               # SKILL.md skill directories
+├── hooks/                # plugin.json + hook scripts
+└── mcp.json              # user MCP servers
 ```
+
+Older `~/.alpha/skills`, `~/.alpha/hooks`, and `~/.alpha/mcp.json` still load.
+Project copies live under `<cwd>/.agents/` (`<cwd>/.alpha/` is the fallback).
 
 ## Interactive mode
 
@@ -338,7 +345,8 @@ permission gate for that run only.
 ## Skills
 
 Skills are directories containing a `SKILL.md` file with YAML frontmatter and
-a Markdown body. They are loaded from `~/.alpha/skills/` (or `skill_path` /
+a Markdown body. They are loaded from `~/.agents/skills/` (then
+`~/.alpha/skills/`, or `skill_path` /
 `ALPHA_SKILL_PATH`) and injected into the agent's context, letting you give the
 model reusable procedures:
 
@@ -407,8 +415,9 @@ executables:
 }
 ```
 
-Hooks load from `~/.alpha/hooks/` and `<cwd>/.alpha/hooks/`; a project hook with
-the same name replaces the user hook. `event: "command"` registers a TUI slash
+Hooks load from `~/.agents/hooks/` and `<cwd>/.agents/hooks/`; a project hook with
+the same name replaces the user hook. Older `~/.alpha/hooks` trees still load.
+`event: "command"` registers a TUI slash
 command (`/name` runs that script). In the TUI, list or reload them via
 `Ctrl+K` → hooks. In `readonly` permission mode, only `fail_closed` hooks run
 so slow audit hooks don't stall exploration. Full guide:
@@ -438,7 +447,8 @@ alpha mcp doctor
 # In the TUI, the model can use configured servers without guessing MCP exists
 ```
 
-Config: `~/.alpha/mcp.json` (project `<cwd>/.alpha/mcp.json` overrides by name).
+Config: `~/.agents/mcp.json` (project `<cwd>/.agents/mcp.json` overrides by name).
+Older `~/.alpha/mcp.json` files still load.
 Disable with `ALPHA_MCP=off`. Stdio and HTTP in v1.
 
 Full guide: [doc/mcp.md](doc/mcp.md).

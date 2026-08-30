@@ -5,7 +5,6 @@
 </p>
 
 一个用 Go 编写的最小化终端编码代理框架（harness）——Pi 的姊妹项目。
-刻意保持清亮：一个模型循环、一组工具、一个可读的 TUI——不是塞满功能的终端 IDE。——Pi 的姊妹项目。
 刻意保持清亮：一个模型循环、一组工具、一个可读的 TUI——不是塞满功能的终端 IDE。
 
 - **子代理（Sub-agents）** — 拉起隔离任务，在 TUI / job 日志里完整看到执行过程，而不是把每一步都塞进父会话上下文
@@ -83,7 +82,7 @@ make build          # 生成 ./alpha
 make install        # 构建并安装到 $GOBIN
 ```
 
-首次启动时，alpha 会自动创建 `~/.alpha/{bin,skills,hooks,session}`。搜索工具
+首次启动时，alpha 会创建 `~/.alpha/{bin,session}` 和 `~/.agents/{skills,hooks}`。搜索工具
 （`fd`、`rg`）缺失时会在后台下载到 `~/.alpha/bin`。
 
 TUI 给模型提供四个核心工具——`read`、`write`、`edit` 和 `bash`——外加 `grep`、`find`、`ls`。模型用这些工具来完成你的请求。外部 HTTP 抓取在配置 MCP 后可用。
@@ -126,7 +125,7 @@ models:
     base_url: https://api.anthropic.com
     context_window: 200000
 
-skill_path: ~/.alpha/skills # SKILL.md 文件的加载目录
+skill_path: ~/.agents/skills # SKILL.md 文件的加载目录
 
 agents:
   enabled: true           # 默认；设为 false 可禁用 agent_* 子代理工具
@@ -188,15 +187,19 @@ Anthropic Messages API；其余走 OpenAI 兼容的 `/chat/completions` 路径�
 
 ### 工作区布局
 
-```
-~/.alpha/
-├── config.yaml   # 全局配置
-├── bin/          # 下载的搜索工具（fd、ripgrep）
-├── skills/       # SKILL.md 技能目录
-├── hooks/        # plugin.json + hook 脚本
-├── jobs/         # 子代理任务产物（meta、logs、result.md）
-└── session/      # 持久化会话，每个工作目录一个目录
+```text
+~/.alpha/                 # alpha 状态
+├── config.yaml
+├── auth.json
+├── bin/                  # 下载的搜索工具（fd、ripgrep）
+├── jobs/                 # 子代理任务产物
+└── session/              # 持久化会话，每个工作目录一个目录
     └── <encoded-cwd>/
+
+~/.agents/                # 共享的 agent 内容
+├── skills/               # SKILL.md 技能目录
+├── hooks/                # plugin.json + hook 脚本
+└── mcp.json              # 用户 MCP 服务器
 ```
 
 ## 交互模式
@@ -290,7 +293,7 @@ alpha run -p "fix the failing test in internal/tools"
 ## Skills（技能）
 
 技能是包含 `SKILL.md` 文件的目录，文件带 YAML frontmatter 和 Markdown 正文。
-它们从 `~/.alpha/skills/`（或 `skill_path` / `ALPHA_SKILL_PATH`）加载，注入到代理
+它们从 `~/.agents/skills/`（或 `skill_path` / `ALPHA_SKILL_PATH`）加载，注入到代理
 上下文中，让你能给模型提供可复用的流程：
 
 ```markdown
@@ -353,7 +356,7 @@ Hooks 在每个工具调用周围运行自定义逻辑——权限门控之前�
 }
 ```
 
-Hooks 从 `~/.alpha/hooks/` 和 `<cwd>/.alpha/hooks/` 加载；同名项目 hook 会覆盖
+Hooks 从 `~/.agents/hooks/` 和 `<cwd>/.agents/hooks/` 加载；同名项目 hook 会覆盖
 用户 hook。`event: "command"` 会注册 TUI 斜杠命令（`/name` 跑对应脚本）。在 TUI 中可用 `Ctrl+K` → hooks 列出或重新加载。`readonly` 权限
 模式下只运行 `fail_closed` 的 hook，慢速审计 hook 不会拖慢探索。完整指南见
 [doc/hooks.md](doc/hooks.md)。
@@ -381,7 +384,7 @@ alpha mcp doctor
 # 在 TUI 里直接让模型用已配置的 server（不必先猜有没有 MCP）
 ```
 
-配置：`~/.alpha/mcp.json`（项目 `<cwd>/.alpha/mcp.json` 可覆盖同名）。
+配置：`~/.agents/mcp.json`（项目 `<cwd>/.agents/mcp.json` 可覆盖同名）。
 `ALPHA_MCP=off` 关闭。首版支持 stdio 与 HTTP。
 
 完整文档：[doc/mcp.md](doc/mcp.md)。
@@ -400,7 +403,7 @@ agents:
 子代理本身使用一种 **role**（`explore` 默认 | `review` | `worker`）：
 
 | Role | 工具 | 用途 |
-|------|--------|---------|
+| ------ | -------- | --------- |
 | `explore` | 只读（+ 白名单 bash） | 搜索 / 梳理结构 |
 | `review` | 只读（+ 白名单 bash） | 差异 / 检查；不编辑 |
 | `worker` | 除嵌套外全部工具 | 已规划的独立编辑 |

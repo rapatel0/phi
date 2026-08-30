@@ -27,9 +27,11 @@ func SearchDirs(skillPath, cwd string) []string {
 	add(skillPath)
 	add(brand.Env("SKILL_PATH"))
 	if home, err := os.UserHomeDir(); err == nil {
+		add(filepath.Join(brand.AgentsHome(home), "skills"))
 		add(filepath.Join(brand.HomeDir(home), "skills"))
 	}
 	if cwd != "" {
+		add(filepath.Join(brand.AgentsProject(cwd), "skills"))
 		add(filepath.Join(brand.ProjectDir(cwd), "skills"))
 	}
 	return dirs

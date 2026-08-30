@@ -29,7 +29,7 @@ Your `~/.pi/agent/settings.json` packages:
 | `pi-vimmode` | — | Keybindings still hardcoded |
 
 Local Pi extras (`~/.pi/agent/extensions/b2-sync`, `subagent`) stay as shell
-hooks / skills in Alpha (`~/.alpha/hooks`, `~/.alpha/skills`).
+hooks / skills in Alpha (`~/.agents/hooks`, `~/.agents/skills`).
 
 ## Oh My Pi (OMP) providers stolen this round
 

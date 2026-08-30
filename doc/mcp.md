@@ -36,7 +36,7 @@ Typical rhythm: pick a server from the prompt → `mcp_list(server=…)` → `mc
 
 ```text
 Start TUI / alpha run
-  → load ~/.alpha/mcp.json + <cwd>/.alpha/mcp.json
+  → load ~/.agents/mcp.json + <cwd>/.agents/mcp.json
   → build Pool (no subprocess yet)
   → tool list += mcp_list / mcp_inspect / mcp_call
   → system prompt += MCP catalog (server names only)
@@ -62,7 +62,8 @@ Sub-agents do **not** inherit MCP meta-tools by default. Disable with `ALPHA_MCP
 
 ## Quick start
 
-Config file: `~/.alpha/mcp.json` (project `<cwd>/.alpha/mcp.json` overrides same-named servers).
+Config file: `~/.agents/mcp.json` (project `<cwd>/.agents/mcp.json` overrides same-named servers).
+Older `~/.alpha/mcp.json` files still load.
 
 ```json
 {
@@ -128,7 +129,7 @@ alpha equivalent:
 
 ```text
 alpha mcp list                         list configured servers
-alpha mcp add <name> -- <cmd> [args…]  write ~/.alpha/mcp.json
+alpha mcp add <name> -- <cmd> [args…]  write ~/.agents/mcp.json
 alpha mcp remove <name>                remove from user config
 alpha mcp call <server> <tool> [json]  call a tool directly
 alpha mcp doctor                       check config + connectivity

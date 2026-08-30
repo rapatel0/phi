@@ -10,7 +10,12 @@ import (
 // Discovery warnings are returned; only unexpected I/O fails with err.
 // When ALPHA_HOOKS=off, returns an empty Manager and no warnings.
 func Load(userDir, projectDir string) (*Manager, []Warning, error) {
-	found, warns, err := Discover(userDir, projectDir)
+	return LoadFrom(compactDirs(userDir), compactDirs(projectDir))
+}
+
+// LoadFrom is Load with more than one directory per layer.
+func LoadFrom(userDirs, projectDirs []string) (*Manager, []Warning, error) {
+	found, warns, err := DiscoverFrom(userDirs, projectDirs)
 	if err != nil {
 		return nil, warns, err
 	}

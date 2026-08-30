@@ -57,6 +57,13 @@ func HooksDisabled() bool {
 //
 // When ALPHA_HOOKS=off, returns empty slices without reading disk.
 func Discover(userDir, projectDir string) ([]Discovered, []Warning, error) {
+	return DiscoverFrom(compactDirs(userDir), compactDirs(projectDir))
+}
+
+// DiscoverFrom is Discover with more than one directory per layer.
+// Later directories replace earlier ones with the same hook name, so
+// ~/.agents/hooks wins over ~/.alpha/hooks when both are passed.
+func DiscoverFrom(userDirs, projectDirs []string) ([]Discovered, []Warning, error) {
 	if HooksDisabled() {
 		return nil, nil, nil
 	}
@@ -79,11 +86,15 @@ func Discover(userDir, projectDir string) ([]Discovered, []Warning, error) {
 		return nil
 	}
 
-	if err := load(userDir, SourceUser); err != nil {
-		return nil, warnings, err
+	for _, dir := range userDirs {
+		if err := load(dir, SourceUser); err != nil {
+			return nil, warnings, err
+		}
 	}
-	if err := load(projectDir, SourceProject); err != nil {
-		return nil, warnings, err
+	for _, dir := range projectDirs {
+		if err := load(dir, SourceProject); err != nil {
+			return nil, warnings, err
+		}
 	}
 
 	out := make([]Discovered, 0, len(byName))
@@ -213,4 +224,20 @@ func FormatDiscovered(d Discovered) string {
 		return fmt.Sprintf("%s  %s  [%s]%s", m.Name, m.Kind, d.Source, extra)
 	}
 	return fmt.Sprintf("%s  %s  match=%s  [%s]%s", m.Name, m.Kind, m.Match, d.Source, extra)
+}
+
+func compactDirs(dirs ...string) []string {
+	seen := make(map[string]struct{}, len(dirs))
+	out := make([]string, 0, len(dirs))
+	for _, d := range dirs {
+		if d == "" {
+			continue
+		}
+		if _, ok := seen[d]; ok {
+			continue
+		}
+		seen[d] = struct{}{}
+		out = append(out, d)
+	}
+	return out
 }

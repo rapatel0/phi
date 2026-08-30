@@ -16,7 +16,7 @@ type ModelConfig struct {
 	APIKey  string
 	BaseURL string
 	// SkillPath is the directory to scan for SKILL.md files.
-	// Defaults to ~/.alpha/skills if empty.
+	// Defaults to ~/.agents/skills if empty.
 	SkillPath string
 	// ContextWindow is the model's context window in tokens.
 	// Zero disables session compaction (safe default).

@@ -40,7 +40,7 @@ func printMCPUsage(w *os.File) {
 	fmt.Fprintf(w, `usage: alpha mcp <command>
 
   alpha mcp list                         list configured servers
-  alpha mcp add <name> -- <cmd> [args…]  add a stdio server to ~/.alpha/mcp.json
+  alpha mcp add <name> -- <cmd> [args…]  add a stdio server to ~/.agents/mcp.json
   alpha mcp remove <name>                remove a server from user config
   alpha mcp call <server> <tool> [json]  call a tool (optional JSON args object)
   alpha mcp doctor                       check config + connectivity

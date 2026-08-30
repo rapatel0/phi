@@ -49,7 +49,9 @@ func TestDiscoverCreatesGlobalDirs(t *testing.T) {
 
 func TestHooksDirPath(t *testing.T) {
 	p := discoverInTempHome(t)
-	assert.Equal(t, filepath.Join(p.Global().Root(), "hooks"), p.Global().HooksDir())
+	home := filepath.Dir(p.Global().Root())
+	assert.Equal(t, filepath.Join(home, ".agents", "hooks"), p.Global().HooksDir())
+	assert.Equal(t, filepath.Join(p.Global().Root(), "hooks"), p.Global().LegacyHooksDir())
 }
 
 func TestLookBinPrefersBinDir(t *testing.T) {
@@ -74,8 +76,18 @@ func TestLookBinFallsBackToPATH(t *testing.T) {
 
 func TestProjectDirs(t *testing.T) {
 	p := discoverInTempHome(t)
-	assert.Equal(t, filepath.Join(p.Root(), ".alpha", "hooks"), p.HooksDir())
-	assert.Equal(t, filepath.Join(p.Root(), ".alpha", "mcp.json"), p.MCPConfigFile())
+	assert.Equal(t, filepath.Join(p.Root(), ".agents", "hooks"), p.HooksDir())
+	assert.Equal(t, filepath.Join(p.Root(), ".alpha", "hooks"), p.LegacyHooksDir())
+	assert.Equal(t, filepath.Join(p.Root(), ".agents", "mcp.json"), p.MCPConfigFile())
+	assert.Equal(t, filepath.Join(p.Root(), ".alpha", "mcp.json"), p.LegacyMCPConfigFile())
+}
+
+func TestUserHookDirsPreferAgents(t *testing.T) {
+	p := discoverInTempHome(t)
+	user := p.UserHookDirs()
+	require.Equal(t, []string{p.Global().LegacyHooksDir(), p.Global().HooksDir()}, user)
+	proj := p.ProjectHookDirs()
+	require.Equal(t, []string{p.LegacyHooksDir(), p.HooksDir()}, proj)
 }
 
 func TestLoadConfigDefaults(t *testing.T) {

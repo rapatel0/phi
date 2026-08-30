@@ -2,6 +2,7 @@ package mcp_test
 
 import (
 	"encoding/json"
+	"os"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -39,6 +40,37 @@ func TestConfigLoadSave(t *testing.T) {
 	}
 	if !ok {
 		t.Fatal("expected remove ok")
+	}
+}
+
+func TestLoadPrefersAgentsOverAlpha(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	t.Setenv("USERPROFILE", home)
+
+	write := func(path, name string) {
+		t.Helper()
+		if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+			t.Fatal(err)
+		}
+		body := `{"servers":{"demo":{"command":["` + name + `"]}}}`
+		if err := os.WriteFile(path, []byte(body), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	write(filepath.Join(home, ".alpha", "mcp.json"), "legacy")
+	write(filepath.Join(home, ".agents", "mcp.json"), "agents")
+	proj := filepath.Join(t.TempDir(), ".agents", "mcp.json")
+	write(filepath.Join(filepath.Dir(filepath.Dir(proj)), ".alpha", "mcp.json"), "proj-legacy")
+	write(proj, "proj-agents")
+
+	servers, err := mcp.Load(proj)
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := servers["demo"].Command
+	if len(got) != 1 || got[0] != "proj-agents" {
+		t.Fatalf("project agents file must win, got %v", got)
 	}
 }
 
