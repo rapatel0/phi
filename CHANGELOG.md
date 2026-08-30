@@ -45,6 +45,9 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
   The palette also scans Claude, Codex, and Grok homes.
 - Ctrl+C restores Kitty keyboard mode. Flag 8 otherwise stays on and the
   shell prints CSI-u junk (`9;5u…`).
+- Composer underscores no longer sit under the previous letter. Unicode
+  mode 2027 could give `_` width 0. Shift+minus inserts `_` when Kitty
+  reports the unshifted key.
 - A new session no longer shows leftover sub-agents in the sidebar.
   Those jobs belong to their parent session. Resume that session to see them.
 - Opening a sub-agent after the home directory moved no longer shows an empty

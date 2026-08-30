@@ -100,7 +100,7 @@ func runTUI() error {
 
 	application := app.NewApp(vx)
 	application.Anim = true
-	application.AfterQuery = func() { enableMacKeyboard(vx) }
+	application.AfterQuery = func() { afterTerminalQuery(vx) }
 
 	redraw := controller.NewRedrawRelay()
 	bus := controller.NewBus(redraw.Fire)

@@ -357,3 +357,36 @@ func TestCursorAfterCJKPasteAtTextEnd(t *testing.T) {
 		t.Fatalf("cursor on wide glyph %q", cell.Char)
 	}
 }
+
+func TestTypedRuneShiftMinusIsUnderscore(t *testing.T) {
+	got := typedRune(xui.KeyEvent{Code: xui.KeyRune, Rune: '-', Mods: xui.ModShift, Press: true})
+	if got != '_' {
+		t.Fatalf("shift+minus = %q, want _", got)
+	}
+	got = typedRune(xui.KeyEvent{Code: xui.KeyRune, Rune: '-', Text: "_", Mods: xui.ModShift, Press: true})
+	if got != '_' {
+		t.Fatalf("text _ = %q", got)
+	}
+	c := &ChatInput{MinBodyRows: 3}
+	ctx := &components.EventContext{}
+	c.Handle(ctx, xui.KeyEvent{Code: xui.KeyRune, Rune: '-', Mods: xui.ModShift, Press: true})
+	if c.Value != "_" {
+		t.Fatalf("inserted %q", c.Value)
+	}
+}
+
+func TestChatInputUnderscoreIsOwnCell(t *testing.T) {
+	c := &ChatInput{MinBodyRows: 3, PaddingX: 1, Value: "ask_user", Cursor: len("ask_user")}
+	s := c.Draw(components.DrawContext{Max: components.Size{Width: 40, Height: 10}, Method: xui.WidthUnicode})
+	row := rowString(s, 1)
+	if !strings.Contains(row, "ask_user") {
+		t.Fatalf("row=%q", row)
+	}
+	pad := 1 + c.padX()
+	for i, r := range "ask_user" {
+		cell := s.Buffer[1*s.Size.Width+pad+i]
+		if cell.Char != string(r) || cell.Width != 1 || cell.Style.Underline {
+			t.Fatalf("col %d cell=%+v want %q width 1 no underline", i, cell, string(r))
+		}
+	}
+}

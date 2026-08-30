@@ -21,6 +21,17 @@ func enableMacKeyboard(vx *xui.XUI) {
 	_, _ = vx.WriteRaw([]byte("\x1b[=15u"))
 }
 
+// afterTerminalQuery runs once xui has pushed Kitty flags 7 and maybe
+// Unicode mode 2027. Mode 2027 can give ASCII "_" width 0 on Ghostty, so
+// the glyph combines with the previous letter. The renderer already
+// measures width itself.
+func afterTerminalQuery(vx *xui.XUI) {
+	enableMacKeyboard(vx)
+	if vx != nil {
+		_, _ = vx.WriteRaw([]byte("\x1b[?2027l"))
+	}
+}
+
 func writeTTY(seq string) {
 	f, err := os.OpenFile("/dev/tty", os.O_WRONLY, 0)
 	if err != nil {

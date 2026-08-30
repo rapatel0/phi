@@ -32,7 +32,7 @@ func keysCmd(args []string) int {
 	defer shutdown()
 
 	application := app.NewApp(vx)
-	application.AfterQuery = func() { enableMacKeyboard(vx) }
+	application.AfterQuery = func() { afterTerminalQuery(vx) }
 	probe := &keyProbe{theme: components.DefaultTheme()}
 	if err := application.Run(probe); err != nil {
 		fmt.Fprintln(os.Stderr, "alpha keys:", err)

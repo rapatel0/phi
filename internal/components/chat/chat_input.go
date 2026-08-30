@@ -337,8 +337,8 @@ func (c *ChatInput) Handle(ctx *components.EventContext, ev xui.Event) {
 			if e.Mods.Has(xui.ModCtrl) || e.Mods.Has(xui.ModAlt) || e.Mods.Has(xui.ModSuper) {
 				return
 			}
-			if e.Rune >= 0x20 || e.Rune == '\t' {
-				c.insert(string(e.Rune))
+			if r := typedRune(e); r >= 0x20 || r == '\t' {
+				c.insert(string(r))
 				ctx.ConsumeAndRedraw()
 			}
 			return
@@ -351,6 +351,52 @@ func (c *ChatInput) Handle(ctx *components.EventContext, ev xui.Event) {
 		debuglog.Logf("chat cursor=%d", c.Cursor)
 		ctx.ConsumeAndRedraw()
 	}
+}
+
+// typedRune is the character to insert for a key. Kitty CSI-u with flag 8
+// reports Shift+minus as '-' plus Shift, not '_'. Use Text when the
+// terminal sent the produced character.
+func typedRune(e xui.KeyEvent) rune {
+	r := e.Rune
+	if e.Text != "" {
+		if tr, _ := utf8.DecodeRuneInString(e.Text); tr >= 0x20 {
+			r = tr
+		}
+	}
+	if !e.Mods.Has(xui.ModShift) {
+		return r
+	}
+	if s, ok := usShift[r]; ok {
+		return s
+	}
+	if r >= 'a' && r <= 'z' {
+		return r - ('a' - 'A')
+	}
+	return r
+}
+
+var usShift = map[rune]rune{
+	'`':  '~',
+	'1':  '!',
+	'2':  '@',
+	'3':  '#',
+	'4':  '$',
+	'5':  '%',
+	'6':  '^',
+	'7':  '&',
+	'8':  '*',
+	'9':  '(',
+	'0':  ')',
+	'-':  '_',
+	'=':  '+',
+	'[':  '{',
+	']':  '}',
+	'\\': '|',
+	';':  ':',
+	'\'': '"',
+	',':  '<',
+	'.':  '>',
+	'/':  '?',
 }
 
 func (c *ChatInput) insert(s string) {
