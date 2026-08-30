@@ -29,6 +29,12 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ### Fixed
 
+- Startup no longer fails because one provider has no usable credential.
+  Alpha aborted the whole config load on the first OAuth error.
+  A stale antigravity credential then named that provider, even when
+  Anthropic or Codex was ready. Unusable models stay in the palette
+  without a key. If you did not set an explicit default, Alpha uses
+  the first model that can run.
 - `alpha login antigravity` now reads OAuth client credentials from
   `ALPHA_ANTIGRAVITY_CLIENT_ID` and `ALPHA_ANTIGRAVITY_CLIENT_SECRET`.
   Alpha does not store these credentials in the source tree.

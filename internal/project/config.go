@@ -11,6 +11,7 @@ import (
 
 	"github.com/rapatel0/alpha/internal/auth"
 	"github.com/rapatel0/alpha/internal/brand"
+	"github.com/rapatel0/alpha/internal/debuglog"
 	"github.com/rapatel0/alpha/internal/llm"
 	"github.com/rapatel0/alpha/internal/permission"
 )
@@ -160,6 +161,19 @@ func (c *Config) defaultEntry() *llm.ModelConfig {
 	return &c.Models[0]
 }
 
+// firstKeyed returns the first model that already has an API key.
+func (c *Config) firstKeyed() *llm.ModelConfig {
+	if c == nil {
+		return nil
+	}
+	for i := range c.Models {
+		if c.Models[i].APIKey != "" {
+			return &c.Models[i]
+		}
+	}
+	return nil
+}
+
 // loadConfig reads the config file, applies environment overrides, and fills
 // in defaults. A missing file yields a zero Config so env-only setups work.
 func loadConfig(global GlobalLayout) (*Config, error) {
@@ -185,8 +199,16 @@ func loadConfig(global GlobalLayout) (*Config, error) {
 			brand.EnvName("MODEL"), global.ConfigFile(),
 		)
 	}
-	if err := applyOAuthKeys(cfg, global.AuthFile()); err != nil {
-		return nil, err
+	applyOAuthKeys(cfg, global.AuthFile())
+	def = cfg.defaultEntry()
+	if def.APIKey == "" && cfg.DefaultModel == "" {
+		// Catalog injection lists providers alphabetically. An expired
+		// antigravity login then sits in front of Codex or Gemini and
+		// becomes the implicit default, so a working login never starts.
+		if keyed := cfg.firstKeyed(); keyed != nil {
+			cfg.DefaultModel = keyed.Name
+			def = keyed
+		}
 	}
 	if def.APIKey == "" {
 		return nil, fmt.Errorf(
@@ -377,14 +399,22 @@ func parseDecision(val string, def permission.Decision) permission.Decision {
 	}
 }
 
-func applyOAuthKeys(c *Config, authFile string) error {
+// applyOAuthKeys fills in stored credentials, one model at a time.
+//
+// A provider that cannot supply a key leaves its own models without one; it
+// does not stop the others. Aborting here made an expired credential for a
+// provider the user does not use take down every model they do use, and the
+// message named the unused provider rather than anything actionable.
+//
+// The model itself still fails later if it is the one selected, which is where
+// the failure belongs: at the model that cannot run, not at startup.
+func applyOAuthKeys(c *Config, authFile string) {
 	ctx := context.Background()
 	for i := range c.Models {
 		if err := auth.Apply(ctx, &c.Models[i], authFile); err != nil {
-			return fmt.Errorf("oauth: %w", err)
+			debuglog.Logf("oauth: %s has no usable credential: %v", c.Models[i].Name, err)
 		}
 	}
-	return nil
 }
 
 // injectAuthModels appends catalog models for logged-in (or env-keyed)
