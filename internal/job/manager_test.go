@@ -159,6 +159,31 @@ func TestHandleList(t *testing.T) {
 	require.Len(t, got, 2)
 }
 
+func TestListForParentKeepsOnlyThisSession(t *testing.T) {
+	m := newMgr(t, job.RunnerFunc(func(_ context.Context, _ job.RunEnv) (string, error) {
+		return "ok", nil
+	}), job.Options{})
+	ctx := t.Context()
+	a, err := m.Spawn(ctx, job.SpawnRequest{Prompt: "a", ParentID: "sess-a"})
+	require.NoError(t, err)
+	b, err := m.Spawn(ctx, job.SpawnRequest{Prompt: "b", ParentID: "sess-b"})
+	require.NoError(t, err)
+	_, err = m.Wait(ctx, a.ID)
+	require.NoError(t, err)
+	_, err = m.Wait(ctx, b.ID)
+	require.NoError(t, err)
+
+	got, err := m.ListForParent(ctx, "sess-a")
+	require.NoError(t, err)
+	require.Len(t, got, 1)
+	assert.Equal(t, a.ID, got[0].ID)
+
+	empty, err := m.ListForParent(ctx, "")
+	require.NoError(t, err)
+	assert.Empty(t, empty)
+	assert.Empty(t, job.ForParent(nil, "sess-a"))
+}
+
 func TestHandleWaitTimeoutDoesNotCancelJob(t *testing.T) {
 	m := newMgr(t, job.RunnerFunc(func(ctx context.Context, _ job.RunEnv) (string, error) {
 		<-ctx.Done()

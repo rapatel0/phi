@@ -328,6 +328,30 @@ func (m *Manager) List(ctx context.Context) ([]Info, error) {
 	return out, nil
 }
 
+// ForParent keeps jobs whose ParentID matches. An empty parentID matches
+// nothing, so a new session does not inherit leftover jobs from disk.
+func ForParent(jobs []Info, parentID string) []Info {
+	if parentID == "" {
+		return nil
+	}
+	out := make([]Info, 0, len(jobs))
+	for _, info := range jobs {
+		if info.ParentID == parentID {
+			out = append(out, info)
+		}
+	}
+	return out
+}
+
+// ListForParent returns jobs spawned by parentID, newest first.
+func (m *Manager) ListForParent(ctx context.Context, parentID string) ([]Info, error) {
+	all, err := m.List(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return ForParent(all, parentID), nil
+}
+
 // Get returns one job by id.
 func (m *Manager) Get(ctx context.Context, id string) (Info, error) {
 	if err := ctx.Err(); err != nil {

@@ -35,6 +35,8 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ### Fixed
 
+- A new session no longer shows leftover sub-agents in the sidebar.
+  Those jobs belong to their parent session. Resume that session to see them.
 - Startup no longer fails because one provider has no usable credential.
   Alpha aborted the whole config load on the first OAuth error.
   A stale antigravity credential then named that provider, even when

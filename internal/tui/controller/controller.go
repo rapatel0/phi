@@ -765,20 +765,21 @@ func (c *Controller) ReplaySnapshot() session.Snapshot {
 	return session.SnapshotFromEntries(c.engine.Session().PathEntries())
 }
 
-// ListJobs returns recent jobs (disk), newest first.
+// ListJobs returns jobs for the current session, newest first.
+// Other sessions' jobs stay on disk; they appear again on resume.
 func (c *Controller) ListJobs(ctx context.Context) ([]job.Info, error) {
 	if c == nil || c.jobs == nil {
 		return nil, nil
 	}
-	return c.jobs.List(ctx)
+	return c.jobs.ListForParent(ctx, c.SessionID())
 }
 
-// LiveJobs returns in-process sub-agent jobs.
+// LiveJobs returns in-process sub-agent jobs for the current session.
 func (c *Controller) LiveJobs() []job.Info {
 	if c == nil || c.jobs == nil {
 		return nil
 	}
-	return c.jobs.Live()
+	return job.ForParent(c.jobs.Live(), c.SessionID())
 }
 
 // ChildSnapshot loads a sub-agent's persisted session as a UI snapshot.

@@ -177,14 +177,14 @@ func agentListTool(deps AgentDeps) tooldef.Tool {
 	return tooldef.Tool{
 		Definition: llm.ToolDefinition{
 			Name:        "agent_list",
-			Description: `List sub-agent jobs (newest first). Each row includes status; filter client-side if needed.`,
+			Description: `List this session's sub-agent jobs (newest first). Each row includes status; filter client-side if needed.`,
 			Params: &llm.FunctionParameters{
 				Type:       "object",
 				Properties: llm.Object{},
 			},
 		},
 		Run: func(ctx context.Context, input json.RawMessage) (tooldef.Result, error) {
-			list, err := deps.Manager.HandleList(ctx, input)
+			list, err := deps.Manager.ListForParent(ctx, deps.ParentID())
 			if err != nil {
 				return tooldef.Result{}, err
 			}
