@@ -10,6 +10,9 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ### Changed
 
+- The TASKS sidebar is an agent tree. Click a row (or Ctrl+O) to read that
+  sub-agent's transcript. Ctrl+I steers it. A child `ask_parent` call goes
+  to the parent agent, which can answer or prompt you.
 - Skills, hooks, and MCP configs live under `~/.agents/` and `<cwd>/.agents/`.
   Config, auth, sessions, jobs, and bin stay in `~/.alpha/`.
   Older `~/.alpha/skills`, hooks, and `mcp.json` still load.

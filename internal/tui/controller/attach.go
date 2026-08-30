@@ -302,7 +302,7 @@ func (c *Controller) openChildEngine(info job.Info) (*agent.Engine, error) {
 		Gate:        c.childDetachGate(spec, cwd),
 		Ask:         nil,
 		ContinueAsk: nil,
-		Tools:       spec.Tools,
+		Tools:       c.childTools(info.ID, spec.Tools),
 		Hooks:       c.Hooks(),
 		AuthFile:    c.authFile(),
 	})

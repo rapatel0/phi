@@ -102,7 +102,7 @@ func NewEditor(
 	}
 	e.transcript = transcript.NewTranscriptPane(theme, e.footer.Spinner(), "Alpha "+version.Version)
 	e.transcript.SetUsageCallback(e.footer.UpdateTokenDisplay)
-	e.tasks = &tasks.Pane{Theme: theme, OnOpen: e.viewChild}
+	e.tasks = &tasks.Pane{Theme: theme, OnOpen: e.viewChild, OnSelect: e.followChild}
 	e.transcript.SetOnOpenJob(e.viewChild)
 	e.footer.BindComposer(e.composer)
 	e.footer.SetLabelContext(e.transcript.Snapshot)
@@ -401,6 +401,15 @@ func (e *Editor) Handle(ctx *components.EventContext, ev xui.Event) {
 			ctx.ConsumeAndRedraw()
 			return
 		}
+		if components.IsChord(ke, 'i', 'I') {
+			if id := e.peekJobID(); id == "" {
+				e.toast.Show("No sub-agent jobs", toast.ToastWarning, 2*time.Second)
+			} else {
+				e.attachChild(id)
+			}
+			ctx.ConsumeAndRedraw()
+			return
+		}
 	}
 	if e.tasks != nil && e.tasks.Visible {
 		if e.tasks.Handle(ctx, ev) {
@@ -410,7 +419,21 @@ func (e *Editor) Handle(ctx *components.EventContext, ev xui.Event) {
 	e.composer.Handle(ctx, ev)
 }
 
+func (e *Editor) followChild(jobID string) {
+	if e == nil || e.child == nil {
+		return
+	}
+	if strings.TrimSpace(jobID) == "" || e.child.JobID() == jobID {
+		return
+	}
+	e.showChild(jobID, false)
+}
+
 func (e *Editor) viewChild(jobID string) {
+	e.showChild(jobID, true)
+}
+
+func (e *Editor) showChild(jobID string, toggle bool) {
 	if e == nil || e.ctrl == nil || strings.TrimSpace(jobID) == "" {
 		return
 	}
@@ -419,7 +442,9 @@ func (e *Editor) viewChild(jobID string) {
 		return
 	}
 	if e.child != nil && e.child.JobID() == jobID {
-		e.closeChildView()
+		if toggle {
+			e.closeChildView()
+		}
 		return
 	}
 	snap, info, err := e.ctrl.ChildSnapshot(jobID)
@@ -688,6 +713,7 @@ func (e *Editor) Draw(ctx components.DrawContext) components.Surface {
 	}
 	if sideW > 0 && e.tasks != nil {
 		side := e.tasks.Draw(ctx, listH)
+		e.tasks.SetFrame(listW, 0, sideW, listH)
 		root.Children = append(root.Children, components.SubSurface{
 			Origin:  components.Point{X: listW, Y: 0},
 			Surface: side,

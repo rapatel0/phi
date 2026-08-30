@@ -13,6 +13,7 @@ import (
 	"github.com/rapatel0/alpha/internal/permission"
 	"github.com/rapatel0/alpha/internal/session"
 	"github.com/rapatel0/alpha/internal/tools"
+	"github.com/rapatel0/alpha/internal/tools/parentask"
 )
 
 // EngineRunner runs a child [Engine.Loop] as a [job.Runner].
@@ -77,6 +78,13 @@ func (r EngineRunner) Run(ctx context.Context, env job.RunEnv) (string, error) {
 	toolList := r.Tools
 	if toolList == nil {
 		toolList = spec.Tools
+	}
+	if asker, ok := r.Hub.(ParentAsker); ok && asker != nil {
+		jobID := env.Job.ID
+		ask := parentask.Tool(func(ctx context.Context, q string) (string, error) {
+			return asker.AskParent(ctx, jobID, q)
+		})
+		toolList = append(append([]tools.Tool(nil), toolList...), ask)
 	}
 
 	model := r.Model

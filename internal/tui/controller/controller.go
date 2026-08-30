@@ -1029,6 +1029,7 @@ func (c *Controller) publish(m Msg) {
 }
 
 func (c *Controller) runLoop(ctx context.Context, gen int, prompt string, pendingSkills []string, images []llm.Image) {
+	defer c.clearStream(gen)
 	if !c.waitOrDone(ctx, gen, 120*time.Millisecond) {
 		return
 	}

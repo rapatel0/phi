@@ -219,12 +219,16 @@ Composer input is blocked while an overlay is active (`OverlayBlocksComposer`).
 ### 7. Sub-agent attach
 
 ```text
-Enter on an agent_spawn card, Ctrl+Enter on a TASKS row, or Ctrl+O
-  → childview popup (live transcript, PgUp/PgDn / j k / wheel)
-  → composer stays on the parent
-  → Ctrl+I → Controller.Attach (steer)
-  → Esc → close popup
-  → while steering: composer TopLeftLabel "↳ role · description"; Esc → parent
+Ctrl+B opens the agent tree (right sidebar)
+  → click a row, Ctrl+Enter, or Ctrl+O
+  → childview (live transcript, PgUp/PgDn / wheel)
+  → Ctrl+N / Ctrl+P walk the tree; an open view follows the selection
+  → Ctrl+I → Controller.Attach (steer that child)
+  → Esc → close the view, or return to the parent while steering
+  → while steering: composer TopLeftLabel "↳ role · description"
+
+A child ask_parent call is a parent turn. The parent may answer, or
+ask_user_question if it needs you.
 ```
 
 The parent engine is not cancelled. Child session files stay under `~/.alpha/jobs/<id>/session/`.

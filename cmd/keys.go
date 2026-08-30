@@ -173,10 +173,11 @@ Shortcuts accept Ctrl or Cmd, except where noted.
 
   Ctrl+K / Cmd+Shift+K   command palette
   Ctrl+R / Cmd+R         session tree
-  Ctrl+B / Cmd+B         TASKS sidebar (Ctrl+T also works)
+  Ctrl+B / Cmd+B         agent tree sidebar (Ctrl+T also works)
   Ctrl+O / Cmd+O         sub-agent transcript
-  Ctrl+I / Cmd+I         steer a sub-agent
-  Ctrl+Enter             view the selected TASKS row
+  Ctrl+I / Cmd+I         steer the selected sub-agent
+  Ctrl+Enter             view the selected agent-tree row
+  click a tree row       view that sub-agent transcript
   Ctrl+V                 attach a clipboard image
 
 Terminals usually claim Cmd+K, Cmd+T, Cmd+Enter, and Cmd+V, so those

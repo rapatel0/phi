@@ -1,6 +1,8 @@
 package agent
 
 import (
+	"context"
+
 	"github.com/rapatel0/alpha/internal/job"
 	"github.com/rapatel0/alpha/internal/session"
 )
@@ -13,4 +15,10 @@ type ChildHub interface {
 	BindChild(meta job.Meta, eng *Engine)
 	FinishChild(jobID string)
 	EmitChild(jobID string, ev session.Event)
+}
+
+// ParentAsker is an optional ChildHub capability: a child tool can block on
+// AskParent until the parent agent (or the user) answers.
+type ParentAsker interface {
+	AskParent(ctx context.Context, jobID, question string) (string, error)
 }
