@@ -76,6 +76,12 @@ func (s *store) readMeta(id string) (Meta, error) {
 	if err := json.Unmarshal(data, &meta); err != nil {
 		return Meta{}, err
 	}
+	// meta.Dir is whatever path was written at spawn. After a home rename
+	// (~/.phi → ~/.alpha) that folder is gone; the store root is the truth.
+	live := filepath.Join(s.root, id)
+	meta.Dir = live
+	meta.ResultPath = filepath.Join(live, resultFile)
+	meta.EventsPath = filepath.Join(live, eventsFile)
 	return meta, nil
 }
 

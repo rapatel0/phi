@@ -228,6 +228,41 @@ func TestMetaPersisted(t *testing.T) {
 	assert.Contains(t, string(data), `"status": "completed"`)
 }
 
+func TestReadMetaUsesTheStoreRootAfterAHomeMove(t *testing.T) {
+	oldRoot := t.TempDir()
+	newRoot := t.TempDir()
+	m := newMgr(t, job.RunnerFunc(func(_ context.Context, _ job.RunEnv) (string, error) {
+		return "ok", nil
+	}), job.Options{Root: oldRoot})
+	info, err := m.Spawn(t.Context(), job.SpawnRequest{Prompt: "p", ParentID: "sess"})
+	require.NoError(t, err)
+	_, err = m.Wait(t.Context(), info.ID)
+	require.NoError(t, err)
+	require.NoError(t, m.Close(t.Context()))
+
+	src := filepath.Join(oldRoot, info.ID)
+	dst := filepath.Join(newRoot, info.ID)
+	require.NoError(t, os.CopyFS(dst, os.DirFS(src)))
+
+	metaPath := filepath.Join(dst, "meta.json")
+	raw, err := os.ReadFile(metaPath)
+	require.NoError(t, err)
+	var meta map[string]any
+	require.NoError(t, json.Unmarshal(raw, &meta))
+	meta["dir"] = "/gone/.phi/jobs/" + info.ID
+	rewritten, err := json.Marshal(meta)
+	require.NoError(t, err)
+	require.NoError(t, os.WriteFile(metaPath, rewritten, 0o644))
+
+	moved := newMgr(t, job.RunnerFunc(func(_ context.Context, _ job.RunEnv) (string, error) {
+		return "ok", nil
+	}), job.Options{Root: newRoot, Recovery: job.RecoverIgnore})
+	got, err := moved.Get(t.Context(), info.ID)
+	require.NoError(t, err)
+	assert.Equal(t, dst, got.Dir)
+	assert.Equal(t, filepath.Join(dst, "result.md"), got.ResultPath)
+}
+
 func TestRecoverStaleJobsOnNew(t *testing.T) {
 	root := t.TempDir()
 	dir := filepath.Join(root, "job_zombie")

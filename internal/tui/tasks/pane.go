@@ -230,7 +230,7 @@ func (p *Pane) Draw(ctx components.DrawContext, height int) components.Surface {
 		}
 		if selected {
 			s.Print(1, y, strings.Repeat(" ", w-1), th.SelectionBg, ctx.Method)
-			s.Print(2, y, clip(label, w-3, ctx.Method), th.SelectionFg, ctx.Method)
+			s.Print(2, y, clip(label, w-3, ctx.Method), th.SelectedRow(), ctx.Method)
 		} else {
 			s.Print(2, y, clip(label, w-3, ctx.Method), fg, ctx.Method)
 			if !attached {
@@ -243,7 +243,7 @@ func (p *Pane) Draw(ctx components.DrawContext, height int) components.Surface {
 		}
 		if selected {
 			s.Print(1, y, strings.Repeat(" ", w-1), th.SelectionBg, ctx.Method)
-			s.Print(2, y, clip(meta, w-3, ctx.Method), th.SelectionFg, ctx.Method)
+			s.Print(2, y, clip(meta, w-3, ctx.Method), th.SelectedRow(), ctx.Method)
 		} else {
 			s.Print(2, y, clip(meta, w-3, ctx.Method), th.Muted, ctx.Method)
 		}

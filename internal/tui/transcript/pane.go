@@ -51,6 +51,8 @@ type TranscriptPane struct {
 	onUsage func(session.TokenUsage)
 	copyFn  func(text string) bool
 	toastFn func(msg string, kind toast.ToastKind, d time.Duration)
+
+	noWelcome bool // child views: never show the parent splash
 }
 
 // NewTranscriptPane builds an empty transcript view.
@@ -75,6 +77,14 @@ func NewTranscriptPane(theme components.Theme, spin *status.Spinner, brand strin
 	t.mapper.Children = t.subagents.Children
 	t.mapper.ChildrenByJob = t.subagents.ChildrenByJob
 	return t
+}
+
+// DisableWelcome hides the parent splash. Child views use this so an empty
+// snapshot does not look like a new session.
+func (t *TranscriptPane) DisableWelcome() {
+	if t != nil {
+		t.noWelcome = true
+	}
 }
 
 // SetOnOpenJob is called when the user opens a sub-agent card.
@@ -294,7 +304,7 @@ func (t *TranscriptPane) Draw(ctx components.DrawContext, width, height int) com
 	}
 	constraints := ctx.WithConstraints(components.Size{}, components.Size{Width: width, Height: height})
 	var listSurf components.Surface
-	if len(t.list.Entries) == 0 {
+	if len(t.list.Entries) == 0 && !t.noWelcome {
 		listSurf = t.welcome.Draw(constraints)
 	} else {
 		listSurf = t.list.Draw(constraints)

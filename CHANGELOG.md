@@ -38,6 +38,9 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 - A new session no longer shows leftover sub-agents in the sidebar.
   Those jobs belong to their parent session. Resume that session to see them.
+- Opening a sub-agent after the home directory moved no longer shows an empty
+  welcome screen. Job meta still pointed at `~/.phi`. The store root is the
+  path that is used. The agent-tree selection bar now paints text on that bar.
 - Startup no longer fails because one provider has no usable credential.
   Alpha aborted the whole config load on the first OAuth error.
   A stale antigravity credential then named that provider, even when

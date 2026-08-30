@@ -32,6 +32,7 @@ func Open(theme components.Theme, info job.Info, snap session.Snapshot, spin *st
 		title = info.ID
 	}
 	pane := transcript.NewTranscriptPane(theme, spin, title)
+	pane.DisableWelcome()
 	pane.LoadReplay(snap)
 	pane.Sync()
 	pane.StickToBottom()

@@ -23,6 +23,13 @@ type Theme struct {
 	Command     xui.Style // command accent
 }
 
+// SelectedRow is text-on-bar for a highlighted sidebar or list row.
+func (th Theme) SelectedRow() xui.Style {
+	st := th.SelectionFg
+	st.Bg = th.SelectionBg.Bg
+	return st
+}
+
 // ThemeNames lists builtin theme display names in picker order.
 func ThemeNames() []string {
 	return []string{"Dark", "Darcula", "Pink", "Terminal"}

@@ -8,6 +8,19 @@ import (
 	"github.com/rapatel0/alpha/internal/session"
 )
 
+func TestTranscriptPane_DisableWelcomeSkipsSplash(t *testing.T) {
+	th := components.DefaultTheme()
+	spin := status.NewSpinner(th.ToolName)
+	pane := NewTranscriptPane(th, spin, "Review agent core")
+	pane.DisableWelcome()
+	s := pane.Draw(components.DrawContext{
+		Max: components.Size{Width: 40, Height: 12},
+	}, 40, 12)
+	if s.Size.Width != 40 || s.Size.Height != 12 {
+		t.Fatalf("size %+v", s.Size)
+	}
+}
+
 func TestTranscriptPane_ApplySessionAndSync(t *testing.T) {
 	th := components.DefaultTheme()
 	spin := status.NewSpinner(th.ToolName)
