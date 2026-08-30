@@ -384,8 +384,8 @@ func (e *Editor) Handle(ctx *components.EventContext, ev xui.Event) {
 			ctx.ConsumeAndRedraw()
 			return
 		}
-		// Ctrl-only: Ghostty binds Cmd+Enter to toggle_fullscreen.
-		if components.CtrlOnly(ke) && ke.Code == xui.KeyEnter {
+		// Cmd+Enter if the terminal delivers it. Ghostty often claims it.
+		if components.AcceptsCmd(ke) && ke.Code == xui.KeyEnter {
 			if id := e.peekJobID(); id != "" {
 				e.viewChild(id)
 			}
@@ -454,7 +454,7 @@ func (e *Editor) showChild(jobID string, toggle bool) {
 	}
 	e.child = childview.Open(e.theme, info, snap, e.footer.Spinner())
 	if e.footer != nil {
-		e.footer.SetAttachHint("esc close · ctrl+i steer")
+		e.footer.SetAttachHint("esc close · " + components.ChordHint("i") + " steer")
 	}
 	e.requestRedraw()
 }

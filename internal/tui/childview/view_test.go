@@ -33,6 +33,15 @@ func TestViewCtrlISteers(t *testing.T) {
 	}
 }
 
+func TestViewCmdISteers(t *testing.T) {
+	v := Open(components.DefaultTheme(), job.Info{Meta: job.Meta{ID: "j1"}}, session.Snapshot{}, nil)
+	ctx := &components.EventContext{}
+	keep, steer := v.Handle(ctx, xui.KeyEvent{Code: xui.KeyRune, Rune: 'i', Press: true, Mods: xui.ModSuper})
+	if keep || !steer {
+		t.Fatalf("keep=%v steer=%v", keep, steer)
+	}
+}
+
 func TestViewDoesNotSwallowCtrlB(t *testing.T) {
 	v := Open(components.DefaultTheme(), job.Info{Meta: job.Meta{ID: "j1"}}, session.Snapshot{}, nil)
 	ctx := &components.EventContext{}

@@ -1,6 +1,7 @@
 package components
 
 import (
+	"runtime"
 	"testing"
 
 	"github.com/pulseaiclub/xui"
@@ -51,4 +52,16 @@ func TestShiftDistinguishesCmdChords(t *testing.T) {
 	// Both are Cmd chords, so a naive IsChord check cannot tell them apart.
 	assert.True(t, IsChord(plain, 'k', 'K'))
 	assert.True(t, IsChord(shifted, 'k', 'K'))
+}
+
+func TestModNameFollowsTheOS(t *testing.T) {
+	if runtime.GOOS == "darwin" {
+		assert.Equal(t, "cmd", ModName())
+		assert.Equal(t, "cmd+i", ChordHint("i"))
+		assert.Equal(t, "Cmd+Shift+K", PaletteHint())
+		return
+	}
+	assert.Equal(t, "ctrl", ModName())
+	assert.Equal(t, "ctrl+i", ChordHint("i"))
+	assert.Equal(t, "Ctrl+K", PaletteHint())
 }

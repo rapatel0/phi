@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"runtime"
 	"strings"
 
 	"github.com/pulseaiclub/xui"
@@ -164,12 +165,28 @@ func keyName(ke xui.KeyEvent) string {
 // printKeysUsage documents the shortcut table, including which Cmd
 // combinations a terminal is likely to claim.
 func printKeysUsage(w io.Writer) {
-	fmt.Fprint(w, `usage: alpha keys
+	fmt.Fprintln(w, "usage: alpha keys")
+	fmt.Fprintln(w)
+	fmt.Fprintln(w, "Print key events as they arrive, to show what this terminal delivers.")
+	fmt.Fprintln(w, "A key that prints nothing was consumed by the terminal.")
+	fmt.Fprintln(w)
+	if runtime.GOOS == "darwin" {
+		fmt.Fprint(w, `On macOS, use Cmd. Ctrl still works over SSH and in tmux.
 
-Print key events as they arrive, to show what this terminal delivers.
-A key that prints nothing was consumed by the terminal.
+  Cmd+Shift+K / Ctrl+K   command palette
+  Cmd+R                  session tree
+  Cmd+B                  agent tree sidebar (Ctrl+T also works)
+  Cmd+O                  sub-agent transcript
+  Cmd+I                  steer the selected sub-agent
+  Cmd+Enter / Ctrl+Enter view the selected agent-tree row
+  click a tree row       view that sub-agent transcript
+  Ctrl+V                 attach a clipboard image
 
-Shortcuts accept Ctrl or Cmd, except where noted.
+Terminals usually claim Cmd+K, Cmd+T, Cmd+Enter, and Cmd+V.
+`)
+		return
+	}
+	fmt.Fprint(w, `Shortcuts accept Ctrl or Cmd, except where noted.
 
   Ctrl+K / Cmd+Shift+K   command palette
   Ctrl+R / Cmd+R         session tree

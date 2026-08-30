@@ -122,7 +122,7 @@ func (p *Pane) Handle(ctx *components.EventContext, ev xui.Event) bool {
 			ctx.ConsumeAndRedraw()
 			return true
 		}
-		if components.CtrlOnly(e) && e.Code == xui.KeyEnter && p.SelectedID() != "" && p.OnOpen != nil {
+		if components.AcceptsCmd(e) && e.Code == xui.KeyEnter && p.SelectedID() != "" && p.OnOpen != nil {
 			p.OnOpen(p.SelectedID())
 			ctx.ConsumeAndRedraw()
 			return true

@@ -1,6 +1,10 @@
 package components
 
-import "github.com/pulseaiclub/xui"
+import (
+	"runtime"
+
+	"github.com/pulseaiclub/xui"
+)
 
 // Key modifier policy
 //
@@ -38,4 +42,27 @@ func CtrlOnly(e xui.KeyEvent) bool {
 // terminals report a shifted rune in some modes.
 func IsChord(e xui.KeyEvent, lower, upper rune) bool {
 	return e.Code == xui.KeyRune && AcceptsCmd(e) && (e.Rune == lower || e.Rune == upper)
+}
+
+// ModName is the modifier shown in on-screen hints.
+// macOS uses cmd. Linux, SSH, and tmux use ctrl. Both still fire the same chords.
+func ModName() string {
+	if runtime.GOOS == "darwin" {
+		return "cmd"
+	}
+	return "ctrl"
+}
+
+// ChordHint is a lowercase hint such as cmd+i or ctrl+i.
+func ChordHint(key string) string {
+	return ModName() + "+" + key
+}
+
+// PaletteHint is the command-palette shortcut shown in the UI.
+// Terminals claim Cmd+K, so macOS uses Cmd+Shift+K.
+func PaletteHint() string {
+	if runtime.GOOS == "darwin" {
+		return "Cmd+Shift+K"
+	}
+	return "Ctrl+K"
 }

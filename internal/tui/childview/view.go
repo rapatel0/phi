@@ -135,7 +135,7 @@ func (v *View) Draw(ctx components.DrawContext, width, height int) components.Su
 	s := components.NewSurface(width, height, nil)
 	th := v.Theme
 	title := "view · " + childTitle(v.info)
-	hint := "esc close · ctrl+i steer · ↑↓ scroll"
+	hint := "esc close · " + components.ChordHint("i") + " steer · ↑↓ scroll"
 	s.Print(0, 0, "┌"+strings.Repeat("─", max(width-2, 0)), th.Border, ctx.Method)
 	s.Print(2, 0, clipTitle(title, width-4, ctx.Method), th.Warning, ctx.Method)
 	for y := 1; y < height-2; y++ {

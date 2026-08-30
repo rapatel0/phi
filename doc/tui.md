@@ -219,15 +219,16 @@ Composer input is blocked while an overlay is active (`OverlayBlocksComposer`).
 ### 7. Sub-agent attach
 
 ```text
-Ctrl+B opens the agent tree (right sidebar)
-  → click a row, Ctrl+Enter, or Ctrl+O
+On macOS, use Cmd. On Linux, use Ctrl.
+Cmd+B opens the agent tree (right sidebar)
+  → click a row, Cmd+Enter, or Cmd+O
   → childview (live transcript, PgUp/PgDn / wheel)
-  → Ctrl+N / Ctrl+P walk the tree; an open view follows the selection
-  → Ctrl+I → Controller.Attach (steer that child)
+  → Cmd+N / Cmd+P walk the tree; an open view follows the selection
+  → Cmd+I → Controller.Attach (steer that child)
   → Esc → close the view, or return to the parent while steering
   → while steering: composer TopLeftLabel "↳ role · description"
 
-A child ask_parent call is a parent turn. The parent may answer, or
+A child ask_parent call is a parent turn. The parent can answer, or
 ask_user_question if it needs you.
 ```
 
