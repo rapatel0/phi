@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"io"
 	"os"
-	"runtime"
 	"strings"
 
 	"github.com/pulseaiclub/xui"
@@ -29,6 +28,7 @@ func keysCmd(args []string) int {
 		fmt.Fprintln(os.Stderr, "alpha keys: terminal UI:", err)
 		return ExitError
 	}
+	enableMacKeyboard(vx)
 	defer func() { _ = vx.Close() }()
 
 	application := app.NewApp(vx)
@@ -165,39 +165,29 @@ func keyName(ke xui.KeyEvent) string {
 // printKeysUsage documents the shortcut table, including which Cmd
 // combinations a terminal is likely to claim.
 func printKeysUsage(w io.Writer) {
+	km := components.Keys
 	fmt.Fprintln(w, "usage: alpha keys")
 	fmt.Fprintln(w)
 	fmt.Fprintln(w, "Print key events as they arrive, to show what this terminal delivers.")
 	fmt.Fprintln(w, "A key that prints nothing was consumed by the terminal.")
 	fmt.Fprintln(w)
-	if runtime.GOOS == "darwin" {
-		fmt.Fprint(w, `On macOS, use Cmd. Ctrl still works over SSH and in tmux.
-
-  Cmd+Shift+K / Ctrl+K   command palette
-  Cmd+R                  session tree
-  Cmd+B                  agent tree sidebar (Ctrl+T also works)
-  Cmd+O                  sub-agent transcript
-  Cmd+I                  steer the selected sub-agent
-  Cmd+Enter / Ctrl+Enter view the selected agent-tree row
-  click a tree row       view that sub-agent transcript
-  Ctrl+V                 attach a clipboard image
-
-Terminals usually claim Cmd+K, Cmd+T, Cmd+Enter, and Cmd+V.
-`)
-		return
+	if km.Name == "cmd" {
+		fmt.Fprintln(w, "On macOS, use Cmd. Ctrl still works over SSH and in tmux.")
+	} else {
+		fmt.Fprintln(w, "Shortcuts accept Ctrl or Cmd, except where noted.")
 	}
-	fmt.Fprint(w, `Shortcuts accept Ctrl or Cmd, except where noted.
-
-  Ctrl+K / Cmd+Shift+K   command palette
-  Ctrl+R / Cmd+R         session tree
-  Ctrl+B / Cmd+B         agent tree sidebar (Ctrl+T also works)
-  Ctrl+O / Cmd+O         sub-agent transcript
-  Ctrl+I / Cmd+I         steer the selected sub-agent
-  Ctrl+Enter             view the selected agent-tree row
-  click a tree row       view that sub-agent transcript
-  Ctrl+V                 attach a clipboard image
-
-Terminals usually claim Cmd+K, Cmd+T, Cmd+Enter, and Cmd+V, so those
-actions keep a Ctrl binding.
-`)
+	fmt.Fprintln(w)
+	row := func(label, desc string) {
+		fmt.Fprintf(w, "  %-22s %s\n", label, desc)
+	}
+	row(km.Label(km.Palette), "command palette")
+	row(km.Label(km.Sessions), "session tree")
+	row(km.Label(km.AgentTree), "agent tree sidebar ("+km.Label(km.AgentTreeT)+" also works)")
+	row(km.Label(km.ChildView), "sub-agent transcript")
+	row(km.Label(km.ChildSteer), "steer the selected sub-agent")
+	row(km.Label(km.ChildEnter), "view the selected agent-tree row")
+	row("click a tree row", "view that sub-agent transcript")
+	row(km.Label(km.ImagePaste), "attach a clipboard image")
+	fmt.Fprintln(w)
+	fmt.Fprintln(w, "Terminals usually claim Cmd+K, Cmd+T, Cmd+Enter, and Cmd+V.")
 }

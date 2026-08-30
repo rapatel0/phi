@@ -10,7 +10,8 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ### Changed
 
-- On macOS, on-screen shortcut hints use Cmd. Ctrl still works.
+- Shortcuts live in one table (`MacKeymap` / `UnixKeymap`). macOS uses Cmd.
+  The terminal is asked to report Cmd+letter keys. Ctrl still works.
 - The TASKS sidebar is an agent tree. Click a row (or Cmd+O) to read that
   sub-agent's transcript. Cmd+I steers it. A child `ask_parent` call goes
   to the parent agent, which can answer or prompt you.

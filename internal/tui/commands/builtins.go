@@ -134,7 +134,7 @@ func registerBuiltinCommands(r *CommandRegistry) {
 				Noun:     "clipboard",
 				Verb:     "copy last message",
 				Keywords: []string{"yank", "selection"},
-				Shortcut: "Ctrl+Shift+C",
+				Shortcut: components.Keys.Label(components.Keys.Copy),
 				Run: func() {
 					if ctx.CopyLastMessage != nil {
 						ctx.CopyLastMessage()

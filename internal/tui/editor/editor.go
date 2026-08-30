@@ -375,24 +375,22 @@ func (e *Editor) Handle(ctx *components.EventContext, ev xui.Event) {
 		// Unhandled keys (Ctrl+B/K, typing, …) fall through to the parent UI.
 	}
 	if ke, ok := ev.(xui.KeyEvent); ok && ke.Press {
-		// Cmd+B works; Cmd+T does not, because Ghostty binds it to new_tab.
-		if components.IsChord(ke, 'b', 'B') ||
-			(components.CtrlOnly(ke) && ke.Code == xui.KeyRune && (ke.Rune == 't' || ke.Rune == 'T')) {
+		km := components.Keys
+		if km.Hit(ke, km.AgentTree) || km.Hit(ke, km.AgentTreeT) {
 			if e.tasks != nil {
 				e.tasks.Toggle()
 			}
 			ctx.ConsumeAndRedraw()
 			return
 		}
-		// Cmd+Enter if the terminal delivers it. Ghostty often claims it.
-		if components.AcceptsCmd(ke) && ke.Code == xui.KeyEnter {
+		if km.Hit(ke, km.ChildEnter) {
 			if id := e.peekJobID(); id != "" {
 				e.viewChild(id)
 			}
 			ctx.ConsumeAndRedraw()
 			return
 		}
-		if components.IsChord(ke, 'o', 'O') {
+		if km.Hit(ke, km.ChildView) {
 			if id := e.peekJobID(); id == "" {
 				e.toast.Show("No sub-agent jobs", toast.ToastWarning, 2*time.Second)
 			} else {
@@ -401,7 +399,7 @@ func (e *Editor) Handle(ctx *components.EventContext, ev xui.Event) {
 			ctx.ConsumeAndRedraw()
 			return
 		}
-		if components.IsChord(ke, 'i', 'I') {
+		if km.Hit(ke, km.ChildSteer) {
 			if id := e.peekJobID(); id == "" {
 				e.toast.Show("No sub-agent jobs", toast.ToastWarning, 2*time.Second)
 			} else {
@@ -454,7 +452,7 @@ func (e *Editor) showChild(jobID string, toggle bool) {
 	}
 	e.child = childview.Open(e.theme, info, snap, e.footer.Spinner())
 	if e.footer != nil {
-		e.footer.SetAttachHint("esc close · " + components.ChordHint("i") + " steer")
+		e.footer.SetAttachHint("esc close · " + components.Keys.Hint(components.Keys.ChildSteer) + " steer")
 	}
 	e.requestRedraw()
 }

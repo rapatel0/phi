@@ -693,14 +693,14 @@ func (c *ComposerPane) Handle(ctx *components.EventContext, ev xui.Event) {
 		}
 		// Ctrl-only: terminals map Cmd+V to their own paste, which arrives as
 		// text rather than a key event.
-		if ev.Press && components.CtrlOnly(ev) && ev.Code == xui.KeyRune &&
-			(ev.Rune == 'v' || ev.Rune == 'V') {
+		km := components.Keys
+		if ev.Press && km.Hit(ev, km.ImagePaste) {
 			if c.attachClipboard(false) {
 				ctx.ConsumeAndRedraw()
 				return
 			}
 		}
-		if ev.Press && components.IsChord(ev, 'r', 'R') && c.openSessions != nil {
+		if ev.Press && km.Hit(ev, km.Sessions) && c.openSessions != nil {
 			// Same binding closes the dialog it opened.
 			if c.sessions.Open {
 				c.sessions.Hide()
@@ -711,9 +711,7 @@ func (c *ComposerPane) Handle(ctx *components.EventContext, ev xui.Event) {
 			ctx.ConsumeAndRedraw()
 			return
 		}
-		// Ctrl+K, or Cmd+Shift+K: Ghostty binds plain Cmd+K to clear_screen.
-		if ev.Press && ev.Code == xui.KeyRune && (ev.Rune == 'k' || ev.Rune == 'K') &&
-			(components.CtrlOnly(ev) || (ev.Mods.Has(xui.ModSuper) && ev.Mods.Has(xui.ModShift))) {
+		if ev.Press && km.Hit(ev, km.Palette) {
 			if c.palette.Open {
 				c.palette.Hide()
 				c.FocusChat()

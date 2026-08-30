@@ -239,8 +239,7 @@ func (p *CommandPalette) Handle(ctx *components.EventContext, ev xui.Event) {
 			return
 		}
 		// Same binding that opens it toggles it closed.
-		if e.Code == xui.KeyRune && (e.Rune == 'k' || e.Rune == 'K') &&
-			(components.CtrlOnly(e) || (e.Mods.Has(xui.ModSuper) && e.Mods.Has(xui.ModShift))) {
+		if components.Keys.Hit(e, components.Keys.Palette) {
 			p.Hide()
 			p.returnFocus(ctx)
 			ctx.ConsumeAndRedraw()

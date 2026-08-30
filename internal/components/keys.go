@@ -1,68 +1,39 @@
 package components
 
-import (
-	"runtime"
+import "github.com/pulseaiclub/xui"
 
-	"github.com/pulseaiclub/xui"
-)
-
-// Key modifier policy
-//
-// Shortcuts accept Ctrl or Cmd (Super). Cmd is what macOS users expect, and
-// Ctrl is the only option over SSH, inside tmux, and on Linux. Binding both
-// keeps one shortcut table for every platform.
+// Shortcut matching reads [Keys], filled by MacKeymap or UnixKeymap at init.
 //
 // Terminals claim some Cmd combinations before the application sees them.
-// Ghostty, for example, binds Cmd+K to clear_screen, Cmd+T to new_tab, and
-// Cmd+Enter to toggle_fullscreen. Actions on those keys stay Ctrl-only, so
-// nothing depends on a shortcut the terminal already ate. Cmd+Shift+K is free,
-// so the palette uses it as the Cmd form.
-//
-// Clipboard paste is deliberately excluded. Terminals map Cmd+V to their own
-// paste, which delivers text rather than a key event, so image paste stays on
-// Ctrl+V.
+// Ghostty binds Cmd+T to new_tab and Cmd+V to paste. Those rows stay Ctrl-only
+// in the table. Image paste is Ctrl+V on every platform.
 
-// AcceptsCmd reports whether e carries Ctrl or Cmd (Super).
-//
-// Use this for actions whose Cmd form the terminal leaves alone. Use
-// CtrlOnly for actions on a Cmd combination the terminal claims.
+// AcceptsCmd reports whether e carries the primary or fallback modifier.
 func AcceptsCmd(e xui.KeyEvent) bool {
-	return e.Mods.Has(xui.ModCtrl) || e.Mods.Has(xui.ModSuper)
+	return Keys.Accepts(e)
 }
 
 // CtrlOnly reports whether e carries Ctrl and not Cmd.
-//
-// Use this when the Cmd form is unavailable because the terminal binds it.
 func CtrlOnly(e xui.KeyEvent) bool {
 	return e.Mods.Has(xui.ModCtrl) && !e.Mods.Has(xui.ModSuper)
 }
 
-// IsChord reports whether e is Ctrl+key or Cmd+key for the given letter.
-// The letter must be lowercase; the uppercase form is matched too, because
-// terminals report a shifted rune in some modes.
+// IsChord reports whether e is a letter chord with the active modifiers.
 func IsChord(e xui.KeyEvent, lower, upper rune) bool {
-	return e.Code == xui.KeyRune && AcceptsCmd(e) && (e.Rune == lower || e.Rune == upper)
+	return e.Code == xui.KeyRune && Keys.Accepts(e) && (e.Rune == lower || e.Rune == upper)
 }
 
-// ModName is the modifier shown in on-screen hints.
-// macOS uses cmd. Linux, SSH, and tmux use ctrl. Both still fire the same chords.
-func ModName() string {
-	if runtime.GOOS == "darwin" {
-		return "cmd"
-	}
-	return "ctrl"
-}
+// ModName is the lowercase modifier in on-screen hints.
+func ModName() string { return Keys.Name }
 
 // ChordHint is a lowercase hint such as cmd+i or ctrl+i.
-func ChordHint(key string) string {
-	return ModName() + "+" + key
-}
+func ChordHint(key string) string { return Keys.Name + "+" + key }
 
 // PaletteHint is the command-palette shortcut shown in the UI.
-// Terminals claim Cmd+K, so macOS uses Cmd+Shift+K.
-func PaletteHint() string {
-	if runtime.GOOS == "darwin" {
-		return "Cmd+Shift+K"
-	}
-	return "Ctrl+K"
-}
+func PaletteHint() string { return Keys.Label(Keys.Palette) }
+
+// Accel is a title-case shortcut such as Cmd+I or Ctrl+I.
+func Accel(key string) string { return Keys.Accel(key) }
+
+// IsPaletteChord reports a palette toggle chord.
+func IsPaletteChord(e xui.KeyEvent) bool { return Keys.Hit(e, Keys.Palette) }

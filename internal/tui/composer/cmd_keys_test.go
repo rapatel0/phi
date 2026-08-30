@@ -37,12 +37,10 @@ func TestCmdShiftKOpensPalette(t *testing.T) {
 	assert.False(t, c.palette.Open, "the same chord must toggle it closed")
 }
 
-// Terminals bind plain Cmd+K themselves (Ghostty clears the screen). The app
-// must not claim it, so the keystroke is not silently swallowed.
-func TestPlainCmdKDoesNotOpenPalette(t *testing.T) {
+func TestPlainCmdKOpensPalette(t *testing.T) {
 	c := NewComposerPane(components.DefaultTheme(), "m", "/tmp")
 	c.Handle(&components.EventContext{}, cmdKey('k', xui.ModSuper))
-	assert.False(t, c.palette.Open)
+	assert.True(t, c.palette.Open, "Cmd+K must open the palette when the terminal delivers it")
 }
 
 func TestCtrlKStillOpensPalette(t *testing.T) {

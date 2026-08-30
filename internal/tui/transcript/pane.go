@@ -331,16 +331,7 @@ func (t *TranscriptPane) HandleCopyKey(ctx *components.EventContext, e xui.KeyEv
 	if t == nil || !e.Press {
 		return false
 	}
-	copyChord := false
-	if e.Code == xui.KeyRune && (e.Rune == 'c' || e.Rune == 'C') {
-		if e.Mods.Has(xui.ModCtrl) && e.Mods.Has(xui.ModShift) {
-			copyChord = true
-		}
-		if e.Mods.Has(xui.ModSuper) && !e.Mods.Has(xui.ModCtrl) {
-			copyChord = true
-		}
-	}
-	if !copyChord {
+	if !components.Keys.Hit(e, components.Keys.Copy) {
 		return false
 	}
 	text := t.list.SelectedCopyText()

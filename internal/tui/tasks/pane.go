@@ -112,17 +112,18 @@ func (p *Pane) Handle(ctx *components.EventContext, ev xui.Event) bool {
 	}
 	switch e := ev.(type) {
 	case xui.KeyEvent:
-		if components.IsChord(e, 'n', 'N') {
+		km := components.Keys
+		if km.Hit(e, km.TreeNext) {
 			p.moveBy(1)
 			ctx.ConsumeAndRedraw()
 			return true
 		}
-		if components.IsChord(e, 'p', 'P') {
+		if km.Hit(e, km.TreePrev) {
 			p.moveBy(-1)
 			ctx.ConsumeAndRedraw()
 			return true
 		}
-		if components.AcceptsCmd(e) && e.Code == xui.KeyEnter && p.SelectedID() != "" && p.OnOpen != nil {
+		if km.Hit(e, km.ChildEnter) && p.SelectedID() != "" && p.OnOpen != nil {
 			p.OnOpen(p.SelectedID())
 			ctx.ConsumeAndRedraw()
 			return true

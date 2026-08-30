@@ -58,10 +58,20 @@ func TestModNameFollowsTheOS(t *testing.T) {
 	if runtime.GOOS == "darwin" {
 		assert.Equal(t, "cmd", ModName())
 		assert.Equal(t, "cmd+i", ChordHint("i"))
-		assert.Equal(t, "Cmd+Shift+K", PaletteHint())
+		assert.Equal(t, "Cmd+K", PaletteHint())
+		assert.Equal(t, "Cmd+I", Accel("I"))
 		return
 	}
 	assert.Equal(t, "ctrl", ModName())
 	assert.Equal(t, "ctrl+i", ChordHint("i"))
 	assert.Equal(t, "Ctrl+K", PaletteHint())
+	assert.Equal(t, "Ctrl+I", Accel("I"))
+}
+
+func TestIsPaletteChord(t *testing.T) {
+	assert.True(t, IsPaletteChord(key('k', xui.ModCtrl)))
+	assert.True(t, IsPaletteChord(key('k', xui.ModSuper)))
+	assert.True(t, IsPaletteChord(key('k', xui.ModSuper|xui.ModShift)))
+	assert.False(t, IsPaletteChord(key('k', 0)))
+	assert.False(t, IsPaletteChord(key('r', xui.ModSuper)))
 }

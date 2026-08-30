@@ -75,6 +75,7 @@ func runTUI() error {
 		fmt.Fprintln(os.Stderr, "alpha: terminal UI:", err)
 		return &exitError{code: ExitError, err: err}
 	}
+	enableMacKeyboard(vx)
 	defer func(vx *xui.XUI) {
 		err := vx.Close()
 		if err != nil {

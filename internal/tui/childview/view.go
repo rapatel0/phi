@@ -82,11 +82,12 @@ func (v *View) Handle(ctx *components.EventContext, ev xui.Event) (keep, steer b
 			ctx.ConsumeAndRedraw()
 			return false, false
 		}
-		if components.IsChord(e, 'o', 'O') {
+		km := components.Keys
+		if km.Hit(e, km.ChildView) {
 			ctx.ConsumeAndRedraw()
 			return false, false
 		}
-		if components.IsChord(e, 'i', 'I') {
+		if km.Hit(e, km.ChildSteer) {
 			ctx.ConsumeAndRedraw()
 			return false, true
 		}
@@ -136,7 +137,7 @@ func (v *View) Draw(ctx components.DrawContext, width, height int) components.Su
 	s := components.NewSurface(width, height, nil)
 	th := v.Theme
 	title := "view · " + childTitle(v.info)
-	hint := "esc close · " + components.ChordHint("i") + " steer · ↑↓ scroll"
+	hint := "esc close · " + components.Keys.Hint(components.Keys.ChildSteer) + " steer · ↑↓ scroll"
 	s.Print(0, 0, "┌"+strings.Repeat("─", max(width-2, 0)), th.Border, ctx.Method)
 	s.Print(2, 0, clipTitle(title, width-4, ctx.Method), th.Warning, ctx.Method)
 	for y := 1; y < height-2; y++ {
