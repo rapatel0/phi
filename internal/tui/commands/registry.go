@@ -40,6 +40,7 @@ type CommandContext struct {
 
 	ModelNames []string
 	SkillPath  string
+	Cwd        string
 }
 
 func (ctx CommandContext) toast(msg string, kind toast.ToastKind, d time.Duration) {

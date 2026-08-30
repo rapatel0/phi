@@ -96,6 +96,12 @@ func TestHookListEntries(t *testing.T) {
 }
 
 func TestSkillsCommand_SubmenuFromDisk(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	t.Setenv("USERPROFILE", home)
+	t.Setenv("ALPHA_SKILL_PATH", "")
+	t.Setenv("PHI_SKILL_PATH", "")
+
 	dir := t.TempDir()
 	skillDir := filepath.Join(dir, "extract-and-distill")
 	require.NoError(t, os.MkdirAll(skillDir, 0o755))
@@ -108,7 +114,7 @@ Do the work.
 	require.NoError(t, os.WriteFile(filepath.Join(skillDir, "SKILL.md"), []byte(content), 0o644))
 
 	var got string
-	cmd := SkillsCommand(dir, func(name string) { got = name })
+	cmd := SkillsCommand(dir, "", func(name string) { got = name })
 	assert.Equal(t, "skills", cmd.Noun)
 	assert.Equal(t, "invoke", cmd.Verb)
 	require.Len(t, cmd.Submenu, 1)
@@ -119,7 +125,12 @@ Do the work.
 }
 
 func TestSkillsCommand_Empty(t *testing.T) {
-	cmd := SkillsCommand(t.TempDir(), nil)
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	t.Setenv("USERPROFILE", home)
+	t.Setenv("ALPHA_SKILL_PATH", "")
+	t.Setenv("PHI_SKILL_PATH", "")
+	cmd := SkillsCommand(t.TempDir(), "", nil)
 	require.Len(t, cmd.Submenu, 1)
 	assert.True(t, cmd.Submenu[0].Disabled)
 }

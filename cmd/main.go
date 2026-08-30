@@ -5,6 +5,8 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"os/signal"
+	"syscall"
 
 	"github.com/pulseaiclub/xui"
 
@@ -76,12 +78,14 @@ func runTUI() error {
 		return &exitError{code: ExitError, err: err}
 	}
 	enableMacKeyboard(vx)
-	defer func(vx *xui.XUI) {
-		err := vx.Close()
-		if err != nil {
-			panic(err)
-		}
-	}(vx)
+	shutdown := closeTerminal(vx)
+	defer shutdown()
+	sigc := make(chan os.Signal, 1)
+	signal.Notify(sigc, os.Interrupt, syscall.SIGTERM)
+	go func() {
+		<-sigc
+		shutdown()
+	}()
 
 	cwd, err := os.Getwd()
 	if err != nil {

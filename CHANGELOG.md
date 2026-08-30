@@ -40,6 +40,11 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ### Fixed
 
+- The skills palette follows a symlink skills directory. `~/.agents/skills`
+  pointed at `~/.claude/skills` and the walker treated the link as a file.
+  The palette also scans Claude, Codex, and Grok homes.
+- Ctrl+C restores Kitty keyboard mode. Flag 8 otherwise stays on and the
+  shell prints CSI-u junk (`9;5u…`).
 - A new session no longer shows leftover sub-agents in the sidebar.
   Those jobs belong to their parent session. Resume that session to see them.
 - Opening a sub-agent after the home directory moved no longer shows an empty

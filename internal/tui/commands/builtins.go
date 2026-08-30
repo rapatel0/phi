@@ -123,7 +123,7 @@ func registerBuiltinCommands(r *CommandRegistry) {
 	r.Register(Command{
 		Name: "skills",
 		PaletteRoot: func(ctx CommandContext) palette.PaletteCommand {
-			return SkillsCommand(ctx.SkillPath, ctx.AddSkill)
+			return SkillsCommand(ctx.SkillPath, ctx.Cwd, ctx.AddSkill)
 		},
 	})
 	r.Register(Command{
@@ -389,9 +389,10 @@ func HookListEntries(found []hooks.Discovered, warns []hooks.Warning, err error)
 }
 
 // SkillsCommand returns a top-level "skills" palette entry whose submenu lists
-// every skill discovered under skillPath. Selecting one adds it as a pending skill.
-func SkillsCommand(skillPath string, add func(name string)) palette.PaletteCommand {
-	submenu := skillSubcommands(skillPath, add)
+// every skill discovered under skillPath and the shared search dirs.
+// Selecting one adds it as a pending skill.
+func SkillsCommand(skillPath, cwd string, add func(name string)) palette.PaletteCommand {
+	submenu := skillSubcommands(skillPath, cwd, add)
 	return palette.PaletteCommand{
 		ID:           "skills",
 		Noun:         "skills",
@@ -402,9 +403,9 @@ func SkillsCommand(skillPath string, add func(name string)) palette.PaletteComma
 	}
 }
 
-func skillSubcommands(skillPath string, add func(name string)) []palette.PaletteCommand {
-	list, err := skills.LoadSkills(skillPath)
-	if err != nil || len(list) == 0 {
+func skillSubcommands(skillPath, cwd string, add func(name string)) []palette.PaletteCommand {
+	list := skills.LoadDirs(skills.SearchDirs(skillPath, cwd))
+	if len(list) == 0 {
 		return []palette.PaletteCommand{{
 			ID:       "skills-empty",
 			Verb:     "No skills found",

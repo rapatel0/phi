@@ -61,6 +61,17 @@ func TestLoadDirsEmpty(t *testing.T) {
 	assert.Empty(t, skills.LoadDirs([]string{t.TempDir()}))
 }
 
+func TestLoadSkillsFollowsSymlinkRoot(t *testing.T) {
+	realDir := t.TempDir()
+	writeSkill(t, realDir, "review", "from real")
+	link := filepath.Join(t.TempDir(), "skills")
+	require.NoError(t, os.Symlink(realDir, link))
+
+	list, err := skills.LoadSkills(link)
+	require.NoError(t, err)
+	assert.Equal(t, []string{"review"}, names(list))
+}
+
 func TestFilter(t *testing.T) {
 	dir := t.TempDir()
 	for _, n := range []string{"review", "code-review", "build"} {

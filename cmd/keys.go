@@ -29,7 +29,8 @@ func keysCmd(args []string) int {
 		return ExitError
 	}
 	enableMacKeyboard(vx)
-	defer func() { _ = vx.Close() }()
+	shutdown := closeTerminal(vx)
+	defer shutdown()
 
 	application := app.NewApp(vx)
 	probe := &keyProbe{theme: components.DefaultTheme()}

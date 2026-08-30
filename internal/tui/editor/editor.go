@@ -208,6 +208,7 @@ func NewEditor(
 		e.modelNames,
 		e.skillPath,
 	)
+	bridge.cwd = e.cwd
 	e.hookCmds.CommandCtx = bridge.context
 	e.composer.SetSkillPath(e.skillPath)
 	e.composer.Wire(
@@ -897,6 +898,7 @@ type commandBridge struct {
 
 	modelNames []string
 	skillPath  string
+	cwd        string
 }
 
 func newCommandBridge(
@@ -1018,6 +1020,7 @@ func (b *commandBridge) context() commands.CommandContext {
 		CopyLastMessage: b.copyLastMessage,
 		ModelNames:      b.modelNames,
 		SkillPath:       b.skillPath,
+		Cwd:             b.cwd,
 	}
 }
 

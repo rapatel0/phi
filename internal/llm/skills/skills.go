@@ -257,12 +257,28 @@ func Filter(list []*Skill, query string) []*Skill {
 // returns the list of skills. If skillDir does not exist, it returns nil, nil.
 // Skills that fail to parse are skipped so one bad file cannot hide the rest.
 func LoadSkills(skillDir string) ([]*Skill, error) {
-	if _, err := os.Stat(skillDir); os.IsNotExist(err) {
+	skillDir = strings.TrimSpace(skillDir)
+	if skillDir == "" {
 		return nil, nil
+	}
+	info, err := os.Stat(skillDir)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return nil, nil
+		}
+		return nil, err
+	}
+	if !info.IsDir() {
+		return nil, nil
+	}
+	// WalkDir does not follow a symlink root, so ~/.agents/skills → ~/.claude/skills
+	// would otherwise look empty.
+	if resolved, err := filepath.EvalSymlinks(skillDir); err == nil {
+		skillDir = resolved
 	}
 
 	var skills []*Skill
-	err := filepath.WalkDir(skillDir, func(path string, d os.DirEntry, err error) error {
+	err = filepath.WalkDir(skillDir, func(path string, d os.DirEntry, err error) error {
 		if err != nil {
 			return err
 		}
