@@ -30,6 +30,10 @@ const (
 	AgentsDirName = ".agents"
 )
 
+// PeerDirNames are other coding-agent homes under $HOME and per-project.
+// Alpha reads skills, hooks, and AGENTS.md from these after its own dirs.
+var PeerDirNames = []string{".claude", ".codex", ".grok"}
+
 // Env returns the value of an ALPHA_* variable.
 //
 // suffix is the part after the prefix, for example "API_KEY". If the ALPHA_
@@ -97,3 +101,20 @@ func AgentsHome(home string) string { return filepath.Join(home, AgentsDirName) 
 
 // AgentsProject returns the per-project agent-content directory, <root>/.agents.
 func AgentsProject(root string) string { return filepath.Join(root, AgentsDirName) }
+
+// PeerJoin returns root/<peer>/<elem> for each name in PeerDirNames.
+func PeerJoin(root, elem string) []string {
+	if root == "" {
+		return nil
+	}
+	out := make([]string, 0, len(PeerDirNames))
+	for _, name := range PeerDirNames {
+		out = append(out, filepath.Join(root, name, elem))
+	}
+	return out
+}
+
+// PeerHomes returns ~/.claude, ~/.codex, ~/.grok.
+func PeerHomes(home string) []string {
+	return PeerJoin(home, "")
+}

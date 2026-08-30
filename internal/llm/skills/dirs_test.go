@@ -20,8 +20,12 @@ func TestSearchDirsIncludesAgentsPaths(t *testing.T) {
 
 	assert.Contains(t, dirs, filepath.Join(home, ".agents", "skills"))
 	assert.Contains(t, dirs, filepath.Join(home, ".alpha", "skills"))
+	assert.Contains(t, dirs, filepath.Join(home, ".claude", "skills"))
+	assert.Contains(t, dirs, filepath.Join(home, ".codex", "skills"))
+	assert.Contains(t, dirs, filepath.Join(home, ".grok", "skills"))
 	assert.Contains(t, dirs, filepath.Join("/repo", ".agents", "skills"))
 	assert.Contains(t, dirs, filepath.Join("/repo", ".alpha", "skills"))
+	assert.Contains(t, dirs, filepath.Join("/repo", ".claude", "skills"))
 }
 
 func TestSearchDirsConfiguredPathComesFirst(t *testing.T) {

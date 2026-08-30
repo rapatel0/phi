@@ -118,5 +118,7 @@ func agentHomeDirs() []string {
 	if err != nil {
 		return nil
 	}
-	return []string{brand.AgentsHome(home), brand.HomeDir(home)}
+	out := brand.PeerHomes(home)
+	out = append(out, brand.AgentsHome(home), brand.HomeDir(home))
+	return out
 }

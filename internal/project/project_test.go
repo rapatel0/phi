@@ -84,10 +84,17 @@ func TestProjectDirs(t *testing.T) {
 
 func TestUserHookDirsPreferAgents(t *testing.T) {
 	p := discoverInTempHome(t)
+	home := filepath.Dir(p.Global().Root())
 	user := p.UserHookDirs()
-	require.Equal(t, []string{p.Global().LegacyHooksDir(), p.Global().HooksDir()}, user)
+	require.Equal(t, p.Global().LegacyHooksDir(), user[0])
+	require.Equal(t, p.Global().HooksDir(), user[len(user)-1])
+	require.Contains(t, user, filepath.Join(home, ".claude", "hooks"))
+	require.Contains(t, user, filepath.Join(home, ".codex", "hooks"))
+	require.Contains(t, user, filepath.Join(home, ".grok", "hooks"))
 	proj := p.ProjectHookDirs()
-	require.Equal(t, []string{p.LegacyHooksDir(), p.HooksDir()}, proj)
+	require.Equal(t, p.LegacyHooksDir(), proj[0])
+	require.Equal(t, p.HooksDir(), proj[len(proj)-1])
+	require.Contains(t, proj, filepath.Join(p.Root(), ".claude", "hooks"))
 }
 
 func TestLoadConfigDefaults(t *testing.T) {

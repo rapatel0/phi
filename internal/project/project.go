@@ -117,15 +117,24 @@ func (p *Project) LegacyMCPConfigFile() string {
 }
 
 // UserHookDirs is the user hook search path, lowest priority first.
-// ~/.agents/hooks replaces a same-named hook in ~/.alpha/hooks.
+// ~/.agents/hooks replaces a same-named hook in ~/.alpha/hooks and in
+// ~/.claude, ~/.codex, and ~/.grok.
 func (p *Project) UserHookDirs() []string {
-	return uniquePaths(p.global.LegacyHooksDir(), p.global.HooksDir())
+	home := filepath.Dir(p.global.root)
+	paths := []string{p.global.LegacyHooksDir()}
+	paths = append(paths, brand.PeerJoin(home, "hooks")...)
+	paths = append(paths, p.global.HooksDir())
+	return uniquePaths(paths...)
 }
 
 // ProjectHookDirs is the project hook search path, lowest priority first.
-// <cwd>/.agents/hooks replaces a same-named hook in <cwd>/.alpha/hooks.
+// <cwd>/.agents/hooks replaces a same-named hook in <cwd>/.alpha/hooks and in
+// .claude, .codex, and .grok under the project.
 func (p *Project) ProjectHookDirs() []string {
-	return uniquePaths(p.LegacyHooksDir(), p.HooksDir())
+	paths := []string{p.LegacyHooksDir()}
+	paths = append(paths, brand.PeerJoin(p.root, "hooks")...)
+	paths = append(paths, p.HooksDir())
+	return uniquePaths(paths...)
 }
 
 func uniquePaths(paths ...string) []string {

@@ -90,6 +90,12 @@ func TestDirHelpers(t *testing.T) {
 	assert.Equal(t, filepath.Join("/repo", ".alpha"), ProjectDir("/repo"))
 	assert.Equal(t, filepath.Join("/repo", ".phi"), LegacyProjectDir("/repo"))
 	assert.Equal(t, filepath.Join("/repo", ".agents"), AgentsProject("/repo"))
+	assert.Equal(t, []string{
+		filepath.Join("/home/u", ".claude"),
+		filepath.Join("/home/u", ".codex"),
+		filepath.Join("/home/u", ".grok"),
+	}, PeerHomes("/home/u"))
+	assert.Equal(t, filepath.Join("/home/u", ".claude", "skills"), PeerJoin("/home/u", "skills")[0])
 }
 
 func TestMigrateMovesLegacyDir(t *testing.T) {

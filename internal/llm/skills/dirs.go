@@ -29,10 +29,16 @@ func SearchDirs(skillPath, cwd string) []string {
 	if home, err := os.UserHomeDir(); err == nil {
 		add(filepath.Join(brand.AgentsHome(home), "skills"))
 		add(filepath.Join(brand.HomeDir(home), "skills"))
+		for _, p := range brand.PeerJoin(home, "skills") {
+			add(p)
+		}
 	}
 	if cwd != "" {
 		add(filepath.Join(brand.AgentsProject(cwd), "skills"))
 		add(filepath.Join(brand.ProjectDir(cwd), "skills"))
+		for _, p := range brand.PeerJoin(cwd, "skills") {
+			add(p)
+		}
 	}
 	return dirs
 }

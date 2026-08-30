@@ -18,6 +18,9 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 - Skills, hooks, and MCP configs live under `~/.agents/` and `<cwd>/.agents/`.
   Config, auth, sessions, jobs, and bin stay in `~/.alpha/`.
   Older `~/.alpha/skills`, hooks, and `mcp.json` still load.
+  Skills, hooks, and `AGENTS.md` also load from `~/.claude`, `~/.codex`,
+  and `~/.grok` (and the same names under the project). `~/.agents` wins
+  when a name clashes.
 - The `@` file picker is now core Go rather than a wrapper around an external
   binary. This adds one direct dependency, `github.com/boyter/gocodewalker`,
   for the parallel walk and `.gitignore` matching. Both are pure Go, so the
