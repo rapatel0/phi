@@ -423,6 +423,17 @@ func (c *ComposerPane) SetPaletteCommands(cmds []palette.PaletteCommand) {
 	}
 }
 
+// Prefill writes text into the composer and closes the palette.
+func (c *ComposerPane) Prefill(text string) {
+	if c == nil {
+		return
+	}
+	c.palette.Hide()
+	c.Chat.Value = text
+	c.Chat.Cursor = len(text)
+	c.FocusChat()
+}
+
 // PushPalette opens or nests a palette submenu.
 func (c *ComposerPane) PushPalette(title string, cmds []palette.PaletteCommand) {
 	if c == nil {

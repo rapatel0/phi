@@ -9,15 +9,58 @@ import (
 	"github.com/rapatel0/alpha/internal/components/toast"
 )
 
-// profileCommand runs /profile: no argument lists the profiles and marks the
-// active one, a name switches to it.
+// profileCommand runs /profile.
+//
+//   - no argument: open the profile picker (or toast a list if none)
+//   - create|new <name>: create that profile
+//   - <name>: switch to it
 func profileCommand(ctx CommandContext) error {
-	name := strings.TrimSpace(strings.Join(ctx.Args, " "))
-	if name == "" {
+	args := ctx.Args
+	if len(args) == 0 {
+		if ctx.PushSubmenu != nil {
+			cmd := profileSettingsCommand(ctx.SetProfile, ctx.Prefill, ctx.Profile, ctx.Profiles)
+			items := cmd.Submenu
+			if cmd.SubmenuFn != nil {
+				items = cmd.SubmenuFn()
+			}
+			ctx.PushSubmenu("Select Profile", items)
+			return nil
+		}
 		ctx.toast(profileSummary(ctx), toast.ToastSuccess, 6*time.Second)
 		return nil
 	}
 
+	if args[0] == "create" || args[0] == "new" {
+		if len(args) < 2 {
+			if ctx.Prefill != nil {
+				ctx.Prefill("/profile create ")
+				ctx.toast("type a profile name, then Enter", toast.ToastSuccess, 4*time.Second)
+				return nil
+			}
+			ctx.toast("usage: /profile create <name>", toast.ToastError, 4*time.Second)
+			return nil
+		}
+		return createProfile(ctx, args[1])
+	}
+
+	return switchProfile(ctx, strings.TrimSpace(strings.Join(args, " ")))
+}
+
+func createProfile(ctx CommandContext, name string) error {
+	name = strings.TrimSpace(name)
+	if ctx.CreateProfile == nil {
+		ctx.toast("profiles are not available here", toast.ToastError, 4*time.Second)
+		return nil
+	}
+	if err := ctx.CreateProfile(name); err != nil {
+		ctx.toast(err.Error(), toast.ToastError, 8*time.Second)
+		return nil
+	}
+	ctx.toast("created "+name+". Log in with: alpha login <provider>", toast.ToastSuccess, 8*time.Second)
+	return nil
+}
+
+func switchProfile(ctx CommandContext, name string) error {
 	active := ""
 	if ctx.Profile != nil {
 		active = ctx.Profile()
@@ -30,10 +73,7 @@ func profileCommand(ctx CommandContext) error {
 		ctx.toast("profiles are not available here", toast.ToastError, 4*time.Second)
 		return nil
 	}
-
 	if err := ctx.SetProfile(name); err != nil {
-		// The usual cause is a profile that is not logged in to the model
-		// in use, which the message names.
 		ctx.toast(err.Error(), toast.ToastError, 8*time.Second)
 		return nil
 	}
@@ -65,12 +105,13 @@ func profileSummary(ctx CommandContext) string {
 		}
 		marked = append(marked, n)
 	}
-	return fmt.Sprintf("profiles: %s  ·  switch with /profile <name>", strings.Join(marked, ", "))
+	return fmt.Sprintf("profiles: %s  ·  /profile <name> or /profile create <name>", strings.Join(marked, ", "))
 }
 
 // profileSettingsCommand returns the settings → profile submenu.
 func profileSettingsCommand(
 	onProfile func(name string) error,
+	prefill func(text string),
 	current func() string,
 	list func() []string,
 ) palette.PaletteCommand {
@@ -84,7 +125,17 @@ func profileSettingsCommand(
 			active = current()
 		}
 
-		out := make([]palette.PaletteCommand, 0, len(names))
+		out := make([]palette.PaletteCommand, 0, len(names)+1)
+		out = append(out, palette.PaletteCommand{
+			ID:       "profile-create",
+			Verb:     "create new profile…",
+			Keywords: []string{"new", "add", "create"},
+			Run: func() {
+				if prefill != nil {
+					prefill("/profile create ")
+				}
+			},
+		})
 		for _, name := range names {
 			verb := name
 			if name == active {
@@ -95,18 +146,9 @@ func profileSettingsCommand(
 				Verb: verb,
 				Run: func() {
 					if onProfile != nil {
-						// The error surfaces through the slash
-						// path; here the footer shows the result.
 						_ = onProfile(name)
 					}
 				},
-			})
-		}
-		if len(out) == 0 {
-			out = append(out, palette.PaletteCommand{
-				ID:       "profile-empty",
-				Verb:     "No profiles configured",
-				Disabled: true,
 			})
 		}
 		return out
@@ -116,7 +158,7 @@ func profileSettingsCommand(
 		ID:           "settings-profile",
 		Noun:         "settings",
 		Verb:         "profile",
-		Keywords:     []string{"profile", "account", "credentials", "login"},
+		Keywords:     []string{"profile", "account", "credentials", "login", "create"},
 		SubmenuTitle: "Select Profile",
 		Submenu:      build(),
 		SubmenuFn:    build,

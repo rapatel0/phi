@@ -8,6 +8,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/rapatel0/alpha/internal/components/palette"
 	"github.com/rapatel0/alpha/internal/components/toast"
 )
 
@@ -102,37 +103,63 @@ func TestProfileSummaryWithoutProfiles(t *testing.T) {
 // The palette submenu marks the active profile and switches on accept.
 func TestProfileSettingsCommand(t *testing.T) {
 	var switched []string
+	var prefilled string
 	cmd := profileSettingsCommand(
 		func(name string) error { switched = append(switched, name); return nil },
+		func(text string) { prefilled = text },
 		func() string { return "work" },
 		func() []string { return []string{"default", "work"} },
 	)
 
-	require.Len(t, cmd.Submenu, 2)
-	assert.Equal(t, "default", cmd.Submenu[0].Verb)
-	assert.Contains(t, cmd.Submenu[1].Verb, "(active)")
+	require.Len(t, cmd.Submenu, 3)
+	assert.Contains(t, cmd.Submenu[0].Verb, "create")
+	assert.Equal(t, "default", cmd.Submenu[1].Verb)
+	assert.Contains(t, cmd.Submenu[2].Verb, "(active)")
 
 	cmd.Submenu[0].Run()
+	assert.Equal(t, "/profile create ", prefilled)
+	cmd.Submenu[1].Run()
 	assert.Equal(t, []string{"default"}, switched)
 }
 
-// A row the user cannot act on must be disabled, not a dead entry that
-// silently does nothing.
 func TestProfileSettingsCommandWithNoProfiles(t *testing.T) {
-	cmd := profileSettingsCommand(nil, nil, nil)
+	cmd := profileSettingsCommand(nil, nil, nil, nil)
 
 	require.Len(t, cmd.Submenu, 1)
-	assert.True(t, cmd.Submenu[0].Disabled)
+	assert.Contains(t, cmd.Submenu[0].Verb, "create")
+	assert.False(t, cmd.Submenu[0].Disabled)
 }
 
-// SubmenuFn is what the palette calls when it opens, so a profile created
-// after startup still appears.
 func TestProfileSettingsCommandRebuildsOnOpen(t *testing.T) {
 	names := []string{"default"}
-	cmd := profileSettingsCommand(nil, func() string { return "default" }, func() []string { return names })
-	require.Len(t, cmd.Submenu, 1)
+	cmd := profileSettingsCommand(nil, nil, func() string { return "default" }, func() []string { return names })
+	require.Len(t, cmd.Submenu, 2)
 
 	names = append(names, "work")
 	require.NotNil(t, cmd.SubmenuFn)
-	assert.Len(t, cmd.SubmenuFn(), 2, "a profile added later must appear")
+	assert.Len(t, cmd.SubmenuFn(), 3, "a profile added later must appear")
+}
+
+func TestProfileCommandOpensPicker(t *testing.T) {
+	var title string
+	ctx, _, _ := profileCtx(nil, []string{"default", "work"}, nil)
+	ctx.PushSubmenu = func(ttl string, cmds []palette.PaletteCommand) {
+		title = ttl
+		assert.GreaterOrEqual(t, len(cmds), 3)
+	}
+	require.NoError(t, profileCommand(ctx))
+	assert.Equal(t, "Select Profile", title)
+}
+
+func TestProfileCommandCreates(t *testing.T) {
+	var created []string
+	ctx, shown, switched := profileCtx([]string{"create", "personal"}, []string{"work"}, nil)
+	ctx.CreateProfile = func(name string) error {
+		created = append(created, name)
+		return nil
+	}
+	require.NoError(t, profileCommand(ctx))
+	assert.Equal(t, []string{"personal"}, created)
+	assert.Empty(t, *switched)
+	assert.Contains(t, *shown, "created personal")
 }

@@ -464,6 +464,17 @@ func (c *Controller) SetProfile(name string) error {
 	return nil
 }
 
+// CreateProfile makes a named credential set. It does not switch to it:
+// an empty profile cannot run the current model until you log in.
+func (c *Controller) CreateProfile(name string) error {
+	name = strings.TrimSpace(name)
+	if c == nil || c.proj == nil {
+		return errors.New("project not available")
+	}
+	_, err := profile.Create(c.proj.Global().Root(), name)
+	return err
+}
+
 // SetModel replaces the LLM client while keeping the same session tree.
 func (c *Controller) SetModel(name string) error {
 	name = strings.TrimSpace(name)

@@ -995,6 +995,17 @@ func (b *commandBridge) context() commands.CommandContext {
 			return b.ctrl.Profiles()
 		},
 		SetProfile: b.setProfile,
+		CreateProfile: func(name string) error {
+			if b.ctrl == nil {
+				return errors.New("agent not configured")
+			}
+			return b.ctrl.CreateProfile(name)
+		},
+		Prefill: func(text string) {
+			if b.composer != nil {
+				b.composer.Prefill(text)
+			}
+		},
 		ListModels: func() []string {
 			if b.ctrl == nil {
 				return b.modelNames

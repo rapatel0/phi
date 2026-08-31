@@ -103,6 +103,9 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ### Added
 
+- Cmd+K → settings → profile lists profiles, marks the active one, and
+  has **create new profile…**. `/profile` opens that picker.
+  `/profile create <name>` creates one. Log in with `alpha login` after.
 - **Profiles.** A profile is a named set of credentials, each with its own
   `auth.json`, so a work login and a personal login no longer overwrite each
   other. `alpha profile list / show / create / use / delete`. The active one

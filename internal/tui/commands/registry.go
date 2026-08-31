@@ -27,7 +27,9 @@ type CommandContext struct {
 	Profile         func() string
 	Profiles        func() []string
 	SetProfile      func(name string) error
-	ListModels      func() []string // live provider /models; nil → ModelNames
+	CreateProfile   func(name string) error
+	Prefill         func(text string) // write into the composer and close overlays
+	ListModels      func() []string   // live provider /models; nil → ModelNames
 	ApplyTheme      func(name string)
 	SetPermissions  func(bypass bool)
 	SetAgents       func(enabled bool)
