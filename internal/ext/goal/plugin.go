@@ -10,6 +10,7 @@ import (
 	"github.com/rapatel0/alpha/internal/hooks"
 	"github.com/rapatel0/alpha/internal/llm"
 	"github.com/rapatel0/alpha/internal/tools"
+	"github.com/rapatel0/alpha/internal/util"
 )
 
 func init() { ext.Register(&Plugin{}) }
@@ -95,10 +96,10 @@ func closeTool(name, desc, field, fieldDesc string, apply func(id, text string) 
 			if err != nil {
 				// Report rather than fail the turn: the model can correct
 				// a stale id or supply the missing text.
-				body := mustJSON(map[string]any{"ok": false, "error": err.Error()})
+				body := util.MustJSON(map[string]any{"ok": false, "error": err.Error()})
 				return tools.Result{Content: body, Detail: "rejected", Output: body}, nil
 			}
-			body := mustJSON(map[string]any{"ok": true, "status": string(g.Status)})
+			body := util.MustJSON(map[string]any{"ok": true, "status": string(g.Status)})
 			return tools.Result{Content: body, Detail: string(g.Status), Output: body}, nil
 		},
 	}
@@ -166,12 +167,4 @@ const reminderHeader = "\n\n# Active goal\n"
 func stripReminder(prompt string) string {
 	before, _, _ := strings.Cut(prompt, reminderHeader)
 	return before
-}
-
-func mustJSON(v any) string {
-	b, err := json.Marshal(v)
-	if err != nil {
-		return `{"ok":false,"error":"marshal failed"}`
-	}
-	return string(b)
 }

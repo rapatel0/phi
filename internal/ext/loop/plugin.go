@@ -11,6 +11,7 @@ import (
 	"github.com/rapatel0/alpha/internal/llm"
 	"github.com/rapatel0/alpha/internal/permission"
 	"github.com/rapatel0/alpha/internal/tools"
+	"github.com/rapatel0/alpha/internal/util"
 )
 
 func init() { ext.Register(&Plugin{}) }
@@ -137,7 +138,7 @@ func (p *Plugin) loopCreateTool() tools.Tool {
 			if err != nil {
 				return tools.Result{}, err
 			}
-			body := mustJSON(map[string]any{
+			body := util.MustJSON(map[string]any{
 				"id": l.ID, "schedule": sched.String(),
 				"nextAt": l.NextAt.Format(time.RFC3339), "maxFires": l.MaxFires,
 			})
@@ -178,7 +179,7 @@ func (p *Plugin) loopListTool() tools.Tool {
 				}
 				out = append(out, entry)
 			}
-			body := mustJSON(map[string]any{"loops": out})
+			body := util.MustJSON(map[string]any{"loops": out})
 			return tools.Result{Content: body, Detail: fmt.Sprintf("%d loops", len(out)), Output: body}, nil
 		},
 	}
@@ -224,7 +225,7 @@ func (p *Plugin) loopUpdateTool() tools.Tool {
 			if err != nil {
 				return tools.Result{}, err
 			}
-			body := mustJSON(map[string]any{"id": l.ID, "state": string(l.State)})
+			body := util.MustJSON(map[string]any{"id": l.ID, "state": string(l.State)})
 			return tools.Result{Content: body, Detail: l.ID + " " + string(l.State), Output: body}, nil
 		},
 	}
@@ -257,7 +258,7 @@ func (p *Plugin) loopDeleteTool() tools.Tool {
 			if err := p.store.Remove(in.ID); err != nil {
 				return tools.Result{}, err
 			}
-			body := mustJSON(map[string]any{"deleted": in.ID})
+			body := util.MustJSON(map[string]any{"deleted": in.ID})
 			return tools.Result{Content: body, Detail: in.ID, Output: body}, nil
 		},
 	}
@@ -294,7 +295,7 @@ func (p *Plugin) monitorCreateTool() tools.Tool {
 			if err != nil {
 				return tools.Result{}, err
 			}
-			body := mustJSON(map[string]any{"id": mon.ID, "state": string(mon.State), "command": mon.Command})
+			body := util.MustJSON(map[string]any{"id": mon.ID, "state": string(mon.State), "command": mon.Command})
 			return tools.Result{Content: body, Detail: mon.ID + " started", Output: body}, nil
 		},
 	}
@@ -321,7 +322,7 @@ func (p *Plugin) monitorListTool() tools.Tool {
 				}
 				out = append(out, entry)
 			}
-			body := mustJSON(map[string]any{"monitors": out})
+			body := util.MustJSON(map[string]any{"monitors": out})
 			return tools.Result{
 				Content: body,
 				Detail:  fmt.Sprintf("%d running", p.monitors.Running()),
@@ -366,7 +367,7 @@ func (p *Plugin) monitorLogsTool() tools.Tool {
 			if err != nil {
 				return tools.Result{}, err
 			}
-			body := mustJSON(map[string]any{
+			body := util.MustJSON(map[string]any{
 				"id": mon.ID, "state": string(mon.State),
 				"exitCode": mon.ExitCode, "output": mon.Tail(in.Lines),
 			})
@@ -405,13 +406,8 @@ func (p *Plugin) monitorStopTool() tools.Tool {
 			if err := p.monitors.Stop(in.ID); err != nil {
 				return tools.Result{}, err
 			}
-			body := mustJSON(map[string]any{"stopped": in.ID})
+			body := util.MustJSON(map[string]any{"stopped": in.ID})
 			return tools.Result{Content: body, Detail: in.ID + " stopped", Output: body}, nil
 		},
 	}
-}
-
-func mustJSON(v any) string {
-	b, _ := json.Marshal(v)
-	return string(b)
 }

@@ -16,6 +16,7 @@ import (
 	"github.com/rapatel0/alpha/internal/hooks"
 	"github.com/rapatel0/alpha/internal/mcp"
 	"github.com/rapatel0/alpha/internal/session"
+	"github.com/rapatel0/alpha/internal/util"
 )
 
 // runOptions holds parsed `alpha run` flags.
@@ -188,9 +189,9 @@ func runLoop(ctx context.Context, engine *agent.Engine, opts runOptions) int {
 				}
 			case session.ToolData:
 				r := e.Run
-				fmt.Fprintf(os.Stderr, "tool: %s [%s] %s\n", r.Name, r.Status, truncate(r.Detail, 100))
+				fmt.Fprintf(os.Stderr, "tool: %s [%s] %s\n", r.Name, r.Status, util.Truncate(r.Detail, 100))
 				if r.Error != "" {
-					fmt.Fprintln(os.Stderr, "  ", truncate(r.Error, 200))
+					fmt.Fprintln(os.Stderr, "  ", util.Truncate(r.Error, 200))
 				}
 			}
 		}
@@ -482,11 +483,4 @@ func classifyRunError(err error) int {
 		return ExitMaxRounds
 	}
 	return ExitError
-}
-
-func truncate(s string, n int) string {
-	if len(s) <= n {
-		return s
-	}
-	return s[:n] + "…"
 }

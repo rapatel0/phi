@@ -13,6 +13,7 @@ import (
 
 	"github.com/rapatel0/alpha/internal/job"
 	"github.com/rapatel0/alpha/internal/llm"
+	"github.com/rapatel0/alpha/internal/util"
 )
 
 const agentSummaryLimit = 12000 // bytes, keep parent context small
@@ -130,7 +131,7 @@ Starts asynchronously and returns job_id immediately. Use agent_wait for the sum
 			if err != nil {
 				return tooldef.Result{}, err
 			}
-			body := mustJSON(map[string]any{
+			body := util.MustJSONIndent(map[string]any{
 				"job_id":      info.ID,
 				"status":      info.Status,
 				"role":        info.Role,
@@ -211,7 +212,7 @@ func agentListTool(deps AgentDeps) tooldef.Tool {
 					"dir":         info.Dir,
 				})
 			}
-			body := mustJSON(map[string]any{"jobs": rows, "count": len(rows)})
+			body := util.MustJSONIndent(map[string]any{"jobs": rows, "count": len(rows)})
 			return tooldef.Result{Content: body, Detail: fmt.Sprintf("%d jobs", len(rows)), Output: body}, nil
 		},
 	}
@@ -256,7 +257,7 @@ Use agent_cancel to stop a running job.`,
 				return tooldef.Result{}, err
 			}
 			summary := truncateBytes(res.Summary, agentSummaryLimit)
-			body := mustJSON(map[string]any{
+			body := util.MustJSONIndent(map[string]any{
 				"job_id":      res.Info.ID,
 				"status":      res.Info.Status,
 				"role":        res.Info.Role,
@@ -298,7 +299,7 @@ func agentCancelTool(deps AgentDeps) tooldef.Tool {
 			if err := deps.Manager.HandleCancel(ctx, input); err != nil {
 				return tooldef.Result{}, err
 			}
-			body := mustJSON(map[string]any{"ok": true})
+			body := util.MustJSONIndent(map[string]any{"ok": true})
 			return tooldef.Result{Content: body, Detail: "cancelled", Output: body}, nil
 		},
 	}
@@ -323,14 +324,6 @@ func requireOwned(ctx context.Context, deps AgentDeps, input json.RawMessage) er
 		return fmt.Errorf("job %s not found", in.JobID)
 	}
 	return nil
-}
-
-func mustJSON(v any) string {
-	b, err := json.MarshalIndent(v, "", "  ")
-	if err != nil {
-		return fmt.Sprintf("%v", v)
-	}
-	return string(b)
 }
 
 func truncateBytes(s string, n int) string {

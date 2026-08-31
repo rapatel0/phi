@@ -12,6 +12,7 @@ import (
 	"github.com/rapatel0/alpha/internal/ext"
 	"github.com/rapatel0/alpha/internal/llm"
 	"github.com/rapatel0/alpha/internal/tools"
+	"github.com/rapatel0/alpha/internal/util"
 )
 
 func init() { ext.Register(Plugin{}) }
@@ -83,7 +84,7 @@ func (Plugin) Register(h *ext.Host) error {
 				}
 			}
 			mu.Unlock()
-			body := mustJSON(map[string]any{"ok": true, "count": n, "completed": done})
+			body := util.MustJSON(map[string]any{"ok": true, "count": n, "completed": done})
 			return tools.Result{Content: body, Detail: fmt.Sprintf("%d/%d done", done, n), Output: body}, nil
 		},
 	})
@@ -102,11 +103,6 @@ func (Plugin) Register(h *ext.Host) error {
 		return fmt.Sprintf("%d/%d todos", done, len(items))
 	})
 	return nil
-}
-
-func mustJSON(v any) string {
-	b, _ := json.Marshal(v)
-	return string(b)
 }
 
 // Snapshot is for tests.

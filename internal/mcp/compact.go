@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"sort"
 	"strings"
+
+	"github.com/rapatel0/alpha/internal/util"
 )
 
 // CompactServerList returns space-separated server names.
@@ -34,7 +36,7 @@ func SlimTool(t ToolDef) string {
 	b.WriteString(t.Name)
 	if t.Description != "" {
 		b.WriteString(" — ")
-		b.WriteString(truncate(t.Description, 120))
+		b.WriteString(util.Truncate(t.Description, 120))
 	}
 	props, required := schemaProps(t.InputSchema)
 	if len(props) == 0 {
