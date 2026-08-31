@@ -142,6 +142,7 @@ func NewController(bus *Bus, proj *project.Project, cwd string) (*Controller, er
 	ext.Default().SetQuestionAsker(c.askQuestion)
 	ext.Default().SetSideChannel(c.startSide)
 	ext.Default().SetWake(c.wake)
+	ext.Default().SetCompact(c.compactNow)
 	c.startBackgroundExtensions()
 	c.emitSessionStart("startup", eng.SessionID(), "")
 	return c, nil
@@ -420,6 +421,13 @@ func (c *Controller) wake(text string) error {
 	}
 	c.publish(SubmitMsg{Text: text})
 	return nil
+}
+
+func (c *Controller) compactNow(ctx context.Context) error {
+	if c == nil || c.engine == nil {
+		return errors.New("agent not configured")
+	}
+	return c.engine.CompactNow(ctx)
 }
 
 // startBackgroundExtensions hands the permission gate to extensions that own

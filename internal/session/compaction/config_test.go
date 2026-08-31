@@ -42,3 +42,17 @@ func TestLoadConfigEnabledFalse(t *testing.T) {
 		t.Fatal("index.enabled should be false")
 	}
 }
+
+func TestEnsureGlobalConfig(t *testing.T) {
+	dir := t.TempDir()
+	t.Setenv("ALPHA_VCC_DIR", dir)
+	if err := EnsureGlobalConfig(); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat(filepath.Join(dir, "config.json")); err != nil {
+		t.Fatal(err)
+	}
+	if err := EnsureGlobalConfig(); err != nil {
+		t.Fatal(err)
+	}
+}

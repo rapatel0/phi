@@ -1,6 +1,7 @@
 package ext
 
 import (
+	"context"
 	"errors"
 	"testing"
 
@@ -70,5 +71,17 @@ func TestWakeOnNilHost(t *testing.T) {
 	var h *Host
 	if err := h.Wake("x"); err == nil {
 		t.Fatal("want an error on a nil host")
+	}
+}
+
+func TestCompactReachesTheShell(t *testing.T) {
+	h := NewHost()
+	called := false
+	h.SetCompact(func(context.Context) error { called = true; return nil })
+	if err := h.Compact(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	if !called {
+		t.Fatal("compact func not called")
 	}
 }

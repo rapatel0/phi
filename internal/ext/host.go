@@ -50,6 +50,7 @@ type Host struct {
 	onPrompt     []PromptFunc
 	side         SideFunc
 	wake         WakeFunc
+	compact      CompactFunc
 	background   []Background
 }
 
@@ -59,6 +60,9 @@ type Host struct {
 // somehow, and only the shell owns the input path. The TUI supplies this, the
 // same way it supplies the side channel.
 type WakeFunc func(text string) error
+
+// CompactFunc runs one VCC compaction pass.
+type CompactFunc func(ctx context.Context) error
 
 // SideRequest asks for one side conversation: a sub-agent run that does not
 // enter the main thread's context.
@@ -85,6 +89,9 @@ var errNoSideChannel = errors.New(
 
 var errNoWake = errors.New(
 	"scheduled work needs the interactive shell: nothing is listening for a turn")
+
+var errNoCompact = errors.New(
+	"vcc-compact needs the interactive shell")
 
 var defaultHost = NewHost()
 
@@ -238,6 +245,30 @@ func (h *Host) SetWake(fn WakeFunc) {
 	h.mu.Lock()
 	defer h.mu.Unlock()
 	h.wake = fn
+}
+
+// SetCompact installs the compaction runner. The TUI provides it.
+func (h *Host) SetCompact(fn CompactFunc) {
+	if h == nil {
+		return
+	}
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	h.compact = fn
+}
+
+// Compact runs one VCC compaction pass.
+func (h *Host) Compact(ctx context.Context) error {
+	if h == nil {
+		return errNoCompact
+	}
+	h.mu.Lock()
+	fn := h.compact
+	h.mu.Unlock()
+	if fn == nil {
+		return errNoCompact
+	}
+	return fn(ctx)
 }
 
 // Wake starts a turn with text the user did not type.

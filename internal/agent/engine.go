@@ -530,6 +530,26 @@ func (engine *Engine) maybeCompact(
 	if engine.client == nil || !compaction.ShouldCompact(usage, engine.contextWindow, settings) {
 		return nil
 	}
+	return engine.doCompact(ctx, yield, usage)
+}
+
+// CompactNow runs VCC compaction even when the window is not full.
+func (engine *Engine) CompactNow(ctx context.Context) error {
+	if engine == nil || engine.client == nil || engine.session == nil {
+		return errors.New("agent not configured")
+	}
+	return engine.doCompact(ctx, func(session.Event, error) bool { return true }, 0)
+}
+
+func (engine *Engine) doCompact(
+	ctx context.Context,
+	yield func(session.Event, error) bool,
+	usage int,
+) error {
+	if yield == nil {
+		yield = func(session.Event, error) bool { return true }
+	}
+	settings := compaction.DefaultSettings()
 	prep, err := compaction.PrepareCompact(engine.session.PathEntries(), settings)
 	if err != nil {
 		return err

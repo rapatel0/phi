@@ -81,6 +81,25 @@ func ConfigPath() string {
 	return filepath.Join(dir, "config.json")
 }
 
+// EnsureGlobalConfig writes the default config when the file is missing.
+func EnsureGlobalConfig() error {
+	path := ConfigPath()
+	if path == "" {
+		return nil
+	}
+	if _, err := os.Stat(path); err == nil {
+		return nil
+	}
+	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+		return err
+	}
+	raw, err := json.MarshalIndent(defaultConfig(), "", "  ")
+	if err != nil {
+		return err
+	}
+	return os.WriteFile(path, append(raw, '\n'), 0o644)
+}
+
 // LoadConfig reads the global config. Missing files use defaults.
 func LoadConfig() Config {
 	cfg := defaultConfig()

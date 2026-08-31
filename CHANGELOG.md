@@ -15,6 +15,8 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
   override that. OpenAI `/responses/compact` is fallback only.
   A deterministic JSON ledger lives under `~/.alpha/vcc-llm-compaction/`.
   `vcc_recall` searches raw history and that ledger.
+  `/vcc-compact`, `/vcc-recall`, and `/vcc-index` are the matching slash
+  commands.
 - `agent_spawn` requires `description`, a short label for TASKS and the child
   view. An empty value fails so the model retries with one.
 - Shortcuts live in one table (`MacKeymap` / `UnixKeymap`). macOS uses Cmd.

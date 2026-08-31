@@ -14,4 +14,5 @@ import (
 	_ "github.com/rapatel0/alpha/internal/ext/todo"
 	_ "github.com/rapatel0/alpha/internal/ext/tokenspeed"
 	_ "github.com/rapatel0/alpha/internal/ext/toolstats"
+	_ "github.com/rapatel0/alpha/internal/ext/vcc"
 )

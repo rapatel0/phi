@@ -22,6 +22,7 @@ Your `~/.pi/agent/settings.json` packages:
 | `pi-auto-router` | — | Slot: `internal/ext/router` later |
 | `pi-output-styles` | `internal/ext/outputstyle` | `/style` selects, lists, or clears |
 | `pi-blackhole` | session compaction | Observational memory not ported |
+| `pi-vcc-llm-compaction` | `internal/ext/vcc` + session compaction | VCC evidence, ledger, `/vcc-compact` |
 | `pi-background-tasks` | `agent_spawn` jobs | No separate durable bash task manager |
 | `@juicesharp/rpiv-ask-user-question` | `internal/ext/askuser` → `ask_user_question` | Overlay in composer slot |
 | `@juicesharp/rpiv-todo` | `internal/ext/todo` → `todo_write` | Footer `n/m todos` |
