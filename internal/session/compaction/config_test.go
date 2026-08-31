@@ -29,7 +29,7 @@ func TestResolveCompactorOrder(t *testing.T) {
 
 func TestLoadConfigEnabledFalse(t *testing.T) {
 	dir := t.TempDir()
-	t.Setenv("ALPHA_VCC_DIR", dir)
+	t.Setenv("ALPHA_COMPACT_DIR", dir)
 	path := filepath.Join(dir, "config.json")
 	if err := os.WriteFile(path, []byte(`{"enabled":false,"index":{"enabled":false}}`), 0o644); err != nil {
 		t.Fatal(err)
@@ -45,7 +45,7 @@ func TestLoadConfigEnabledFalse(t *testing.T) {
 
 func TestEnsureGlobalConfig(t *testing.T) {
 	dir := t.TempDir()
-	t.Setenv("ALPHA_VCC_DIR", dir)
+	t.Setenv("ALPHA_COMPACT_DIR", dir)
 	if err := EnsureGlobalConfig(); err != nil {
 		t.Fatal(err)
 	}
@@ -56,3 +56,24 @@ func TestEnsureGlobalConfig(t *testing.T) {
 		t.Fatal(err)
 	}
 }
+
+func TestLoadConfigThresholdPercent(t *testing.T) {
+	dir := t.TempDir()
+	t.Setenv("ALPHA_COMPACT_DIR", dir)
+	path := filepath.Join(dir, "config.json")
+	if err := os.WriteFile(path, []byte(`{"thresholdPercent":80}`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	cfg := LoadConfig()
+	if cfg.ThresholdPercent != 80 {
+		t.Fatalf("percent=%d", cfg.ThresholdPercent)
+	}
+	settings := DefaultSettings().WithThresholdPercent(cfg.ThresholdPercent)
+	if ShouldCompact(79, 100, settings) {
+		t.Fatal("79 of 80 must not compact")
+	}
+	if !ShouldCompact(80, 100, settings) {
+		t.Fatal("80 of 80 must compact")
+	}
+}
+

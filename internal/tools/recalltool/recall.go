@@ -1,4 +1,4 @@
-package vcctool
+package recalltool
 
 import (
 	"context"
@@ -17,15 +17,15 @@ type EntriesFunc func() []session.MessageEntry
 // SessionIDFunc returns the current session id for ledger recall.
 type SessionIDFunc func() string
 
-// Tool searches raw session history and the deterministic VCC ledger.
+// Tool searches raw session history and the deterministic history ledger.
 func Tool(entries EntriesFunc, sessionID SessionIDFunc) tooldef.Tool {
 	return tooldef.Tool{
 		Definition: llm.ToolDefinition{
-			Name: "vcc_recall",
+			Name: "recall",
 			Description: `Search raw session history after compaction.
 
 Use a phrase to find matching messages. Use #N to expand hit N from a prior search.
-Also searches the derived VCC ledger when indexing is on.`,
+Also searches the derived history ledger when indexing is on.`,
 			Params: &llm.FunctionParameters{
 				Type: "object",
 				Properties: llm.Object{

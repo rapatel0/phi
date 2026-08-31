@@ -6,6 +6,7 @@ package main
 import (
 	_ "github.com/rapatel0/alpha/internal/ext/askuser"
 	_ "github.com/rapatel0/alpha/internal/ext/btw"
+	_ "github.com/rapatel0/alpha/internal/ext/compact"
 	_ "github.com/rapatel0/alpha/internal/ext/goal"
 	_ "github.com/rapatel0/alpha/internal/ext/lens"
 	_ "github.com/rapatel0/alpha/internal/ext/loop"
@@ -14,5 +15,4 @@ import (
 	_ "github.com/rapatel0/alpha/internal/ext/todo"
 	_ "github.com/rapatel0/alpha/internal/ext/tokenspeed"
 	_ "github.com/rapatel0/alpha/internal/ext/toolstats"
-	_ "github.com/rapatel0/alpha/internal/ext/vcc"
 )

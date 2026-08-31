@@ -10,13 +10,13 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ### Changed
 
-- Session compaction selects VCC evidence, then asks the current model
-  for a continuation handoff. A global or per-model compact model can
-  override that. OpenAI `/responses/compact` is fallback only.
-  A deterministic JSON ledger lives under `~/.alpha/vcc-llm-compaction/`.
-  `vcc_recall` searches raw history and that ledger.
-  `/vcc-compact`, `/vcc-recall`, and `/vcc-index` are the matching slash
-  commands.
+- Session compaction is a hybrid: evidence selection, then an LLM
+  handoff. Autocompact runs at 95% of the context window
+  (`thresholdPercent` in `~/.alpha/compaction/config.json`). A global
+  or per-model compact model can override the session model. OpenAI
+  `/responses/compact` is fallback only. `/compact` and `/recall` are
+  the slash commands. The `recall` tool searches raw history and the
+  ledger.
 - `agent_spawn` requires `description`, a short label for TASKS and the child
   view. An empty value fails so the model retries with one.
 - Shortcuts live in one table (`MacKeymap` / `UnixKeymap`). macOS uses Cmd.

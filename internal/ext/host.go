@@ -61,7 +61,7 @@ type Host struct {
 // same way it supplies the side channel.
 type WakeFunc func(text string) error
 
-// CompactFunc runs one VCC compaction pass.
+// CompactFunc runs one compaction pass.
 type CompactFunc func(ctx context.Context) error
 
 // SideRequest asks for one side conversation: a sub-agent run that does not
@@ -91,7 +91,7 @@ var errNoWake = errors.New(
 	"scheduled work needs the interactive shell: nothing is listening for a turn")
 
 var errNoCompact = errors.New(
-	"vcc-compact needs the interactive shell")
+	"compact needs the interactive shell")
 
 var defaultHost = NewHost()
 
@@ -257,7 +257,7 @@ func (h *Host) SetCompact(fn CompactFunc) {
 	h.compact = fn
 }
 
-// Compact runs one VCC compaction pass.
+// Compact runs one compaction pass.
 func (h *Host) Compact(ctx context.Context) error {
 	if h == nil {
 		return errNoCompact

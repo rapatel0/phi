@@ -21,7 +21,7 @@ import (
 	"github.com/rapatel0/alpha/internal/session"
 	"github.com/rapatel0/alpha/internal/session/compaction"
 	"github.com/rapatel0/alpha/internal/tools"
-	"github.com/rapatel0/alpha/internal/tools/vcctool"
+	"github.com/rapatel0/alpha/internal/tools/recalltool"
 )
 
 // ErrMaxRounds is returned (wrapped) by Loop when the model exceeds the
@@ -134,7 +134,7 @@ func (engine *Engine) buildToolList(base []tools.Tool) []tools.Tool {
 	out := base
 	if engine.session != nil {
 		sess := engine.session
-		out = append(append([]tools.Tool{}, out...), vcctool.Tool(sess.PathEntries, sess.ID))
+		out = append(append([]tools.Tool{}, out...), recalltool.Tool(sess.PathEntries, sess.ID))
 	}
 	if extra := ext.Default().Tools(); len(extra) > 0 {
 		merged := make([]tools.Tool, 0, len(out)+len(extra))
@@ -526,14 +526,14 @@ func (engine *Engine) maybeCompact(
 	yield func(session.Event, error) bool,
 	usage int,
 ) error {
-	settings := compaction.DefaultSettings()
+	settings := compaction.DefaultSettings().WithThresholdPercent(compaction.LoadConfig().ThresholdPercent)
 	if engine.client == nil || !compaction.ShouldCompact(usage, engine.contextWindow, settings) {
 		return nil
 	}
 	return engine.doCompact(ctx, yield, usage)
 }
 
-// CompactNow runs VCC compaction even when the window is not full.
+// CompactNow runs hybrid compaction even when the window is not full.
 func (engine *Engine) CompactNow(ctx context.Context) error {
 	if engine == nil || engine.client == nil || engine.session == nil {
 		return errors.New("agent not configured")

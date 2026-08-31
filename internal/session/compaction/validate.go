@@ -3,7 +3,7 @@ package compaction
 import "strings"
 
 const (
-	recallHeading    = "## VCC Recall Index"
+	recallHeading    = "## Recall Index"
 	toolStateHeading = "## Tool and File State"
 	verbatimHeading  = "## Verbatim Last Pre-Compaction Message"
 )
@@ -52,7 +52,7 @@ func insertRecallIndex(summary, sessionID, sessionFile string) string {
 	if led == "" {
 		led = "Unknown"
 	}
-	section := recallHeading + "\n- Tool: `vcc_recall`\n- Raw session source: `" + raw + "`\n- Derived VCC ledger: `" + led + "`"
+	section := recallHeading + "\n- Tool: `recall`\n- Raw session source: `" + raw + "`\n- Derived ledger: `" + led + "`"
 	if strings.Contains(summary, toolStateHeading) {
 		return strings.Replace(summary, toolStateHeading, section+"\n\n"+toolStateHeading, 1)
 	}

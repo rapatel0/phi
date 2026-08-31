@@ -1,4 +1,4 @@
-package vcc
+package compact
 
 import (
 	"context"
@@ -8,7 +8,7 @@ import (
 )
 
 func TestCommandsStatusAndIndex(t *testing.T) {
-	t.Setenv("ALPHA_VCC_DIR", t.TempDir())
+	t.Setenv("ALPHA_COMPACT_DIR", t.TempDir())
 	h := ext.NewHost()
 	p := &Plugin{}
 	if err := p.Register(h); err != nil {
@@ -18,7 +18,7 @@ func TestCommandsStatusAndIndex(t *testing.T) {
 	if err != nil || res.Toast == "" {
 		t.Fatalf("status: %+v %v", res, err)
 	}
-	res, err = p.runIndex(context.Background(), []string{"rebuild"})
+	res, err = p.runCompact(context.Background(), []string{"index", "rebuild"})
 	if err != nil || res.Toast == "" {
 		t.Fatalf("index: %+v %v", res, err)
 	}

@@ -25,7 +25,7 @@ type LedgerCompaction struct {
 	SummaryHash      string   `json:"summaryHash"`
 }
 
-// SessionLedger is the derived VCC index. Raw session JSONL stays source of truth.
+// SessionLedger is the derived history index. Raw session JSONL stays source of truth.
 type SessionLedger struct {
 	Version     int                `json:"version"`
 	SessionID   string             `json:"sessionId"`
@@ -35,9 +35,9 @@ type SessionLedger struct {
 	Compactions []LedgerCompaction `json:"compactions"`
 }
 
-// LedgerPath is ~/.alpha/vcc-llm-compaction/sessions/<id>.json.
+// LedgerPath is ~/.alpha/compaction/sessions/<id>.json.
 func LedgerPath(sessionID string) string {
-	dir := vccDir()
+	dir := compactDir()
 	if dir == "" || sessionID == "" {
 		return ""
 	}

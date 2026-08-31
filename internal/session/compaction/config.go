@@ -24,7 +24,7 @@ type CompactorSpec struct {
 	APIKeyEnv string `json:"api_key_env,omitempty"`
 }
 
-// Config controls VCC compaction. Missing fields keep the defaults.
+// Config controls hybrid compaction. Missing fields keep the defaults.
 type Config struct {
 	Enabled                bool                     `json:"enabled"`
 	Transport              string                   `json:"transport"`
@@ -34,10 +34,11 @@ type Config struct {
 	MaxInputTokens         int                      `json:"maxInputTokens"`
 	MaxOutputTokens        int                      `json:"maxOutputTokens"`
 	TimeoutMs              int                      `json:"timeoutMs"`
+	ThresholdPercent       int                      `json:"thresholdPercent"`
 	Index                  IndexConfig              `json:"index"`
 }
 
-// IndexConfig is the deterministic VCC ledger. It is not an LLM.
+// IndexConfig is the deterministic history ledger. It is not an LLM.
 type IndexConfig struct {
 	Enabled          bool `json:"enabled"`
 	MaxSearchResults int  `json:"maxSearchResults"`
@@ -51,9 +52,10 @@ func defaultConfig() Config {
 			"https://api.openai.com",
 			"https://chatgpt.com",
 		},
-		MaxInputTokens:  24000,
-		MaxOutputTokens: 5000,
-		TimeoutMs:       120000,
+		MaxInputTokens:   24000,
+		MaxOutputTokens:  5000,
+		TimeoutMs:        120000,
+		ThresholdPercent: 95,
 		Index: IndexConfig{
 			Enabled:          true,
 			MaxSearchResults: 10,
@@ -61,20 +63,20 @@ func defaultConfig() Config {
 	}
 }
 
-func vccDir() string {
-	if d := strings.TrimSpace(os.Getenv("ALPHA_VCC_DIR")); d != "" {
+func compactDir() string {
+	if d := strings.TrimSpace(os.Getenv("ALPHA_COMPACT_DIR")); d != "" {
 		return d
 	}
 	home, err := os.UserHomeDir()
 	if err != nil {
 		return ""
 	}
-	return filepath.Join(brand.HomeDir(home), "vcc-llm-compaction")
+	return filepath.Join(brand.HomeDir(home), "compaction")
 }
 
-// ConfigPath is ~/.alpha/vcc-llm-compaction/config.json.
+// ConfigPath is ~/.alpha/compaction/config.json.
 func ConfigPath() string {
-	dir := vccDir()
+	dir := compactDir()
 	if dir == "" {
 		return ""
 	}
@@ -122,6 +124,7 @@ func LoadConfig() Config {
 	applyJSON(&cfg.MaxInputTokens, file["maxInputTokens"])
 	applyJSON(&cfg.MaxOutputTokens, file["maxOutputTokens"])
 	applyJSON(&cfg.TimeoutMs, file["timeoutMs"])
+	applyJSON(&cfg.ThresholdPercent, file["thresholdPercent"])
 	if v, ok := file["enabled"]; ok {
 		_ = json.Unmarshal(v, &cfg.Enabled)
 	}
@@ -150,6 +153,12 @@ func LoadConfig() Config {
 	}
 	if cfg.Transport == "" {
 		cfg.Transport = transportAuto
+	}
+	if cfg.ThresholdPercent <= 0 {
+		cfg.ThresholdPercent = 95
+	}
+	if cfg.ThresholdPercent > 100 {
+		cfg.ThresholdPercent = 100
 	}
 	return cfg
 }

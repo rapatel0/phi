@@ -1,4 +1,4 @@
-package vcctool
+package recalltool
 
 import (
 	"context"
@@ -16,7 +16,7 @@ func TestRecallToolFindsHistory(t *testing.T) {
 		},
 	}
 	tl := Tool(func() []session.MessageEntry { return entries }, nil)
-	if tl.Definition.Name != "vcc_recall" {
+	if tl.Definition.Name != "recall" {
 		t.Fatalf("name=%s", tl.Definition.Name)
 	}
 	res, err := tl.Run(context.Background(), []byte(`{"query":"toast"}`))

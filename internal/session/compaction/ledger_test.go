@@ -3,7 +3,7 @@ package compaction
 import "testing"
 
 func TestLedgerRoundTrip(t *testing.T) {
-	t.Setenv("ALPHA_VCC_DIR", t.TempDir())
+	t.Setenv("ALPHA_COMPACT_DIR", t.TempDir())
 	recs := []CanonicalRecord{{
 		EntryID: "e1",
 		Role:    "user",

@@ -4,30 +4,50 @@ package compaction
 // thresholds used to decide when to compact.
 type Settings struct {
 	enabled          bool
-	reverseTokens    int
+	compactPercent   int
 	keepRecentTokens int
 }
 
 var defaultSettings = Settings{
 	enabled:          true,
-	reverseTokens:    16384,
+	compactPercent:   95,
 	keepRecentTokens: 20000,
 }
 
-// DefaultSettings returns the default compaction settings for use by callers outside this package.
+// DefaultSettings returns the 95% autocompact defaults.
 func DefaultSettings() Settings {
 	return defaultSettings
 }
 
-// ShouldCompact reports whether contextTokens warrants compaction given
-// contextWindow and settings.
+// WithThresholdPercent returns a copy that compacts at pct of the window.
+func (s Settings) WithThresholdPercent(pct int) Settings {
+	if pct > 0 {
+		s.compactPercent = clampPercent(pct)
+	}
+	return s
+}
+
+func clampPercent(pct int) int {
+	if pct < 1 {
+		return 1
+	}
+	if pct > 100 {
+		return 100
+	}
+	return pct
+}
+
+// ShouldCompact reports whether contextTokens has reached compactPercent of
+// the context window (default 95%).
 func ShouldCompact(contextTokens, contextWindow int, settings Settings) bool {
 	if !settings.enabled || contextWindow <= 0 {
 		return false
 	}
-
-	// Keep `reverseTokens` headroom from the context window. When current usage
-	// exceeds (contextWindow - reverseTokens), we should compact.
-	threshold := max(contextWindow-settings.reverseTokens, 0)
-	return contextTokens > threshold
+	pct := settings.compactPercent
+	if pct <= 0 {
+		pct = 95
+	}
+	pct = clampPercent(pct)
+	threshold := contextWindow * pct / 100
+	return contextTokens >= threshold
 }

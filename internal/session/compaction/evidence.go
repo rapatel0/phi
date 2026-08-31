@@ -9,7 +9,7 @@ import (
 
 const defaultEvidenceTokens = 24000
 
-// SourceMessage is one transcript excerpt for VCC evidence selection.
+// SourceMessage is one transcript excerpt for evidence selection.
 type SourceMessage struct {
 	EntryID string
 	Role    string
@@ -30,7 +30,7 @@ type CanonicalRecord struct {
 	Hash     string
 }
 
-// EvidencePacket is the VCC reducer output.
+// EvidencePacket is the evidence reducer output.
 type EvidencePacket struct {
 	Anchors         []Anchor
 	Records         []CanonicalRecord
@@ -256,7 +256,7 @@ func RenderEvidence(packet EvidencePacket) string {
 	}, "\n")
 }
 
-// SourceFromMessages projects LLM messages into VCC source excerpts.
+// SourceFromMessages projects LLM messages into source excerpts.
 func SourceFromMessages(messages []llm.Message) []SourceMessage {
 	var out []SourceMessage
 	for _, msg := range messages {
