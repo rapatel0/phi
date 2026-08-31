@@ -34,3 +34,29 @@ func TestToastDrawSuccess(t *testing.T) {
 		t.Fatalf("missing checkmark: %q", got)
 	}
 }
+
+func TestToastNilShow(t *testing.T) {
+	var tnil *Toast
+	tnil.Show("x", ToastSuccess, time.Second)
+	if tnil.Visible() {
+		t.Fatal("nil toast must not be visible")
+	}
+}
+
+func TestToastCopyDoesNotShareState(t *testing.T) {
+	orig := Toast{Theme: components.DefaultTheme()}
+	cp := orig
+	cp.Show("copied", ToastSuccess, time.Minute)
+	if orig.Visible() {
+		t.Fatal("a value copy must not update the original toast")
+	}
+}
+
+func TestToastPointerSharesState(t *testing.T) {
+	orig := Toast{Theme: components.DefaultTheme()}
+	ptr := &orig
+	ptr.Show("shared", ToastSuccess, time.Minute)
+	if !orig.Visible() {
+		t.Fatal("Show on a pointer must update the original toast")
+	}
+}

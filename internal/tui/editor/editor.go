@@ -147,14 +147,14 @@ func NewEditor(
 		CWD:      e.cwd,
 		Composer: e.composer,
 		Footer:   e.footer,
-		Toast:    e.toast,
+		Toast:    &e.toast,
 		Publish:  e.Publish,
 	}
 	e.sessions = commands.NewSessionCommands(
 		e.ctrl,
 		e.transcript,
 		e.footer,
-		e.toast,
+		&e.toast,
 		e.hookCmds.Sync,
 	)
 	e.sessions.OnAbandonAttach = e.abandonAttach
@@ -191,7 +191,7 @@ func NewEditor(
 	)
 	e.hookCmds.Submitter = e.submitter
 	bridge = newCommandBridge(
-		e.toast,
+		&e.toast,
 		e.composer,
 		e.transcript,
 		e.ctrl,
@@ -886,7 +886,7 @@ func (e *Editor) SubmitPrompt(text string) {
 }
 
 type commandBridge struct {
-	toast      toast.Toast
+	toast      *toast.Toast
 	composer   *composer.ComposerPane
 	transcript *transcript.TranscriptPane
 	ctrl       *controller.Controller
@@ -908,7 +908,7 @@ type commandBridge struct {
 }
 
 func newCommandBridge(
-	toast toast.Toast,
+	toast *toast.Toast,
 	composer *composer.ComposerPane,
 	transcript *transcript.TranscriptPane,
 	ctrl *controller.Controller,

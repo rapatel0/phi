@@ -29,6 +29,9 @@ type Toast struct {
 
 // Show displays message for d (default 2s).
 func (t *Toast) Show(message string, kind ToastKind, d time.Duration) {
+	if t == nil {
+		return
+	}
 	if d <= 0 {
 		d = 2 * time.Second
 	}
@@ -39,12 +42,18 @@ func (t *Toast) Show(message string, kind ToastKind, d time.Duration) {
 
 // Clear hides the toast immediately.
 func (t *Toast) Clear() {
+	if t == nil {
+		return
+	}
 	t.Message = ""
 	t.Until = time.Time{}
 }
 
 // Visible reports whether the toast should be drawn.
 func (t *Toast) Visible() bool {
+	if t == nil {
+		return false
+	}
 	return t.Message != "" && time.Now().Before(t.Until)
 }
 

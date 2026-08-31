@@ -42,6 +42,8 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ### Fixed
 
+- Palette, hook, and session toasts draw again. Those paths copied the
+  toast value, so `Show` never reached the overlay `Draw` paints.
 - `/btw` and other extension slash commands appear at startup. Startup
   loaded disk hooks only. A reload had to run before the picker saw them.
 - The skills palette follows a symlink skills directory. `~/.agents/skills`

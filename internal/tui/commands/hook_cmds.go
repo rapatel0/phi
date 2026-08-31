@@ -35,7 +35,7 @@ type HookCommands struct {
 	Composer   hookComposer
 	Footer     hookFooter
 	Submitter  hookSubmitter
-	Toast      toast.Toast
+	Toast      *toast.Toast
 	Publish    func(controller.Msg)
 	CommandCtx func() CommandContext
 

@@ -18,7 +18,7 @@ type SessionCommands struct {
 	Ctrl            *controller.Controller
 	Transcript      *transcript.TranscriptPane
 	Footer          *footer.FooterChrome
-	Toast           toast.Toast
+	Toast           *toast.Toast
 	SyncHooks       func()
 	OnAbandonAttach func() // drop sub-agent focus before resume/clear
 	// ShowPicker opens the session tree dialog. The editor supplies it; when
@@ -31,7 +31,7 @@ func NewSessionCommands(
 	ctrl *controller.Controller,
 	transcript *transcript.TranscriptPane,
 	footer *footer.FooterChrome,
-	toast toast.Toast,
+	toast *toast.Toast,
 	syncHooks func(),
 ) *SessionCommands {
 	return &SessionCommands{
