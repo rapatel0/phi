@@ -65,9 +65,13 @@ type Editor struct {
 	modelNames []string
 	skillPath  string
 
-	sessions  *commands.SessionCommands
-	hookCmds  *commands.HookCommands
-	submitter *submit.Submitter
+	sessions *commands.SessionCommands
+	hookCmds *commands.HookCommands
+
+	recentJobs  []job.Info
+	lastLiveN   int
+	tasksLoaded bool
+	submitter   *submit.Submitter
 }
 
 // NewEditor builds the TUI panes and wires injected collaborators.
@@ -158,6 +162,7 @@ func NewEditor(
 		e.hookCmds.Sync,
 	)
 	e.sessions.OnAbandonAttach = e.abandonAttach
+	e.sessions.OnSessionChange = e.invalidateTaskCache
 	e.sessions.ShowPicker = e.showSessionPicker
 	e.composer.SetSessionOpener(e.sessions.Show)
 
@@ -317,7 +322,11 @@ func (e *Editor) drainBus() {
 			}
 			if attached != "" {
 				if msg.JobID != attached {
-					e.parentMsgs = append(e.parentMsgs, m)
+					// Only parent (empty JobID) events replay after detach.
+					// Sibling child text must not land on the parent transcript.
+					if msg.JobID == "" {
+						e.parentMsgs = append(e.parentMsgs, m)
+					}
 					continue
 				}
 			} else if msg.JobID != "" {
@@ -615,13 +624,50 @@ func attachChromeLabel(info job.Info) string {
 	return "↳ " + title
 }
 
+func (e *Editor) invalidateTaskCache() {
+	if e == nil {
+		return
+	}
+	e.tasksLoaded = false
+}
+
+func (e *Editor) reloadRecentJobs() {
+	if e == nil || e.ctrl == nil {
+		return
+	}
+	recent, _ := e.ctrl.ListJobs(context.Background())
+	e.recentJobs = recent
+}
+
+func (e *Editor) jobInfoCached(id string) (job.Info, bool) {
+	if e == nil || e.ctrl == nil || id == "" {
+		return job.Info{}, false
+	}
+	for _, inf := range e.ctrl.LiveJobs() {
+		if inf.ID == id {
+			return inf, true
+		}
+	}
+	for _, inf := range e.recentJobs {
+		if inf.ID == id {
+			return inf, true
+		}
+	}
+	return job.Info{}, false
+}
+
 func (e *Editor) refreshTasks() {
 	if e == nil || e.tasks == nil || e.ctrl == nil {
 		return
 	}
 	live := e.ctrl.LiveJobs()
-	recent, _ := e.ctrl.ListJobs(context.Background())
-	e.tasks.SetJobs(live, recent)
+	n := len(live)
+	if !e.tasksLoaded || n != e.lastLiveN {
+		e.reloadRecentJobs()
+		e.tasksLoaded = true
+		e.lastLiveN = n
+	}
+	e.tasks.SetJobs(live, e.recentJobs)
 	e.tasks.Attached = e.ctrl.AttachedID()
 }
 
@@ -691,7 +737,7 @@ func (e *Editor) Draw(ctx components.DrawContext) components.Surface {
 	listSurf := e.transcript.Draw(ctx, listW, listH)
 	listH = e.transcript.ListHeight()
 	if e.child != nil {
-		if _, info, err := e.ctrl.ChildSnapshot(e.child.JobID()); err == nil {
+		if info, ok := e.jobInfoCached(e.child.JobID()); ok {
 			e.child.SetInfo(info)
 		}
 		listSurf = e.child.Draw(ctx, listW, listH)

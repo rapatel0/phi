@@ -42,6 +42,9 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ### Fixed
 
+- Draw no longer lists jobs from disk each frame. TASKS reloads when the
+  live count changes or the session switches. The child view title uses
+  cached job info. Sibling child events do not replay onto the parent.
 - `ask_parent` no longer waits for the parent `Loop` to go idle. A parent
   blocked in `agent_wait` answers on a side job. The answer is this turn's
   text, not an older assistant message. A missing job id is an error.

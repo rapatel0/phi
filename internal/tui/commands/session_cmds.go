@@ -21,6 +21,7 @@ type SessionCommands struct {
 	Toast           *toast.Toast
 	SyncHooks       func()
 	OnAbandonAttach func() // drop sub-agent focus before resume/clear
+	OnSessionChange func() // reload TASKS after resume/clear
 	// ShowPicker opens the session tree dialog. The editor supplies it; when
 	// nil, Show falls back to printing the list into the transcript.
 	ShowPicker func([]session.ProjectSessions, string)
@@ -121,6 +122,9 @@ func (s *SessionCommands) Resume(id string) {
 	s.Transcript.LoadReplay(s.Ctrl.ReplaySnapshot())
 	s.Transcript.Sync()
 	s.Transcript.StickToBottom()
+	if s.OnSessionChange != nil {
+		s.OnSessionChange()
+	}
 	if s.Footer != nil {
 		s.Footer.Activity().Apply(controller.ActivityIdle)
 		s.Footer.ClearTokenDisplay()
@@ -157,6 +161,9 @@ func (s *SessionCommands) Clear() {
 	s.Footer.Activity().Apply(controller.ActivityIdle)
 	s.Transcript.Sync()
 	s.Transcript.StickToBottom()
+	if s.OnSessionChange != nil {
+		s.OnSessionChange()
+	}
 	s.Toast.Show("Cleared "+shortSessionID(s.Ctrl.SessionID()), toast.ToastSuccess, 3*time.Second)
 }
 
