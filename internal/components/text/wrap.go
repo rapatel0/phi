@@ -94,3 +94,89 @@ func SnapSurfaceColToGlyphStart(buf []xui.Cell, rowW, col, row int) int {
 	}
 	return col
 }
+
+// OffsetAtVisual returns the byte offset of (line, col) in wrapped text.
+func OffsetAtVisual(s string, line, col, width int, method xui.WidthMethod) int {
+	ranges := visualLineRanges(s, width, method)
+	if line < 0 {
+		return 0
+	}
+	if line >= len(ranges) {
+		return len(s)
+	}
+	start, end := ranges[line][0], ranges[line][1]
+	if col <= 0 {
+		return start
+	}
+	rest := s[start:end]
+	off := start
+	w := 0
+	for rest != "" {
+		cluster, cw, next := xui.FirstGrapheme(rest, method)
+		if cw < 1 {
+			cw = 1
+		}
+		if w+cw > col {
+			break
+		}
+		off += len(cluster)
+		w += cw
+		rest = next
+	}
+	return off
+}
+
+func visualLineRanges(s string, width int, method xui.WidthMethod) [][2]int {
+	if width < 1 {
+		width = 1
+	}
+	var out [][2]int
+	i := 0
+	for {
+		j := i
+		for j < len(s) && s[j] != '\n' {
+			j++
+		}
+		para := s[i:j]
+		if para == "" {
+			out = append(out, [2]int{i, i})
+		} else {
+			start := i
+			rest := para
+			for rest != "" {
+				w := 0
+				consumed := 0
+				tmp := rest
+				for tmp != "" {
+					cluster, cw, next := xui.FirstGrapheme(tmp, method)
+					if cw < 1 {
+						cw = 1
+					}
+					if w+cw > width && w > 0 {
+						break
+					}
+					consumed += len(cluster)
+					w += cw
+					tmp = next
+					if w >= width {
+						break
+					}
+				}
+				if consumed == 0 {
+					break
+				}
+				out = append(out, [2]int{start, start + consumed})
+				rest = rest[consumed:]
+				start += consumed
+			}
+		}
+		if j >= len(s) {
+			break
+		}
+		i = j + 1
+	}
+	if len(out) == 0 {
+		out = [][2]int{{0, 0}}
+	}
+	return out
+}

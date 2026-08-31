@@ -337,10 +337,10 @@ func (p *CommandPalette) Handle(ctx *components.EventContext, ev xui.Event) {
 			if e.Mods.Has(xui.ModAlt) {
 				return
 			}
-			if e.Rune >= 0x20 || e.Rune == '\t' {
-				r := string(e.Rune)
-				p.Query = p.Query[:p.Cursor] + r + p.Query[p.Cursor:]
-				p.Cursor += len(r)
+			if r := components.TypedRune(e); r >= 0x20 || r == '\t' {
+				ch := string(r)
+				p.Query = p.Query[:p.Cursor] + ch + p.Query[p.Cursor:]
+				p.Cursor += len(ch)
 				p.Selected = 0
 				p.refilter()
 				ctx.ConsumeAndRedraw()

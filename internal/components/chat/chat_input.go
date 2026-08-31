@@ -3,7 +3,6 @@ package chat
 import (
 	"slices"
 	"strings"
-	"unicode"
 	"unicode/utf8"
 
 	"github.com/pulseaiclub/xui"
@@ -41,6 +40,9 @@ type ChatInput struct {
 	TextStyle      xui.Style
 	CursorStyle    xui.Style // visual block when terminal cursor unavailable
 	UseBlockCursor bool      // paint reverse cell in addition to terminal cursor
+
+	wrapW      int
+	wrapMethod xui.WidthMethod
 
 	// Theme styles the pending-skills chip row (Muted label, Success names).
 	Theme components.Theme
@@ -358,51 +360,7 @@ func (c *ChatInput) Handle(ctx *components.EventContext, ev xui.Event) {
 // reports Shift+minus as '-' plus Shift, not '_'. Use Text when the
 // terminal sent the produced character.
 func typedRune(e xui.KeyEvent) rune {
-	r := e.Rune
-	if e.Text != "" {
-		if tr, _ := utf8.DecodeRuneInString(e.Text); tr >= 0x20 {
-			r = tr
-		}
-	}
-	// Flag 8 reports Shift/Cmd themselves as CSI-u in the private-use range.
-	// Those must not be inserted (Ghostty draws them as "≈").
-	if unicode.Is(unicode.Co, r) || unicode.IsControl(r) {
-		return 0
-	}
-	if !e.Mods.Has(xui.ModShift) {
-		return r
-	}
-	if s, ok := usShift[r]; ok {
-		return s
-	}
-	if r >= 'a' && r <= 'z' {
-		return r - ('a' - 'A')
-	}
-	return r
-}
-
-var usShift = map[rune]rune{
-	'`':  '~',
-	'1':  '!',
-	'2':  '@',
-	'3':  '#',
-	'4':  '$',
-	'5':  '%',
-	'6':  '^',
-	'7':  '&',
-	'8':  '*',
-	'9':  '(',
-	'0':  ')',
-	'-':  '_',
-	'=':  '+',
-	'[':  '{',
-	']':  '}',
-	'\\': '|',
-	';':  ':',
-	'\'': '"',
-	',':  '<',
-	'.':  '>',
-	'/':  '?',
+	return components.TypedRune(e)
 }
 
 func (c *ChatInput) insert(s string) {
@@ -522,26 +480,13 @@ func (c *ChatInput) ReplaceRange(start, end int, text string) {
 }
 
 func (c *ChatInput) moveVert(delta int) {
-	start := lineStart(c.Value, c.Cursor)
-	col := utf8.RuneCountInString(c.Value[start:c.Cursor])
-	if delta < 0 {
-		if start == 0 {
-			c.Cursor = 0
-			return
-		}
-		prevEnd := start - 1 // newline
-		prevStart := lineStart(c.Value, prevEnd)
-		c.Cursor = runeIndex(c.Value[prevStart:prevEnd], col) + prevStart
-		return
+	innerW := c.wrapW
+	if innerW < 1 {
+		innerW = 40
 	}
-	end := lineEnd(c.Value, c.Cursor)
-	if end >= len(c.Value) {
-		c.Cursor = len(c.Value)
-		return
-	}
-	nextStart := end + 1
-	nextEnd := lineEnd(c.Value, nextStart)
-	c.Cursor = runeIndex(c.Value[nextStart:nextEnd], col) + nextStart
+	method := c.wrapMethod
+	line, col := text.CursorLineCol(c.Value, c.Cursor, innerW, method)
+	c.Cursor = text.OffsetAtVisual(c.Value, line+delta, col, innerW, method)
 }
 
 // Draw renders the bordered composer with edge labels, skills row, editor
@@ -602,6 +547,8 @@ func (c *ChatInput) Draw(ctx components.DrawContext) components.Surface {
 	pad := c.padX()
 	innerW := w - 2 - pad*2
 	innerW = max(innerW, 1)
+	c.wrapW = innerW
+	c.wrapMethod = ctx.Method
 
 	// Fill body background (non-default spaces so Clear+diff works cleanly).
 	for y := 1; y <= body && y < h-1; y++ {
@@ -735,11 +682,8 @@ func (c *ChatInput) paintChipRow(
 		}
 		spans = append(spans, components.Span{Text: name, Style: nameSt})
 	}
-	lines := components.WrapSpans(spans, width, method)
-	if len(lines) == 0 {
-		return
-	}
-	components.PaintSpans(s, x, y, lines[0], method)
+	full := prefix + strings.Join(names, " ")
+	s.Print(x, y, layout.TruncateToWidth(full, width, method), nameSt, method)
 }
 
 func lineStart(s string, off int) int {

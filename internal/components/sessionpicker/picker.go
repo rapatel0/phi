@@ -369,8 +369,8 @@ func (p *Picker) handleRune(ctx *components.EventContext, e xui.KeyEvent) {
 	if e.Mods.Has(xui.ModAlt) {
 		return
 	}
-	if e.Rune >= 0x20 {
-		p.insert(string(e.Rune))
+	if r := components.TypedRune(e); r >= 0x20 {
+		p.insert(string(r))
 		ctx.ConsumeAndRedraw()
 	}
 }
@@ -608,14 +608,16 @@ func (p *Picker) drawProjectRow(
 	if !sel && proj.Current {
 		labelSt = th.Keybind
 	}
-	panel.Print(x, y, proj.Label, labelSt, ctx.Method)
-	x += xui.StringWidth(proj.Label, ctx.Method) + 1
-
 	n := len(p.visibleSessions(r.project))
 	tag := fmt.Sprintf("(%d)", n)
 	if proj.Current {
 		tag = fmt.Sprintf("(this project, %d)", n)
 	}
+	tagW := xui.StringWidth(tag, ctx.Method)
+	labelAvail := max(boxW-1-x-1-tagW, 1)
+	label := layout.TruncateToWidth(proj.Label, labelAvail, ctx.Method)
+	panel.Print(x, y, label, labelSt, ctx.Method)
+	x += xui.StringWidth(label, ctx.Method) + 1
 	avail := max(boxW-1-x, 1)
 	panel.Print(x, y, layout.TruncateToWidth(tag, avail, ctx.Method), muted, ctx.Method)
 }

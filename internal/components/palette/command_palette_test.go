@@ -155,3 +155,14 @@ func TestCommandPaletteNestedSubmenu(t *testing.T) {
 		t.Fatalf("pick=%q open=%v", picked, p.Open)
 	}
 }
+
+func TestCommandPaletteIgnoresPrivateUseRune(t *testing.T) {
+	p := &CommandPalette{Open: true, Commands: []PaletteCommand{{ID: "x", Verb: "x"}}}
+	p.Show()
+	ctx := &components.EventContext{}
+	const leftShift = 57441
+	p.Handle(ctx, xui.KeyEvent{Code: xui.KeyRune, Rune: leftShift, Mods: xui.ModShift, Press: true})
+	if p.Query != "" {
+		t.Fatalf("query=%q", p.Query)
+	}
+}

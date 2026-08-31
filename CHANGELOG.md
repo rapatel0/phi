@@ -42,6 +42,10 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ### Fixed
 
+- Composer Up/Down move by wrapped visual rows. Palette and session
+  picker ignore Kitty private-use Shift codes. Clickable, Button,
+  Expandable, and ListTile ignore key release. Session project labels
+  and pending chips truncate with an ellipsis.
 - Switching to an empty profile drops the previous folded API keys.
   `ALPHA_MODEL` selects an existing model instead of renaming the default
   row. A missing `ALPHA_PROFILE` fails closed and does not create a directory.

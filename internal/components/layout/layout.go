@@ -425,6 +425,9 @@ type Clickable struct {
 func (c *Clickable) Handle(ctx *components.EventContext, ev xui.Event) {
 	switch e := ev.(type) {
 	case xui.KeyEvent:
+		if !e.Press {
+			return
+		}
 		if e.Code == xui.KeyEnter || (e.Code == xui.KeyRune && e.Rune == ' ') {
 			if c.OnClick != nil {
 				c.OnClick()
@@ -627,6 +630,9 @@ func (b *Button) Widget() components.Widget { return b }
 func (b *Button) Handle(ctx *components.EventContext, ev xui.Event) {
 	switch e := ev.(type) {
 	case xui.KeyEvent:
+		if !e.Press {
+			return
+		}
 		if e.Code == xui.KeyEnter || (e.Code == xui.KeyRune && e.Rune == ' ') {
 			if b.OnClick != nil {
 				b.OnClick()

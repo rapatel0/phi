@@ -57,3 +57,16 @@ func TestSpinnerGlyphs(t *testing.T) {
 		t.Fatalf("scan bar did not bounce, got %d frames", len(scans))
 	}
 }
+
+func TestExpandableIgnoresKeyRelease(t *testing.T) {
+	ex := &Expandable{Expandable: true, Expanded: false, Theme: components.DefaultTheme()}
+	ctx := &components.EventContext{}
+	ex.Handle(ctx, xui.KeyEvent{Code: xui.KeyEnter, Press: false})
+	if ex.Expanded {
+		t.Fatal("key release must not toggle")
+	}
+	ex.Handle(ctx, xui.KeyEvent{Code: xui.KeyEnter, Press: true})
+	if !ex.Expanded {
+		t.Fatal("key press must toggle")
+	}
+}

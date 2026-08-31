@@ -404,3 +404,17 @@ func TestChatInputUnderscoreIsOwnCell(t *testing.T) {
 		}
 	}
 }
+
+func TestMoveVertUsesVisualWrap(t *testing.T) {
+	c := &ChatInput{MinBodyRows: 3, PaddingX: 1, Value: "abcdefghij", Cursor: 8}
+	c.Draw(components.DrawContext{Max: components.Size{Width: 8, Height: 10}, Method: xui.WidthUnicode})
+	// innerW is small enough that the string wraps. Up must not jump to 0.
+	before := c.Cursor
+	c.moveVert(-1)
+	if c.Cursor == 0 && before > 4 {
+		t.Fatalf("up from %d jumped to 0 on a wrapped line", before)
+	}
+	if c.Cursor >= before {
+		t.Fatalf("up from %d moved to %d", before, c.Cursor)
+	}
+}

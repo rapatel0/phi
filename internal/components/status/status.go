@@ -40,6 +40,9 @@ func (e *Expandable) Handle(ctx *components.EventContext, ev xui.Event) {
 	}
 	switch ev := ev.(type) {
 	case xui.KeyEvent:
+		if !ev.Press {
+			return
+		}
 		if ev.Code == xui.KeyEnter || (ev.Code == xui.KeyRune && ev.Rune == ' ') {
 			e.Expanded = !e.Expanded
 			if e.OnChanged != nil {
@@ -370,6 +373,9 @@ func (l *ListTile) theme() components.Theme {
 func (l *ListTile) Handle(ctx *components.EventContext, ev xui.Event) {
 	switch e := ev.(type) {
 	case xui.KeyEvent:
+		if !e.Press {
+			return
+		}
 		if e.Code == xui.KeyEnter || (e.Code == xui.KeyRune && e.Rune == ' ') {
 			if l.OnTap != nil {
 				l.OnTap()
