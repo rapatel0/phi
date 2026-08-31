@@ -42,6 +42,9 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ### Fixed
 
+- Switching to an empty profile drops the previous folded API keys.
+  `ALPHA_MODEL` selects an existing model instead of renaming the default
+  row. A missing `ALPHA_PROFILE` fails closed and does not create a directory.
 - `wake` does not talk to an attached child or a child follow-up.
   Child engines keep their role tool set across `SetModel` / `SetAuthFile`.
 - Draw no longer lists jobs from disk each frame. TASKS reloads when the

@@ -453,20 +453,30 @@ func injectAuthModels(c *Config, authFile string) {
 }
 
 func applyEnvOverrides(c *Config) {
+	if v := brand.Env("MODEL"); v != "" {
+		applyEnvModel(c, v)
+	}
 	if v := brand.Env("API_KEY"); v != "" {
 		c.defaultEntry().APIKey = v
 	}
 	if v := brand.Env("BASE_URL"); v != "" {
 		c.defaultEntry().BaseURL = v
 	}
-	if v := brand.Env("MODEL"); v != "" {
-		c.defaultEntry().Name = v
-		c.DefaultModel = v
-	}
 	if v := brand.Env("SKILL_PATH"); v != "" {
 		c.SkillPath = v
 	}
 	applyProviderEnvKeys(c)
+}
+
+func applyEnvModel(c *Config, name string) {
+	for i := range c.Models {
+		if c.Models[i].Name == name {
+			c.DefaultModel = name
+			return
+		}
+	}
+	c.Models = append(c.Models, llm.ModelConfig{Name: name})
+	c.DefaultModel = name
 }
 
 func applyProviderEnvKeys(c *Config) {

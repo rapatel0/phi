@@ -508,3 +508,47 @@ func geminiKey(t *testing.T, cfg *Config) string {
 	t.Fatal("no gemini model was injected from the credential store")
 	return ""
 }
+
+func TestDiscoverMissingProfileFails(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	t.Setenv("USERPROFILE", home)
+	t.Setenv(profile.EnvVar, "ghost")
+	_, err := Discover("")
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "does not exist")
+	_, err = os.Stat(filepath.Join(home, ".alpha", "profiles", "ghost"))
+	assert.True(t, os.IsNotExist(err), "a missing profile must not be created")
+}
+
+func TestUseProfileEmptyDropsOldConfig(t *testing.T) {
+	p := discoverInTempHome(t)
+	t.Setenv("ALPHA_MODEL", "env-model")
+	t.Setenv("ALPHA_API_KEY", "secret")
+	require.NoError(t, p.LoadConfig())
+	require.Equal(t, "secret", p.Config().Model().APIKey)
+
+	_, err := profile.Create(p.Global().Root(), "empty")
+	require.NoError(t, err)
+	t.Setenv("ALPHA_MODEL", "")
+	t.Setenv("ALPHA_API_KEY", "")
+	require.NoError(t, p.UseProfile("empty"))
+	assert.Equal(t, "empty", p.Global().Profile())
+	assert.Nil(t, p.Config(), "the previous folded keys must not stay")
+}
+
+func TestLoadConfigEnvModelSelectsExisting(t *testing.T) {
+	p := discoverInTempHome(t)
+	require.NoError(t, os.WriteFile(p.Global().ConfigFile(), []byte(`
+models:
+  - name: first
+    api_key: a
+  - name: second
+    api_key: b
+`), 0o644))
+	t.Setenv("ALPHA_MODEL", "second")
+	require.NoError(t, p.LoadConfig())
+	assert.Equal(t, "second", p.Config().Model().Name)
+	assert.Equal(t, "b", p.Config().Model().APIKey)
+	assert.Equal(t, "first", p.Config().Models[0].Name, "the first row must keep its name")
+}

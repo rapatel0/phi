@@ -198,6 +198,8 @@ func (p *Project) UseProfile(name string) error {
 			p.global.profile, p.config = previous, previousCfg
 			return err
 		}
+		// Keep the new name, drop the previous folded keys.
+		p.config = nil
 	}
 	return nil
 }
@@ -265,13 +267,11 @@ func Discover(startDir string) (*Project, error) {
 	}
 	root := brand.HomeDir(home)
 	active, _ := profile.Resolve(root)
+	if active != profile.Default && !profile.Exists(root, active) {
+		return nil, fmt.Errorf("profile: %q does not exist: create it with 'alpha profile create %s'", active, active)
+	}
 	global := GlobalLayout{root: root, profile: active}
 	if err := ensureGlobalDirs(global); err != nil {
-		return nil, err
-	}
-	// A profile selected but never created would silently read an empty
-	// credential store, which looks like being logged out.
-	if _, err := profile.Create(root, active); err != nil {
 		return nil, err
 	}
 	return &Project{root: absRoot, global: global}, nil
