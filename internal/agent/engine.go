@@ -21,6 +21,7 @@ import (
 	"github.com/rapatel0/alpha/internal/session"
 	"github.com/rapatel0/alpha/internal/session/compaction"
 	"github.com/rapatel0/alpha/internal/tools"
+	"github.com/rapatel0/alpha/internal/tools/vcctool"
 )
 
 // ErrMaxRounds is returned (wrapped) by Loop when the model exceeds the
@@ -131,6 +132,10 @@ func (engine *Engine) buildToolList(base []tools.Tool) []tools.Tool {
 		base = tools.DefaultTools()
 	}
 	out := base
+	if engine.session != nil {
+		sess := engine.session
+		out = append(append([]tools.Tool{}, out...), vcctool.Tool(sess.PathEntries))
+	}
 	if extra := ext.Default().Tools(); len(extra) > 0 {
 		merged := make([]tools.Tool, 0, len(out)+len(extra))
 		merged = append(merged, out...)

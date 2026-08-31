@@ -10,6 +10,9 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ### Changed
 
+- Session compaction selects VCC evidence, then asks the model for a
+  continuation handoff. The last non-tool message is appended verbatim.
+  `vcc_recall` searches raw session history after a compact.
 - `agent_spawn` requires `description`, a short label for TASKS and the child
   view. An empty value fails so the model retries with one.
 - Shortcuts live in one table (`MacKeymap` / `UnixKeymap`). macOS uses Cmd.

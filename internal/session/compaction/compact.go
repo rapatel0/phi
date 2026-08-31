@@ -208,6 +208,13 @@ func Compact(
 	if fileOperations != "" {
 		summary += "\n\n" + fileOperations
 	}
+	tail := VerbatimLast(preparation.MessagesToSummarize)
+	if tail == "" {
+		tail = VerbatimLast(preparation.TurnPrefixMessages)
+	}
+	if tail != "" {
+		summary += "\n\n## Last Message\n\n" + tail
+	}
 
 	return CompactionResult{
 		Summary:          summary,

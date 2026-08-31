@@ -29,12 +29,12 @@ func generateSummary(
 		basePrompt = compactionUpdateSummaryPrompt
 	}
 
-	conversation := SerializeConversation(currentMessages)
-	promptText := fmt.Sprintf("<conversation>\n%s\n</conversation>", conversation)
+	packet := BuildEvidence(SourceFromMessages(currentMessages), defaultEvidenceTokens)
+	promptText := fmt.Sprintf("<evidence>\n%s\n</evidence>", RenderEvidence(packet))
 	if previousSummary != "" {
-		promptText += fmt.Sprintf("<previous-summary>\n%s\n</previous-summary>", previousSummary)
+		promptText += fmt.Sprintf("\n<previous-summary>\n%s\n</previous-summary>", previousSummary)
 	}
-	promptText += basePrompt
+	promptText += "\n" + basePrompt
 	return llm.Compact(ctx, promptText)
 }
 
@@ -45,7 +45,7 @@ func generateTurnPrefixSummary(
 	llm llm.Compactor,
 	messages []llm.Message,
 ) (string, error) {
-	conversation := SerializeConversation(messages)
-	promptText := fmt.Sprintf("<conversation>\n%s\n</conversation>", conversation)
+	packet := BuildEvidence(SourceFromMessages(messages), defaultEvidenceTokens)
+	promptText := fmt.Sprintf("<evidence>\n%s\n</evidence>\n%s", RenderEvidence(packet), compactionSummaryPrompt)
 	return llm.Compact(ctx, promptText)
 }
