@@ -11,14 +11,15 @@ import (
 
 // enableMacKeyboard asks the terminal to report Cmd+letter as Super.
 //
-// Call this after xui has pushed Kitty flags 7. SET (CSI = flags u) replaces
-// the current flags without another stack entry, so Close still pops once
-// back to the original mode. A push here would leave flag 8 on after Close.
+// Call this after xui has pushed Kitty flags 7. SET flags 11
+// (disambiguate + events + report-all-keys) without flag 4 (alternate keys).
+// Flag 4 sends CSI-u as "97:65;2u". xui Atoi fails on the colon, so Shift+A
+// inserts nothing. Flag 8 is still required for Cmd+letter to arrive.
 func enableMacKeyboard(vx *xui.XUI) {
 	if vx == nil || components.Keys.Name != "cmd" {
 		return
 	}
-	_, _ = vx.WriteRaw([]byte("\x1b[=15u"))
+	_, _ = vx.WriteRaw([]byte("\x1b[=11u"))
 }
 
 // afterTerminalQuery runs once xui has pushed Kitty flags 7 and maybe

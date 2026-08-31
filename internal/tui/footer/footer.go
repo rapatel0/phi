@@ -50,6 +50,11 @@ func NewFooterChrome(theme components.Theme, contextWindow int) *FooterChrome {
 	}
 }
 
+// ShowSpinner reports whether the activity spinner is on.
+func (f *FooterChrome) ShowSpinner() bool {
+	return f != nil && f.activity != nil && f.activity.ShowSpinner()
+}
+
 // Spinner returns the shared spinner (e.g. for TranscriptPane mapper).
 func (f *FooterChrome) Spinner() *status.Spinner {
 	if f == nil {

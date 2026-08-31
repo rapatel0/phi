@@ -23,8 +23,10 @@ type App struct {
 	redraw   bool
 	// Anim requests a redraw on every frame tick (spinners, etc).
 	Anim bool
+	// AnimWhen, if set, redraws on the frame tick only when it returns true.
+	AnimWhen func() bool
 	// AfterQuery runs after capability detection. Cmd uses it to SET Kitty
-	// flags 15 once xui has already pushed flags 7.
+	// flags once xui has already pushed flags 7.
 	AfterQuery func()
 	// pending is a single push-back slot used when coalesceWheel peeks past a
 	// non-wheel event (must not Post to the end of the queue — that reorders).
@@ -89,7 +91,7 @@ func (a *App) Run(root components.Widget) error {
 			select {
 			case ev = <-a.loop.Events():
 			case <-ticker.C:
-				if a.Anim {
+				if a.Anim || (a.AnimWhen != nil && a.AnimWhen()) {
 					a.redraw = true
 				}
 				if a.redraw {

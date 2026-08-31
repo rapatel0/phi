@@ -99,7 +99,6 @@ func runTUI() error {
 	}
 
 	application := app.NewApp(vx)
-	application.Anim = true
 	application.AfterQuery = func() { afterTerminalQuery(vx) }
 
 	redraw := controller.NewRedrawRelay()
@@ -124,6 +123,7 @@ func runTUI() error {
 		modelNames,
 	)
 	redraw.Bind(ui.RequestRedraw)
+	application.AnimWhen = ui.NeedsAnim
 	ui.StartUpdateCheck(proj.Global().Root())
 	ui.StartBranchWatch()
 	if err := application.Run(ui); err != nil {

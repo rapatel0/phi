@@ -49,6 +49,9 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
   mode 2027 could give `_` width 0. Shift+minus inserts `_` when Kitty
   reports the unshifted key. The Shift key itself is not inserted
   (Kitty flag 8 reports it as a private-use rune that looked like `≈`).
+- Shift works as a modifier again. Kitty flag 4 sent `97:65;2u` and
+  xui dropped the key. Flags are now 11 (no alternate keys). The caret
+  no longer flickers: idle frames skip the 60fps redraw.
 - A new session no longer shows leftover sub-agents in the sidebar.
   Those jobs belong to their parent session. Resume that session to see them.
 - Opening a sub-agent after the home directory moved no longer shows an empty

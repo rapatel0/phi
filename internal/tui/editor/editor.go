@@ -750,6 +750,12 @@ func (e *Editor) RequestRedraw() {
 	e.requestRedraw()
 }
 
+// NeedsAnim is true while a spinner should move. Idle frames skip the 60fps
+// redraw so the caret does not blink from hide/show cursor each tick.
+func (e *Editor) NeedsAnim() bool {
+	return e != nil && e.footer != nil && e.footer.ShowSpinner()
+}
+
 func (e *Editor) addPendingSkill(name string) {
 	e.composer.AddPendingSkill(name)
 	if e.vx != nil {
