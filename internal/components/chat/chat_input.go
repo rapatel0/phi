@@ -3,6 +3,7 @@ package chat
 import (
 	"slices"
 	"strings"
+	"unicode"
 	"unicode/utf8"
 
 	"github.com/pulseaiclub/xui"
@@ -362,6 +363,11 @@ func typedRune(e xui.KeyEvent) rune {
 		if tr, _ := utf8.DecodeRuneInString(e.Text); tr >= 0x20 {
 			r = tr
 		}
+	}
+	// Flag 8 reports Shift/Cmd themselves as CSI-u in the private-use range.
+	// Those must not be inserted (Ghostty draws them as "≈").
+	if unicode.Is(unicode.Co, r) || unicode.IsControl(r) {
+		return 0
 	}
 	if !e.Mods.Has(xui.ModShift) {
 		return r

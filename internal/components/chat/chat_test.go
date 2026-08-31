@@ -358,6 +358,20 @@ func TestCursorAfterCJKPasteAtTextEnd(t *testing.T) {
 	}
 }
 
+func TestTypedRuneIgnoresKittyModifierKeys(t *testing.T) {
+	const leftShift = 57441 // kitty LEFT_SHIFT, private use
+	got := typedRune(xui.KeyEvent{Code: xui.KeyRune, Rune: leftShift, Mods: xui.ModShift, Press: true})
+	if got != 0 {
+		t.Fatalf("shift key = %q (%U), want 0", got, got)
+	}
+	c := &ChatInput{MinBodyRows: 3}
+	ctx := &components.EventContext{}
+	c.Handle(ctx, xui.KeyEvent{Code: xui.KeyRune, Rune: leftShift, Mods: xui.ModShift, Press: true})
+	if c.Value != "" {
+		t.Fatalf("inserted %q", c.Value)
+	}
+}
+
 func TestTypedRuneShiftMinusIsUnderscore(t *testing.T) {
 	got := typedRune(xui.KeyEvent{Code: xui.KeyRune, Rune: '-', Mods: xui.ModShift, Press: true})
 	if got != '_' {
