@@ -72,8 +72,9 @@ func TestAgentToolsSpawnRoleWorker(t *testing.T) {
 		WorkDir:  func() string { return t.TempDir() },
 	}))
 	raw, _ := json.Marshal(map[string]any{
-		"prompt": "implement x",
-		"role":   "worker",
+		"prompt":      "implement x",
+		"description": "implement x",
+		"role":        "worker",
 	})
 	res, err := reg["agent_spawn"].Run(t.Context(), raw)
 	require.NoError(t, err)
@@ -87,6 +88,33 @@ func TestAgentToolsSpawnRoleWorker(t *testing.T) {
 	waitRes, err := reg["agent_wait"].Run(t.Context(), waitArgs)
 	require.NoError(t, err)
 	assert.Contains(t, waitRes.Content, `"status": "completed"`)
+}
+
+func TestAgentToolsSpawnRequiresDescription(t *testing.T) {
+	mgr, err := job.New(job.Options{
+		Root: t.TempDir(),
+		Runner: job.RunnerFunc(func(_ context.Context, _ job.RunEnv) (string, error) {
+			return "x", nil
+		}),
+	})
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = mgr.Close(t.Context()) })
+
+	reg := tools.NewRegistry(tools.AgentTools(tools.AgentDeps{
+		Manager: mgr,
+	}))
+	spawn := reg["agent_spawn"]
+	require.Contains(t, spawn.Definition.Params.Required, "description")
+
+	for _, args := range []map[string]any{
+		{"prompt": "search auth"},
+		{"prompt": "search auth", "description": "   "},
+	} {
+		raw, _ := json.Marshal(args)
+		_, err = spawn.Run(t.Context(), raw)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "description is required")
+	}
 }
 
 func TestAgentToolsSpawnBadRole(t *testing.T) {

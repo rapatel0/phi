@@ -15,6 +15,9 @@ func TestBuildAgentsEnabledToggle(t *testing.T) {
 	if !strings.Contains(with, "Sub-agents:") {
 		t.Fatal("expected Sub-agents section when agents enabled")
 	}
+	if !strings.Contains(with, "Always set `description`") {
+		t.Fatal("expected spawn description guidance when agents enabled")
+	}
 	if strings.Contains(without, "agent_spawn") {
 		t.Fatal("did not expect sub-agent tool names when agents disabled")
 	}

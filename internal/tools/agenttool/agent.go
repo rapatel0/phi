@@ -3,6 +3,7 @@ package agenttool
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"strings"
 	"time"
@@ -30,10 +31,11 @@ When NOT to use any sub-agent:
 
 How to use:
 1. Use agent_spawn to launch a job, then agent_wait to block for its summary. For parallel jobs, spawn all first, then wait each.
-2. Stateless: put a highly detailed, self-contained prompt and say what the final summary must include.
-3. You only receive the final summary. Summarize for the user if needed.
-4. Sub-agents cannot spawn further agents. Do not put secrets in the prompt.
-5. Verify before relying on a worker's edits in follow-up work.`
+2. Always set description to a few words for the TASKS list (required). Do not reuse the prompt.
+3. Stateless: put a highly detailed, self-contained prompt and say what the final summary must include.
+4. You only receive the final summary. Summarize for the user if needed.
+5. Sub-agents cannot spawn further agents. Do not put secrets in the prompt.
+6. Verify before relying on a worker's edits in follow-up work.`
 
 // AgentDeps wires sub-agent tools to a process-level [job.Manager].
 // ParentID/WorkDir are read at call time (session may change via /resume).
@@ -79,7 +81,7 @@ Starts asynchronously and returns job_id immediately. Use agent_wait for the sum
 					},
 					"description": llm.Object{
 						"type":        "string",
-						"description": "Very short label for the UI / job list (e.g. \"find auth config\").",
+						"description": "Short UI label for TASKS and the child view (3–8 words). Required. Not the prompt.",
 					},
 					"role": llm.Object{
 						"type":        "string",
@@ -95,7 +97,7 @@ Starts asynchronously and returns job_id immediately. Use agent_wait for the sum
 						"description": "Optional run timeout in seconds for the job itself (not wait).",
 					},
 				},
-				Required: []string{"prompt"},
+				Required: []string{"prompt", "description"},
 			},
 		},
 		DetailFromArgs: spawnDetail,
@@ -153,6 +155,17 @@ func parseSpawnInput(input json.RawMessage) (spawnInput, error) {
 	if err := json.Unmarshal(input, &in); err != nil {
 		return spawnInput{}, err
 	}
+	in.Prompt = strings.TrimSpace(in.Prompt)
+	in.Description = strings.TrimSpace(in.Description)
+	in.Role = strings.TrimSpace(in.Role)
+	in.WorkDir = strings.TrimSpace(in.WorkDir)
+	if in.Prompt == "" {
+		return spawnInput{}, errors.New("prompt is required")
+	}
+	if in.Description == "" {
+		return spawnInput{}, errors.New("description is required: a short UI label (3-8 words), not the prompt")
+	}
+	in.Description = truncateRunes(in.Description, 60)
 	return in, nil
 }
 

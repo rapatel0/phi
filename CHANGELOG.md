@@ -10,6 +10,8 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ### Changed
 
+- `agent_spawn` requires `description`, a short label for TASKS and the child
+  view. An empty value fails so the model retries with one.
 - Shortcuts live in one table (`MacKeymap` / `UnixKeymap`). macOS uses Cmd.
   The terminal is asked to report Cmd+letter keys. Ctrl still works.
 - The TASKS sidebar is an agent tree. Click a row (or Cmd+O) to read that

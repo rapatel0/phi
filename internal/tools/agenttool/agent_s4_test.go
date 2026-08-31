@@ -108,7 +108,7 @@ func TestS4Cancel(t *testing.T) {
 		WorkDir:  func() string { return t.TempDir() },
 	}))
 
-	raw, _ := json.Marshal(map[string]any{"prompt": "hang"})
+	raw, _ := json.Marshal(map[string]any{"prompt": "hang", "description": "hang"})
 	spawnRes, err := reg["agent_spawn"].Run(t.Context(), raw)
 	require.NoError(t, err)
 	var spawned struct {
