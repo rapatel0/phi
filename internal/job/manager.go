@@ -206,6 +206,16 @@ func (m *Manager) Spawn(ctx context.Context, req SpawnRequest) (Info, error) {
 		done:            make(chan struct{}),
 	}
 	m.mu.Lock()
+	if m.closed {
+		m.mu.Unlock()
+		cancel()
+		<-m.slots
+		meta.Status = StatusCancelled
+		meta.FinishedAt = time.Now().UTC()
+		meta.Error = ErrClosed.Error()
+		m.persistMeta(meta)
+		return Info{}, ErrClosed
+	}
 	m.jobs[id] = lj
 	m.mu.Unlock()
 

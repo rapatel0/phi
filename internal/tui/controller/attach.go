@@ -262,6 +262,11 @@ func (c *Controller) ensureChild(info job.Info) (*childSlot, error) {
 	}
 	if existing := c.children.get(info.ID); existing != nil {
 		existing.mu.Lock()
+		if existing.engine != nil || existing.spawnLooping {
+			existing.meta = info.Meta
+			existing.mu.Unlock()
+			return existing, nil
+		}
 		existing.engine = eng
 		existing.meta = info.Meta
 		if len(existing.snap.Messages) == 0 && eng.Session() != nil {

@@ -140,3 +140,30 @@ func TestChildToolsExcludeAgent(t *testing.T) {
 		assert.NotContains(t, tool.Definition.Name, "agent_")
 	}
 }
+
+func TestAgentWaitRejectsForeignParent(t *testing.T) {
+	mgr, err := job.New(job.Options{
+		Root: t.TempDir(),
+		Runner: job.RunnerFunc(func(_ context.Context, _ job.RunEnv) (string, error) {
+			return "ok", nil
+		}),
+	})
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = mgr.Close(t.Context()) })
+
+	info, err := mgr.Spawn(t.Context(), job.SpawnRequest{
+		Prompt:      "p",
+		Description: "d",
+		ParentID:    "session-a",
+	})
+	require.NoError(t, err)
+
+	reg := tools.NewRegistry(tools.AgentTools(tools.AgentDeps{
+		Manager:  mgr,
+		ParentID: func() string { return "session-b" },
+	}))
+	raw, _ := json.Marshal(map[string]any{"job_id": info.ID})
+	_, err = reg["agent_wait"].Run(t.Context(), raw)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "not found")
+}

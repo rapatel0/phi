@@ -42,6 +42,12 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ### Fixed
 
+- `ask_parent` no longer waits for the parent `Loop` to go idle. A parent
+  blocked in `agent_wait` answers on a side job. The answer is this turn's
+  text, not an older assistant message. A missing job id is an error.
+- Child view does not replace a live spawn engine. `agent_wait` and
+  `agent_cancel` only accept jobs from this session. `HandleSpawn` ignores
+  `parent_id`/`depth` and requires a description. Spawn after Close fails.
 - Palette, hook, and session toasts draw again. Those paths copied the
   toast value, so `Show` never reached the overlay `Draw` paints.
 - `/btw` and other extension slash commands appear at startup. Startup

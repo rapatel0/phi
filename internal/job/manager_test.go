@@ -437,3 +437,42 @@ func TestEmitProgressCancelRace(t *testing.T) {
 		require.NoError(t, m.Close(t.Context()))
 	}
 }
+
+func TestSpawnAfterClose(t *testing.T) {
+	m := newMgr(t, job.RunnerFunc(func(_ context.Context, _ job.RunEnv) (string, error) {
+		return "ok", nil
+	}), job.Options{})
+	require.NoError(t, m.Close(t.Context()))
+	_, err := m.Spawn(t.Context(), job.SpawnRequest{Prompt: "x"})
+	require.ErrorIs(t, err, job.ErrClosed)
+}
+
+func TestHandleSpawnIgnoresParentAndDepth(t *testing.T) {
+	m := newMgr(t, job.RunnerFunc(func(_ context.Context, env job.RunEnv) (string, error) {
+		assert.Equal(t, 0, env.Job.ParentDepth)
+		assert.Empty(t, env.Job.ParentID)
+		return "ok", nil
+	}), job.Options{MaxDepth: 1})
+	raw, _ := json.Marshal(map[string]any{
+		"prompt":      "p",
+		"description": "d",
+		"parent_id":   "evil",
+		"depth":       99,
+	})
+	info, err := m.HandleSpawn(t.Context(), raw)
+	require.NoError(t, err)
+	assert.Equal(t, 0, info.ParentDepth)
+	assert.Empty(t, info.ParentID)
+	_, err = m.Wait(t.Context(), info.ID)
+	require.NoError(t, err)
+}
+
+func TestHandleSpawnRequiresDescription(t *testing.T) {
+	m := newMgr(t, job.RunnerFunc(func(_ context.Context, _ job.RunEnv) (string, error) {
+		return "ok", nil
+	}), job.Options{})
+	raw, _ := json.Marshal(map[string]any{"prompt": "p"})
+	_, err := m.HandleSpawn(t.Context(), raw)
+	require.Error(t, err)
+	assert.ErrorIs(t, err, job.ErrInvalid)
+}

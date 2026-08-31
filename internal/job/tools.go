@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"strings"
 	"time"
 )
 
@@ -38,12 +39,13 @@ func (m *Manager) HandleSpawn(ctx context.Context, raw json.RawMessage) (Info, e
 	if err := json.Unmarshal(raw, &args); err != nil {
 		return Info{}, fmt.Errorf("%w: %w", ErrInvalid, err)
 	}
+	if strings.TrimSpace(args.Description) == "" {
+		return Info{}, fmt.Errorf("%w: description is required", ErrInvalid)
+	}
 	req := SpawnRequest{
 		Prompt:      args.Prompt,
 		Description: args.Description,
 		WorkDir:     args.WorkDir,
-		ParentID:    args.ParentID,
-		Depth:       args.Depth,
 		Role:        Role(args.Role),
 	}
 	if args.TimeoutSec > 0 {

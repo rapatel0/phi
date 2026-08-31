@@ -248,6 +248,9 @@ Use agent_cancel to stop a running job.`,
 			return in.JobID
 		},
 		Run: func(ctx context.Context, input json.RawMessage) (tooldef.Result, error) {
+			if err := requireOwned(ctx, deps, input); err != nil {
+				return tooldef.Result{}, err
+			}
 			res, err := deps.Manager.HandleWait(ctx, input)
 			if err != nil {
 				return tooldef.Result{}, err
@@ -289,6 +292,9 @@ func agentCancelTool(deps AgentDeps) tooldef.Tool {
 			return in.JobID
 		},
 		Run: func(ctx context.Context, input json.RawMessage) (tooldef.Result, error) {
+			if err := requireOwned(ctx, deps, input); err != nil {
+				return tooldef.Result{}, err
+			}
 			if err := deps.Manager.HandleCancel(ctx, input); err != nil {
 				return tooldef.Result{}, err
 			}
@@ -296,6 +302,27 @@ func agentCancelTool(deps AgentDeps) tooldef.Tool {
 			return tooldef.Result{Content: body, Detail: "cancelled", Output: body}, nil
 		},
 	}
+}
+
+func requireOwned(ctx context.Context, deps AgentDeps, input json.RawMessage) error {
+	var in struct {
+		JobID string `json:"job_id"`
+	}
+	if err := json.Unmarshal(input, &in); err != nil {
+		return err
+	}
+	if strings.TrimSpace(in.JobID) == "" {
+		return errors.New("job_id is required")
+	}
+	info, err := deps.Manager.Get(ctx, in.JobID)
+	if err != nil {
+		return err
+	}
+	parent := deps.ParentID()
+	if parent != "" && info.ParentID != parent {
+		return fmt.Errorf("job %s not found", in.JobID)
+	}
+	return nil
 }
 
 func mustJSON(v any) string {
