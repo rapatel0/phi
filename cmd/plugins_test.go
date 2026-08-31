@@ -15,7 +15,7 @@ import (
 // tests, which is exactly the mistake worth catching here.
 func TestBundledExtensionsRegister(t *testing.T) {
 	names := ext.Default().Names()
-	for _, want := range []string{"askuser", "todo", "tokenspeed", "toolstats"} {
+	for _, want := range []string{"askuser", "btw", "todo", "tokenspeed", "toolstats"} {
 		assert.Contains(t, names, want, "missing blank import in plugins.go?")
 	}
 }

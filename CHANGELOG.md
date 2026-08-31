@@ -42,6 +42,8 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ### Fixed
 
+- `/btw` and other extension slash commands appear at startup. Startup
+  loaded disk hooks only. A reload had to run before the picker saw them.
 - The skills palette follows a symlink skills directory. `~/.agents/skills`
   pointed at `~/.claude/skills` and the walker treated the link as a file.
   The palette also scans Claude, Codex, and Grok homes.

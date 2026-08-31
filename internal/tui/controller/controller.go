@@ -281,25 +281,16 @@ func (c *Controller) ReloadHooks() (loaded int, warns []hooks.Warning, err error
 	if c == nil {
 		return 0, nil, errors.New("controller not initialized")
 	}
-	proj := c.proj
-	if proj == nil {
-		return 0, nil, errors.New("project not available")
-	}
-	found, warns, err := hooks.DiscoverFrom(proj.UserHookDirs(), proj.ProjectHookDirs())
+	mgr, loaded, warns, err := mergeHookEntries(c.proj)
 	if err != nil {
 		return 0, warns, err
 	}
-	// Extension hooks join the discovered ones, so a single manager dispatches
-	// both and keeps ordering and fail-closed behavior in one place.
-	entries := hooks.EntriesFromDiscovered(found)
-	entries = append(entries, ext.Default().HookEntries()...)
-	mgr := hooks.NewManager(entries...)
 	hooks.LogWarnings(warns)
 	c.hooksManager.Store(mgr)
 	if c.engine != nil {
 		c.engine.SetHooks(mgr)
 	}
-	return len(found), warns, nil
+	return loaded, warns, nil
 }
 
 // ListHooks returns the current on-disk discovery (does not swap the manager).
@@ -315,19 +306,36 @@ func (c *Controller) ListHooks() ([]hooks.Discovered, []hooks.Warning, error) {
 }
 
 // loadHooksManager discovers ~/.agents/hooks and <cwd>/.agents/hooks,
-// plus the older ~/.alpha/hooks trees.
-// Load errors are non-fatal (fail-open: no hooks). Child engines stay nil until spawn.
+// plus the older ~/.alpha/hooks trees, then appends compiled-in extensions.
+// Without the extension merge, /btw and other slash commands never appear
+// until the user reloads hooks.
+// Load errors are non-fatal (fail-open: extensions still register).
 func loadHooksManager(proj *project.Project) *hooks.Manager {
 	if proj == nil {
 		return nil
 	}
-	mgr, warns, err := hooks.LoadFrom(proj.UserHookDirs(), proj.ProjectHookDirs())
+	mgr, _, warns, err := mergeHookEntries(proj)
 	if err != nil {
 		debuglog.Logf("hooks: load failed: %v", err)
-		return nil
+		hooks.LogWarnings(warns)
+		return hooks.NewManager(ext.Default().HookEntries()...)
 	}
 	hooks.LogWarnings(warns)
 	return mgr
+}
+
+// mergeHookEntries is the one path for startup, resume, and reload.
+func mergeHookEntries(proj *project.Project) (*hooks.Manager, int, []hooks.Warning, error) {
+	if proj == nil {
+		return nil, 0, nil, errors.New("project not available")
+	}
+	found, warns, err := hooks.DiscoverFrom(proj.UserHookDirs(), proj.ProjectHookDirs())
+	if err != nil {
+		return nil, 0, warns, err
+	}
+	entries := hooks.EntriesFromDiscovered(found)
+	entries = append(entries, ext.Default().HookEntries()...)
+	return hooks.NewManager(entries...), len(found), warns, nil
 }
 
 // askPermission blocks until the confirmation UI answers.

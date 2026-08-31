@@ -14,6 +14,43 @@ import (
 
 // ReloadHooks must merge extension hooks with the discovered ones. Without the
 // merge, a compiled-in extension registers a command that nothing dispatches.
+func TestNewControllerIncludesExtensionCommands(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	t.Setenv("USERPROFILE", home)
+	t.Setenv("ALPHA_MODEL", "test-model")
+	t.Setenv("ALPHA_API_KEY", "test-key")
+	t.Setenv("ALPHA_BASE_URL", "http://127.0.0.1:9")
+
+	cwd := t.TempDir()
+	proj, err := project.Discover(cwd)
+	require.NoError(t, err)
+	require.NoError(t, proj.LoadConfig())
+
+	const name = "startup-probe"
+	ext.Default().RegisterCommand(ext.Command{
+		Name:        name,
+		Description: "probe",
+		Run: func(context.Context, []string) (hooks.CommandResult, error) {
+			return hooks.CommandResult{Toast: "started"}, nil
+		},
+	})
+
+	ctrl, err := NewController(NewBus(nil), proj, cwd)
+	require.NoError(t, err)
+
+	names := map[string]bool{}
+	for _, entry := range ctrl.Hooks().CommandEntries() {
+		names[entry.Hook.Name()] = true
+	}
+	assert.True(t, names[name],
+		"an extension command must be present at startup, got %v", names)
+
+	res, err := ctrl.Hooks().RunCommand(t.Context(), name, hooks.CommandEvent{})
+	require.NoError(t, err)
+	assert.Equal(t, "started", res.Toast)
+}
+
 func TestReloadHooksIncludesExtensionCommands(t *testing.T) {
 	home := t.TempDir()
 	t.Setenv("HOME", home)
