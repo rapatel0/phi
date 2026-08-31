@@ -1,0 +1,44 @@
+package compaction
+
+import (
+	"os"
+	"path/filepath"
+	"testing"
+
+	"github.com/rapatel0/alpha/internal/llm"
+)
+
+func TestResolveCompactorOrder(t *testing.T) {
+	session := llm.ModelConfig{Name: "claude-sonnet", BaseURL: "https://api.anthropic.com", APIKey: "k"}
+	cfg := defaultConfig()
+	if got := ResolveCompactor(session, cfg); got.Name != "claude-sonnet" {
+		t.Fatalf("session default = %s", got.Name)
+	}
+	cfg.Compactor = CompactorSpec{Name: "gpt-4.1-mini"}
+	if got := ResolveCompactor(session, cfg); got.Name != "gpt-4.1-mini" {
+		t.Fatalf("global = %s", got.Name)
+	}
+	cfg.Compactors = map[string]CompactorSpec{
+		"claude-sonnet": {Name: "gpt-4.1", BaseURL: "https://api.openai.com/v1"},
+	}
+	got := ResolveCompactor(session, cfg)
+	if got.Name != "gpt-4.1" || got.BaseURL != "https://api.openai.com/v1" {
+		t.Fatalf("per-model = %+v", got)
+	}
+}
+
+func TestLoadConfigEnabledFalse(t *testing.T) {
+	dir := t.TempDir()
+	t.Setenv("ALPHA_VCC_DIR", dir)
+	path := filepath.Join(dir, "config.json")
+	if err := os.WriteFile(path, []byte(`{"enabled":false,"index":{"enabled":false}}`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	cfg := LoadConfig()
+	if cfg.Enabled {
+		t.Fatal("enabled should be false")
+	}
+	if cfg.Index.Enabled {
+		t.Fatal("index.enabled should be false")
+	}
+}

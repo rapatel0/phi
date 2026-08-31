@@ -134,7 +134,7 @@ func (engine *Engine) buildToolList(base []tools.Tool) []tools.Tool {
 	out := base
 	if engine.session != nil {
 		sess := engine.session
-		out = append(append([]tools.Tool{}, out...), vcctool.Tool(sess.PathEntries))
+		out = append(append([]tools.Tool{}, out...), vcctool.Tool(sess.PathEntries, sess.ID))
 	}
 	if extra := ext.Default().Tools(); len(extra) > 0 {
 		merged := make([]tools.Tool, 0, len(out)+len(extra))
@@ -556,7 +556,21 @@ func (engine *Engine) maybeCompact(
 		return context.Canceled
 	}
 
-	result, err := compaction.Compact(ctx, *prep, engine.client)
+	cfg := compaction.LoadConfig()
+	model := compaction.ResolveCompactor(engine.modelCfg, cfg)
+	compactor := llm.Compactor(engine.client)
+	if model.Name != engine.modelCfg.Name || model.BaseURL != engine.modelCfg.BaseURL {
+		if engine.authFile != "" {
+			compactor = llmclient.NewClientWithAuth(model, nil, "", engine.authFile)
+		} else {
+			compactor = llmclient.NewClient(model, nil, "")
+		}
+	}
+	result, err := compaction.Compact(ctx, *prep, compactor, compaction.Meta{
+		SessionID:   engine.session.ID(),
+		SessionFile: engine.session.File(),
+		Model:       model,
+	})
 	if err != nil {
 		_ = yield(session.CompactionComplete{ID: id, Failed: true}, nil)
 		return err

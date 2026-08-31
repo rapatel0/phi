@@ -6,6 +6,7 @@ import (
 	"slices"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/rapatel0/alpha/internal/llm"
 	"github.com/rapatel0/alpha/internal/session"
@@ -132,13 +133,29 @@ type CompactionResult struct {
 	PreserveData map[string]any
 }
 
+// Meta is optional session context for the ledger and OpenAI fallback.
+type Meta struct {
+	SessionID   string
+	SessionFile string
+	Model       llm.ModelConfig
+}
+
 // Compact generates a summary for preparation via llm and returns the
 // resulting CompactionResult.
 func Compact(
 	ctx context.Context,
 	preparation CompactionPreparation,
-	llm llm.Compactor,
+	compactor llm.Compactor,
+	meta Meta,
 ) (CompactionResult, error) {
+	cfg := LoadConfig()
+	window := append([]llm.Message{}, preparation.MessagesToSummarize...)
+	window = append(window, preparation.TurnPrefixMessages...)
+	_, packet := handoffPrompt(window, preparation.PreviousSummary, cfg.MaxInputTokens)
+	if cfg.Enabled && cfg.Index.Enabled {
+		_ = RecordEvidence(meta.SessionID, meta.SessionFile, packet.Records)
+	}
+
 	var summary string
 	if preparation.IsSplitTurn && len(preparation.TurnPrefixMessages) > 0 {
 		var (
@@ -160,7 +177,7 @@ func Compact(
 
 			historySummary, historySummaryErr = generateSummary(
 				ctx,
-				llm,
+				compactor,
 				preparation.MessagesToSummarize,
 				preparation.PreviousSummary,
 			)
@@ -170,7 +187,7 @@ func Compact(
 			defer wg.Done()
 			turnPrefixSummary, turnPrefixSummaryErr = generateTurnPrefixSummary(
 				ctx,
-				llm,
+				compactor,
 				preparation.TurnPrefixMessages,
 			)
 		}()
@@ -186,21 +203,47 @@ func Compact(
 
 		summary = historySummary + "\n\n---\n\n**Turn Context (split turn):**\n\n" + turnPrefixSummary
 	} else {
-		// Just generate history summary
 		if len(preparation.MessagesToSummarize) == 0 {
 			summary = "No prior history."
 		} else {
 			var err error
 			summary, err = generateSummary(
 				ctx,
-				llm,
+				compactor,
 				preparation.MessagesToSummarize,
 				preparation.PreviousSummary,
 			)
 			if err != nil {
-				return CompactionResult{}, err
+				summary = ""
+				if !cfg.Enabled || cfg.Transport == transportPi || !openaiLike(meta.Model) {
+					return CompactionResult{}, err
+				}
 			}
 		}
+	}
+
+	if cfg.Enabled {
+		if v := validateSummary(summary, cfg.MaxOutputTokens); v != "" {
+			summary = v
+		} else if cfg.Transport != transportPi && openaiLike(meta.Model) {
+			prompt, _ := handoffPrompt(window, preparation.PreviousSummary, cfg.MaxInputTokens)
+			alt, err := compactViaResponses(
+				ctx,
+				meta.Model,
+				prompt,
+				cfg.AllowedResponseOrigins,
+				time.Duration(cfg.TimeoutMs)*time.Millisecond,
+				cfg.MaxOutputTokens,
+			)
+			if err == nil {
+				if v := validateSummary(alt, cfg.MaxOutputTokens); v != "" {
+					summary = v
+				} else if strings.TrimSpace(alt) != "" {
+					summary = alt
+				}
+			}
+		}
+		summary = insertRecallIndex(summary, meta.SessionID, meta.SessionFile)
 	}
 
 	readFiles, modifiedFiles := computeFileLists(&preparation.FileOps)
@@ -208,12 +251,10 @@ func Compact(
 	if fileOperations != "" {
 		summary += "\n\n" + fileOperations
 	}
-	tail := VerbatimLast(preparation.MessagesToSummarize)
-	if tail == "" {
-		tail = VerbatimLast(preparation.TurnPrefixMessages)
-	}
-	if tail != "" {
-		summary += "\n\n## Last Message\n\n" + tail
+	role := lastContentMessage(window).Role
+	summary = appendVerbatimTail(summary, role, VerbatimLast(window))
+	if cfg.Enabled && cfg.Index.Enabled {
+		_ = RecordCompaction(meta.SessionID, meta.SessionFile, preparation.FirstKeptEntryId, packet.Records, summary)
 	}
 
 	return CompactionResult{
@@ -240,7 +281,7 @@ func Run(
 	if prep.FirstKeptEntryId == "" {
 		return nil
 	}
-	result, err := Compact(ctx, *prep, llm)
+	result, err := Compact(ctx, *prep, llm, Meta{})
 	if err != nil {
 		return err
 	}

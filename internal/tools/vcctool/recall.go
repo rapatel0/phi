@@ -14,14 +14,18 @@ import (
 // EntriesFunc returns the current session path for recall.
 type EntriesFunc func() []session.MessageEntry
 
-// Tool searches raw session history after compaction.
-func Tool(entries EntriesFunc) tooldef.Tool {
+// SessionIDFunc returns the current session id for ledger recall.
+type SessionIDFunc func() string
+
+// Tool searches raw session history and the deterministic VCC ledger.
+func Tool(entries EntriesFunc, sessionID SessionIDFunc) tooldef.Tool {
 	return tooldef.Tool{
 		Definition: llm.ToolDefinition{
 			Name: "vcc_recall",
 			Description: `Search raw session history after compaction.
 
-Use a phrase to find matching messages. Use #N to expand hit N from a prior search.`,
+Use a phrase to find matching messages. Use #N to expand hit N from a prior search.
+Also searches the derived VCC ledger when indexing is on.`,
 			Params: &llm.FunctionParameters{
 				Type: "object",
 				Properties: llm.Object{
@@ -57,11 +61,21 @@ Use a phrase to find matching messages. Use #N to expand hit N from a prior sear
 			if query == "" {
 				return tooldef.Result{}, nil
 			}
+			limit := in.Limit
+			if limit <= 0 {
+				limit = compaction.LoadConfig().Index.MaxSearchResults
+			}
 			var list []session.MessageEntry
 			if entries != nil {
 				list = entries()
 			}
-			body := compaction.FormatHits(compaction.SearchHistory(list, query, in.Limit))
+			hits := compaction.SearchHistory(list, query, limit)
+			if len(hits) < limit && sessionID != nil {
+				if id := sessionID(); id != "" {
+					hits = append(hits, compaction.SearchLedger(id, query, limit-len(hits))...)
+				}
+			}
+			body := compaction.FormatHits(hits)
 			return tooldef.Result{Content: body, Detail: query, Output: body}, nil
 		},
 	}

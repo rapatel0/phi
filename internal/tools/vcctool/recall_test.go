@@ -15,7 +15,7 @@ func TestRecallToolFindsHistory(t *testing.T) {
 			Message:          llm.Message{Role: llm.RoleUser, Content: "fix toast pointer"},
 		},
 	}
-	tl := Tool(func() []session.MessageEntry { return entries })
+	tl := Tool(func() []session.MessageEntry { return entries }, nil)
 	if tl.Definition.Name != "vcc_recall" {
 		t.Fatalf("name=%s", tl.Definition.Name)
 	}

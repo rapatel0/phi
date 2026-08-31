@@ -44,11 +44,11 @@ func TestCompactAppendsLastMessage(t *testing.T) {
 		FirstKeptEntryId:    "keep",
 		MessagesToSummarize: []llm.Message{{Role: llm.RoleUser, Content: "hello world"}},
 	}
-	res, err := Compact(context.Background(), prep, f)
+	res, err := Compact(context.Background(), prep, f, Meta{})
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !strings.Contains(res.Summary, "## Last Message") || !strings.Contains(res.Summary, "hello world") {
+	if !strings.Contains(res.Summary, verbatimHeading) || !strings.Contains(res.Summary, "hello world") {
 		t.Fatalf("summary=%q", res.Summary)
 	}
 }
