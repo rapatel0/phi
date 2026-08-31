@@ -1048,17 +1048,18 @@ func (c *Controller) publish(m Msg) {
 	}
 }
 
-func (c *Controller) runLoop(ctx context.Context, gen int, prompt string, pendingSkills []string, images []llm.Image) {
+func (c *Controller) runLoop(ctx context.Context, gen int, prompt string, pendingSkills []string, images []llm.Image) string {
 	defer c.clearStream(gen)
+	var last string
 	if !c.waitOrDone(ctx, gen, 120*time.Millisecond) {
-		return
+		return ""
 	}
 	c.publish(SetActivityMsg{Activity: ActivityStreaming})
 
 	if c.engine == nil {
 		errText := "agent not configured"
 		if !c.Alive(gen) {
-			return
+			return ""
 		}
 		c.publish(SessionEventMsg{Event: session.AssistantMessageUpdate{Message: session.Message{
 			ID:    fmt.Sprintf("assistant-error-%d", time.Now().UnixNano()),
@@ -1068,12 +1069,12 @@ func (c *Controller) runLoop(ctx context.Context, gen int, prompt string, pendin
 				{Type: session.BlockText, Text: errText},
 			},
 		}}})
-		return
+		return ""
 	}
 
 	for ev, err := range c.engine.Loop(ctx, prompt, agent.LoopOpts{PendingSkills: pendingSkills, Images: images}) {
 		if !c.Alive(gen) {
-			return
+			return last
 		}
 		if err != nil {
 			errText := err.Error()
@@ -1085,7 +1086,7 @@ func (c *Controller) runLoop(ctx context.Context, gen int, prompt string, pendin
 					{Type: session.BlockText, Text: errText},
 				},
 			}}})
-			return
+			return last
 		}
 		if ev != nil {
 			// Hook effects are not transcript content: they carry the toast
@@ -1100,12 +1101,16 @@ func (c *Controller) runLoop(ctx context.Context, gen int, prompt string, pendin
 				continue
 			}
 			c.publish(SessionEventMsg{Event: ev})
+			if t := assistantTextFromEvent(ev); t != "" {
+				last = t
+			}
 			if up, ok := ev.(session.AssistantMessageUpdate); ok && up.Message.State == session.StateComplete &&
 				up.Message.Usage.Reported() {
 				c.recordUsage(up.Message)
 			}
 		}
 	}
+	return last
 }
 
 // startSide runs a /btw side conversation as a sub-agent job.

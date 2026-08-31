@@ -4,9 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"slices"
 	"strings"
-	"time"
 
 	"github.com/rapatel0/alpha/internal/job"
 	"github.com/rapatel0/alpha/internal/session"
@@ -27,12 +25,18 @@ func (c *Controller) AskParent(ctx context.Context, jobID, question string) (str
 	}
 	info, err := c.jobInfo(jobID)
 	if err != nil {
-		info = job.Info{}
-		info.ID = jobID
+		return "", fmt.Errorf("ask_parent: %w", err)
 	}
 	prompt := parentAskPrompt(info, question)
-	if err := c.waitParentIdle(ctx, 2*time.Minute); err != nil {
-		return "", err
+
+	c.streamMu.Lock()
+	busy := c.streamCancel != nil
+	c.streamMu.Unlock()
+	if busy {
+		// The parent Loop is already running (usually blocked in agent_wait).
+		// A nested Loop on the same engine is not safe, so answer on a
+		// side job. The child stays blocked on this call until it finishes.
+		return c.askParentSide(ctx, prompt)
 	}
 
 	turnCtx, cancel := context.WithCancel(ctx)
@@ -40,18 +44,44 @@ func (c *Controller) AskParent(ctx context.Context, jobID, question string) (str
 	if c.streamCancel != nil {
 		c.streamMu.Unlock()
 		cancel()
-		return "", errors.New("ask_parent: parent started another turn")
+		return c.askParentSide(ctx, prompt)
 	}
 	c.streamCancel = cancel
 	c.streamGen++
 	gen := c.streamGen
 	c.streamMu.Unlock()
 
-	last := c.runLoopCollect(turnCtx, gen, prompt)
+	last := c.runLoop(turnCtx, gen, prompt, nil, nil)
 	if last == "" {
 		return "", errors.New("ask_parent: parent returned no answer")
 	}
 	return last, nil
+}
+
+func (c *Controller) askParentSide(ctx context.Context, prompt string) (string, error) {
+	mgr := c.engineJobs()
+	if mgr == nil {
+		return "", errors.New("ask_parent: parent is busy")
+	}
+	info, err := mgr.Spawn(ctx, job.SpawnRequest{
+		Prompt:      prompt,
+		Description: "ask_parent",
+		ParentID:    c.SessionID(),
+		Role:        job.RoleExplore,
+		WorkDir:     c.cwd,
+	})
+	if err != nil {
+		return "", err
+	}
+	res, err := mgr.Wait(ctx, info.ID)
+	if err != nil {
+		return "", err
+	}
+	summary := strings.TrimSpace(res.Summary)
+	if summary == "" {
+		return "", errors.New("ask_parent: parent returned no answer")
+	}
+	return summary, nil
 }
 
 func parentAskPrompt(info job.Info, question string) string {
@@ -76,26 +106,6 @@ func parentAskPrompt(info job.Info, question string) string {
 	return b.String()
 }
 
-func (c *Controller) waitParentIdle(ctx context.Context, d time.Duration) error {
-	deadline := time.Now().Add(d)
-	for {
-		c.streamMu.Lock()
-		busy := c.streamCancel != nil
-		c.streamMu.Unlock()
-		if !busy {
-			return nil
-		}
-		if time.Now().After(deadline) {
-			return errors.New("ask_parent: parent is busy")
-		}
-		select {
-		case <-ctx.Done():
-			return ctx.Err()
-		case <-time.After(80 * time.Millisecond):
-		}
-	}
-}
-
 func (c *Controller) childTools(jobID string, base []tools.Tool) []tools.Tool {
 	id := jobID
 	out := append([]tools.Tool(nil), base...)
@@ -105,22 +115,12 @@ func (c *Controller) childTools(jobID string, base []tools.Tool) []tools.Tool {
 	return out
 }
 
-func (c *Controller) runLoopCollect(ctx context.Context, gen int, prompt string) string {
-	defer c.clearStream(gen)
-	c.runLoop(ctx, gen, prompt, nil, nil)
-	if c.engine == nil || c.engine.Session() == nil {
+func assistantTextFromEvent(ev session.Event) string {
+	up, ok := ev.(session.AssistantMessageUpdate)
+	if !ok || up.Message.State != session.StateComplete {
 		return ""
 	}
-	snap := session.SnapshotFromEntries(c.engine.Session().PathEntries())
-	for _, m := range slices.Backward(snap.Messages) {
-		if m.Role != session.RoleAssistant {
-			continue
-		}
-		if t := strings.TrimSpace(m.FlatText()); t != "" {
-			return t
-		}
-	}
-	return ""
+	return strings.TrimSpace(up.Message.FlatText())
 }
 
 func (c *Controller) clearStream(gen int) {
