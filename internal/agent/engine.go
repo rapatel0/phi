@@ -56,6 +56,7 @@ type Engine struct {
 	jobs        *job.Manager
 	hooks       *hooks.Manager
 	mcp         *mcp.Pool
+	baseTools   []tools.Tool // constructor set; rebindTools must not drop it
 
 	session *Session
 }
@@ -94,12 +95,13 @@ func NewEngine(opts EngineOpts) (*Engine, error) {
 		jobs:          opts.Jobs,
 		hooks:         opts.Hooks,
 		mcp:           opts.MCP,
+		baseTools:     opts.Tools,
 	}
 	if opts.MaxRounds > 0 {
 		engine.maxRounds = opts.MaxRounds
 	}
 	engine.authFile = opts.AuthFile
-	toolList := engine.buildToolList(opts.Tools)
+	toolList := engine.buildToolList(engine.baseTools)
 	engine.client = engine.newClient(tools.Definitions(toolList))
 	engine.bindExecutor(tools.NewRegistry(toolList))
 	return engine, nil
@@ -179,7 +181,7 @@ func (engine *Engine) SetJobs(jobs *job.Manager) {
 }
 
 func (engine *Engine) rebindTools() {
-	toolList := engine.buildToolList(nil)
+	toolList := engine.buildToolList(engine.baseTools)
 	engine.client = engine.newClient(tools.Definitions(toolList))
 	engine.bindExecutor(tools.NewRegistry(toolList))
 }

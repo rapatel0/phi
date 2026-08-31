@@ -85,3 +85,20 @@ func TestChildToolsAreReadonly(t *testing.T) {
 	assert.False(t, names["write"])
 	assert.False(t, names["edit"])
 }
+
+func TestChildSetModelKeepsReadonlyTools(t *testing.T) {
+	eng, err := agent.NewEngine(agent.EngineOpts{
+		Model:       llm.ModelConfig{Name: "fake", BaseURL: "http://127.0.0.1:9", APIKey: "x"},
+		SessionOpts: agent.SessionOpts{Cwd: t.TempDir()},
+		Tools:       agent.ChildTools(),
+	})
+	require.NoError(t, err)
+	assert.False(t, eng.HasTool("agent_spawn"))
+	assert.False(t, eng.HasTool("edit"))
+	assert.True(t, eng.HasTool("read"))
+
+	require.NoError(t, eng.SetModel(llm.ModelConfig{Name: "fake2", BaseURL: "http://127.0.0.1:9", APIKey: "x"}))
+	assert.False(t, eng.HasTool("agent_spawn"))
+	assert.False(t, eng.HasTool("edit"))
+	assert.True(t, eng.HasTool("read"))
+}

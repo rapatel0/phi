@@ -880,6 +880,12 @@ func (c *Controller) wake(text string) error {
 	if text == "" {
 		return errors.New("wake: empty prompt")
 	}
+	if c.AttachedID() != "" {
+		return errors.New("wake: a sub-agent is attached")
+	}
+	if c.children.anyFollow() {
+		return errors.New("wake: a sub-agent is running a follow-up")
+	}
 	c.streamMu.Lock()
 	streaming := c.streamCancel != nil
 	c.streamMu.Unlock()

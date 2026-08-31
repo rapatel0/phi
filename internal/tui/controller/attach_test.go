@@ -150,3 +150,21 @@ func TestAttachUnknownJob(t *testing.T) {
 	_, _, err := c.Attach("missing")
 	assert.Error(t, err)
 }
+
+func TestWakeRefusesWhenAttached(t *testing.T) {
+	c := &Controller{children: newChildRegistry(), bus: NewBus(nil)}
+	c.streamMu.Lock()
+	c.attachedID = "j1"
+	c.streamMu.Unlock()
+	err := c.wake("hi")
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "attached")
+}
+
+func TestWakeRefusesWhenChildFollowUp(t *testing.T) {
+	c := &Controller{children: newChildRegistry(), bus: NewBus(nil)}
+	c.children.put(&childSlot{meta: job.Meta{ID: "j1"}, followCancel: func() {}})
+	err := c.wake("hi")
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "follow-up")
+}

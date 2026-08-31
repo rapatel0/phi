@@ -70,6 +70,23 @@ func newChildRegistry() *childRegistry {
 	return &childRegistry{byID: make(map[string]*childSlot)}
 }
 
+func (r *childRegistry) anyFollow() bool {
+	if r == nil {
+		return false
+	}
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	for _, s := range r.byID {
+		s.mu.Lock()
+		busy := s.followCancel != nil
+		s.mu.Unlock()
+		if busy {
+			return true
+		}
+	}
+	return false
+}
+
 func (r *childRegistry) get(id string) *childSlot {
 	if r == nil {
 		return nil

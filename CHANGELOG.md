@@ -42,6 +42,8 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ### Fixed
 
+- `wake` does not talk to an attached child or a child follow-up.
+  Child engines keep their role tool set across `SetModel` / `SetAuthFile`.
 - Draw no longer lists jobs from disk each frame. TASKS reloads when the
   live count changes or the session switches. The child view title uses
   cached job info. Sibling child events do not replay onto the parent.
