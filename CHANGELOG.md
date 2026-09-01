@@ -12,7 +12,9 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 - WASM plugins load from `~/.agents/plugins/*.wasm` and
   `<cwd>/.agents/plugins/*.wasm` (wazero, no CGO). A module can register
-  slash commands and tools. WASI is present without a filesystem.
+  slash commands and tools. The host import surface matches `ext.Host`
+  (session hooks, prompt, tool gate, footer, wake, compact, side
+  conversations, questions). WASI is present without a filesystem.
 
 ### Changed
 

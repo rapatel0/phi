@@ -106,3 +106,17 @@ func TestLoadPingRegistersTool(t *testing.T) {
 		t.Fatal("wasm_ping not registered")
 	}
 }
+
+func TestLoadFooter(t *testing.T) {
+	h := loadTestdata(t, "footer.wasm")
+	bits := h.FooterBits()
+	found := false
+	for _, b := range bits {
+		if b == "wasm-foot" {
+			found = true
+		}
+	}
+	if !found {
+		t.Fatalf("footer bits=%v", bits)
+	}
+}

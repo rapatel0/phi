@@ -21,12 +21,14 @@ import (
 )
 
 const (
-	hostModule  = "alpha"
-	exportInit  = "alpha_plugin_init"
-	exportCmd   = "alpha_plugin_command"
-	exportTool  = "alpha_plugin_tool"
-	argsScratch = 4096
-	argsMax     = 16384
+	hostModule   = "alpha"
+	exportInit   = "alpha_plugin_init"
+	exportCmd    = "alpha_plugin_command"
+	exportTool   = "alpha_plugin_tool"
+	argsScratch  = 4096
+	eventScratch = 20480
+	replyScratch = 48000
+	argsMax      = 16384
 )
 
 type toolSpec struct {
@@ -36,18 +38,37 @@ type toolSpec struct {
 }
 
 type loaded struct {
-	name     string
-	mod      api.Module
-	mem      api.Memory
-	cmd      api.Function
-	toolFn   api.Function
-	mu       sync.Mutex
-	toast    string
-	result   string
-	nextID   int32
-	cmdName  map[int32]string
-	cmdDesc  map[int32]string
-	toolSpec map[int32]toolSpec
+	name      string
+	host      *ext.Host
+	mod       api.Module
+	mem       api.Memory
+	cmd       api.Function
+	toolFn    api.Function
+	mu        sync.Mutex
+	toast     string
+	result    string
+	submit    string
+	status    string
+	statusSet bool
+	list      *hooks.CommandList
+	nextID    int32
+	cmdName   map[int32]string
+	cmdDesc   map[int32]string
+	toolSpec  map[int32]toolSpec
+
+	wantFooter   bool
+	wantUsage    bool
+	wantPrompt   bool
+	wantBG       bool
+	sessionKinds []hooks.Kind
+	toolWatch    []toolWatch
+	resultMatch  []string
+}
+
+type toolWatch struct {
+	match string
+	pre   bool
+	post  bool
 }
 
 var loadOnce sync.Once
@@ -80,6 +101,7 @@ func loadOne(ctx context.Context, h *ext.Host, path string) error {
 	name := strings.TrimSuffix(filepath.Base(path), filepath.Ext(path))
 	plug := &loaded{
 		name:     name,
+		host:     h,
 		cmdName:  map[int32]string{},
 		cmdDesc:  map[int32]string{},
 		toolSpec: map[int32]toolSpec{},
@@ -98,7 +120,21 @@ func loadOne(ctx context.Context, h *ext.Host, path string) error {
 		NewFunctionBuilder().WithFunc(plug.registerTool).Export("register_tool").
 		NewFunctionBuilder().WithFunc(plug.setToast).Export("set_toast").
 		NewFunctionBuilder().WithFunc(plug.setResult).Export("set_result").
+		NewFunctionBuilder().WithFunc(plug.setSubmit).Export("set_submit").
+		NewFunctionBuilder().WithFunc(plug.setStatus).Export("set_status").
+		NewFunctionBuilder().WithFunc(plug.setList).Export("set_list").
 		NewFunctionBuilder().WithFunc(plug.log).Export("log").
+		NewFunctionBuilder().WithFunc(plug.addFooter).Export("add_footer").
+		NewFunctionBuilder().WithFunc(plug.onSession).Export("on_session").
+		NewFunctionBuilder().WithFunc(plug.onBeforeAgentStart).Export("on_before_agent_start").
+		NewFunctionBuilder().WithFunc(plug.onTool).Export("on_tool").
+		NewFunctionBuilder().WithFunc(plug.onToolResult).Export("on_tool_result").
+		NewFunctionBuilder().WithFunc(plug.onUsage).Export("on_usage").
+		NewFunctionBuilder().WithFunc(plug.enableBackground).Export("enable_background").
+		NewFunctionBuilder().WithFunc(plug.hostWake).Export("wake").
+		NewFunctionBuilder().WithFunc(plug.hostCompact).Export("compact").
+		NewFunctionBuilder().WithFunc(plug.hostStartSide).Export("start_side").
+		NewFunctionBuilder().WithFunc(plug.hostAskQuestion).Export("ask_question").
 		Instantiate(ctx)
 	if err != nil {
 		_ = rt.Close(ctx)
@@ -132,6 +168,9 @@ func loadOne(ctx context.Context, h *ext.Host, path string) error {
 	}
 	plug.cmd = mod.ExportedFunction(exportCmd)
 	plug.toolFn = mod.ExportedFunction(exportTool)
+	if plug.wantBG {
+		return h.Add(bgPlugin{plug})
+	}
 	return h.Add(plug)
 }
 
@@ -167,6 +206,7 @@ func (p *loaded) Register(h *ext.Host) error {
 			},
 		})
 	}
+	p.wireHost(h)
 	return nil
 }
 
@@ -277,6 +317,10 @@ func (p *loaded) runCommand(ctx context.Context, id int32, args []string) (hooks
 	raw := []byte(strings.Join(args, " "))
 	p.mu.Lock()
 	p.toast = ""
+	p.submit = ""
+	p.status = ""
+	p.statusSet = false
+	p.list = nil
 	cmd := p.cmd
 	ptr, n, ok := p.writeScratch(raw)
 	p.mu.Unlock()
@@ -290,9 +334,19 @@ func (p *loaded) runCommand(ctx context.Context, id int32, args []string) (hooks
 		return hooks.CommandResult{}, err
 	}
 	p.mu.Lock()
-	toast := p.toast
+	res := hooks.CommandResult{
+		Toast:     p.toast,
+		Submit:    p.submit,
+		Status:    p.status,
+		StatusSet: p.statusSet,
+		List:      p.list,
+	}
+	p.submit = ""
+	p.status = ""
+	p.statusSet = false
+	p.list = nil
 	p.mu.Unlock()
-	return hooks.CommandResult{Toast: toast}, nil
+	return res, nil
 }
 
 func (p *loaded) runTool(ctx context.Context, id int32, input json.RawMessage) (tools.Result, error) {

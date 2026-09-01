@@ -77,11 +77,18 @@ Alpha loads it with wazero (pure Go). Guests can be Go `GOOS=wasip1 GOARCH=wasm`
 or any wasm32 toolchain.
 
 The host instantiates WASI without a filesystem so Go `GOOS=wasip1` guests
-can load. The module may import:
+can load. The `alpha` import module matches `ext.Host`:
 
-- `alpha.register_command` / `alpha.register_tool`
-- `alpha.set_toast` / `alpha.set_result` / `alpha.log`
+- register: `register_command`, `register_tool`, `add_footer`,
+  `on_session`, `on_before_agent_start`, `on_tool`, `on_tool_result`,
+  `on_usage`, `enable_background`
+- results: `set_toast`, `set_result`, `set_submit`, `set_status`,
+  `set_list`, `log`
+- host calls: `wake`, `compact`, `start_side`, `ask_question`
 
-It exports `memory`, `alpha_plugin_init`, and optionally
-`alpha_plugin_command` and `alpha_plugin_tool`. Command args and tool JSON
-are written into guest memory. A bad module is skipped.
+Exports: `memory`, `alpha_plugin_init`, and optionally
+`alpha_plugin_command`, `alpha_plugin_tool`, `alpha_plugin_footer`,
+`alpha_plugin_session`, `alpha_plugin_prompt`, `alpha_plugin_tool_pre`,
+`alpha_plugin_tool_post`, `alpha_plugin_tool_result`,
+`alpha_plugin_usage`, `alpha_plugin_start`, `alpha_plugin_stop`.
+A bad module is skipped.
