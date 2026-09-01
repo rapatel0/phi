@@ -175,7 +175,8 @@ func TestCommandRegistry_DispatchSlash(t *testing.T) {
 	assert.Equal(t, "abc", resumeID)
 
 	assert.True(t, r.DispatchSlash("/resume", ctx))
-	assert.Equal(t, "", resumeID)
+	assert.Equal(t, 2, sessions)
+	assert.Equal(t, "abc", resumeID)
 
 	assert.True(t, r.DispatchSlash("/clear", ctx))
 	assert.Equal(t, 1, cleared)

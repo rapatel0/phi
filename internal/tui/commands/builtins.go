@@ -33,13 +33,19 @@ func registerBuiltinCommands(r *CommandRegistry) {
 	})
 	r.Register(Command{
 		Name:        "resume",
-		Description: "Resume the latest session (or /resume <id>)",
+		Description: "Resume a session from the picker (or /resume <id>)",
 		Slash:       true,
 		Insert:      "/resume",
 		Run: func(ctx CommandContext) error {
 			id := ""
 			if len(ctx.Args) >= 1 {
-				id = ctx.Args[0]
+				id = strings.TrimSpace(ctx.Args[0])
+			}
+			if id == "" {
+				if ctx.ShowSessions != nil {
+					ctx.ShowSessions()
+				}
+				return nil
 			}
 			if ctx.ResumeSession != nil {
 				ctx.ResumeSession(id)

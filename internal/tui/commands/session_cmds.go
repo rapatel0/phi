@@ -88,7 +88,7 @@ func (s *SessionCommands) Show() {
 			}
 			fmt.Fprintf(&b, "  %s  %s  %s\n", short, m.Mtime.Format("01-02 15:04"), preview)
 		}
-		b.WriteString("Resume with /resume or /resume <id>")
+		b.WriteString("Pick one with /resume, or /resume <id>")
 	}
 	s.Transcript.ApplySession(session.AssistantMessageUpdate{Message: session.Message{
 		ID:    fmt.Sprintf("sessions-%d", time.Now().UnixNano()),
