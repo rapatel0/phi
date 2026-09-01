@@ -76,6 +76,12 @@ Drop a `*.wasm` file in `~/.agents/plugins/` or `<project>/.agents/plugins/`.
 Alpha loads it with wazero (pure Go). Guests can be Go `GOOS=wasip1 GOARCH=wasm`
 or any wasm32 toolchain.
 
-The module imports `alpha.register_command` and `alpha.set_toast`, and exports
-`memory`, `alpha_plugin_init`, and `alpha_plugin_command`. There is no
-filesystem. A bad module is skipped.
+The host instantiates WASI without a filesystem so Go `GOOS=wasip1` guests
+can load. The module may import:
+
+- `alpha.register_command` / `alpha.register_tool`
+- `alpha.set_toast` / `alpha.set_result` / `alpha.log`
+
+It exports `memory`, `alpha_plugin_init`, and optionally
+`alpha_plugin_command` and `alpha_plugin_tool`. Command args and tool JSON
+are written into guest memory. A bad module is skipped.

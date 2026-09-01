@@ -12,7 +12,7 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 - WASM plugins load from `~/.agents/plugins/*.wasm` and
   `<cwd>/.agents/plugins/*.wasm` (wazero, no CGO). A module can register
-  slash commands. There is no filesystem in the sandbox.
+  slash commands and tools. WASI is present without a filesystem.
 
 ### Changed
 
