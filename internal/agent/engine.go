@@ -526,7 +526,10 @@ func (engine *Engine) maybeCompact(
 	yield func(session.Event, error) bool,
 	usage int,
 ) error {
-	settings := compaction.DefaultSettings().WithThresholdPercent(compaction.LoadConfig().ThresholdPercent)
+	cfg := compaction.LoadConfig()
+	settings := compaction.DefaultSettings().
+		WithThresholdPercent(cfg.ThresholdPercent).
+		WithThresholdTokens(cfg.ThresholdTokens)
 	if engine.client == nil || !compaction.ShouldCompact(usage, engine.contextWindow, settings) {
 		return nil
 	}

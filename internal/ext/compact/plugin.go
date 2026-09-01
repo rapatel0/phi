@@ -47,8 +47,14 @@ func (p *Plugin) runCompact(ctx context.Context, args []string) (hooks.CommandRe
 			model = "session model"
 		}
 		return hooks.CommandResult{Toast: fmt.Sprintf(
-			"compact: model=%s, transport=%s, threshold=%d%%, input=%d, output=%d, index=%t",
-			model, cfg.Transport, cfg.ThresholdPercent, cfg.MaxInputTokens, cfg.MaxOutputTokens, cfg.Index.Enabled,
+			"compact: model=%s, transport=%s, threshold=%d%% or %d tokens, input=%d, output=%d, index=%t",
+			model,
+			cfg.Transport,
+			cfg.ThresholdPercent,
+			cfg.ThresholdTokens,
+			cfg.MaxInputTokens,
+			cfg.MaxOutputTokens,
+			cfg.Index.Enabled,
 		)}, nil
 	case "config":
 		path := compaction.ConfigPath()
@@ -60,7 +66,9 @@ func (p *Plugin) runCompact(ctx context.Context, args []string) (hooks.CommandRe
 		if err := compaction.EnsureGlobalConfig(); err != nil {
 			return hooks.CommandResult{}, err
 		}
-		return hooks.CommandResult{Toast: "compact: configuration is ready. The next compaction writes the ledger."}, nil
+		return hooks.CommandResult{
+			Toast: "compact: configuration is ready. The next compaction writes the ledger.",
+		}, nil
 	case "", "now":
 		if err := ext.Default().Compact(ctx); err != nil {
 			return hooks.CommandResult{}, err

@@ -17,8 +17,9 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 - `/login` picks a provider for the active profile. `alpha login --profile NAME
   <provider>` writes credentials to that profile without switching the default.
 - Session compaction is a hybrid: evidence selection, then an LLM
-  handoff. Autocompact runs at 95% of the context window
-  (`thresholdPercent` in `~/.alpha/compaction/config.json`). A global
+  handoff. Autocompact runs at 95% of the context window or 400k
+  tokens, whichever is first (`thresholdPercent` and `thresholdTokens`
+  in `~/.alpha/compaction/config.json`). A global
   or per-model compact model can override the session model. OpenAI
   `/responses/compact` is fallback only. `/compact` and `/recall` are
   the slash commands. The `recall` tool searches raw history and the

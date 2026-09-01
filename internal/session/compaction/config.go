@@ -35,6 +35,7 @@ type Config struct {
 	MaxOutputTokens        int                      `json:"maxOutputTokens"`
 	TimeoutMs              int                      `json:"timeoutMs"`
 	ThresholdPercent       int                      `json:"thresholdPercent"`
+	ThresholdTokens        int                      `json:"thresholdTokens"`
 	Index                  IndexConfig              `json:"index"`
 }
 
@@ -56,6 +57,7 @@ func defaultConfig() Config {
 		MaxOutputTokens:  5000,
 		TimeoutMs:        120000,
 		ThresholdPercent: 95,
+		ThresholdTokens:  400_000,
 		Index: IndexConfig{
 			Enabled:          true,
 			MaxSearchResults: 10,
@@ -125,6 +127,7 @@ func LoadConfig() Config {
 	applyJSON(&cfg.MaxOutputTokens, file["maxOutputTokens"])
 	applyJSON(&cfg.TimeoutMs, file["timeoutMs"])
 	applyJSON(&cfg.ThresholdPercent, file["thresholdPercent"])
+	applyJSON(&cfg.ThresholdTokens, file["thresholdTokens"])
 	if v, ok := file["enabled"]; ok {
 		_ = json.Unmarshal(v, &cfg.Enabled)
 	}
@@ -159,6 +162,9 @@ func LoadConfig() Config {
 	}
 	if cfg.ThresholdPercent > 100 {
 		cfg.ThresholdPercent = 100
+	}
+	if cfg.ThresholdTokens <= 0 {
+		cfg.ThresholdTokens = 400_000
 	}
 	return cfg
 }

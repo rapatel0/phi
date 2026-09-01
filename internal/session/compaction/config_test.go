@@ -77,3 +77,15 @@ func TestLoadConfigThresholdPercent(t *testing.T) {
 	}
 }
 
+func TestLoadConfigThresholdTokens(t *testing.T) {
+	dir := t.TempDir()
+	t.Setenv("ALPHA_COMPACT_DIR", dir)
+	path := filepath.Join(dir, "config.json")
+	if err := os.WriteFile(path, []byte(`{"thresholdTokens":200000}`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	cfg := LoadConfig()
+	if cfg.ThresholdTokens != 200000 {
+		t.Fatalf("tokens=%d", cfg.ThresholdTokens)
+	}
+}
