@@ -264,3 +264,15 @@ func TestCommandRegistry_HookCommandsDoNotReplaceBuiltins(t *testing.T) {
 	assert.Empty(t, r.LookupInsert("review"))
 	assert.Equal(t, "/clear", r.LookupInsert("clear"))
 }
+
+func TestCompactCommand_Submenu(t *testing.T) {
+	t.Setenv("ALPHA_COMPACT_DIR", t.TempDir())
+	cmd := CompactCommand(nil)
+	assert.Equal(t, "settings", cmd.Noun)
+	assert.Equal(t, "compact", cmd.Verb)
+	require.NotNil(t, cmd.SubmenuFn)
+	items := cmd.SubmenuFn()
+	require.Len(t, items, 2)
+	require.NotEmpty(t, items[0].Submenu)
+	items[0].Submenu[0].Run()
+}

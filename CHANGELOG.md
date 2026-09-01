@@ -10,6 +10,8 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ### Changed
 
+- Settings → compact sets the autocompact window percent and token cap.
+  Values persist in `~/.alpha/compaction/config.json`.
 - `/resume` with no id opens the same session picker as `/sessions`.
   `/resume <id>` still loads that session.
 - `/style` also loads `~/.claude/output-styles` and `~/.agents/output-styles`

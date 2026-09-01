@@ -4,9 +4,12 @@ import (
 	"fmt"
 	"strings"
 
+	"time"
+
 	"github.com/rapatel0/alpha/internal/components"
 	"github.com/rapatel0/alpha/internal/components/mention"
 	"github.com/rapatel0/alpha/internal/components/palette"
+	"github.com/rapatel0/alpha/internal/components/toast"
 	"github.com/rapatel0/alpha/internal/hooks"
 	"github.com/rapatel0/alpha/internal/llm/skills"
 )
@@ -126,6 +129,14 @@ func registerBuiltinCommands(r *CommandRegistry) {
 		Name: "settings-agents",
 		PaletteRoot: func(ctx CommandContext) palette.PaletteCommand {
 			return AgentsCommand(ctx.SetAgents)
+		},
+	})
+	r.Register(Command{
+		Name: "settings-compact",
+		PaletteRoot: func(ctx CommandContext) palette.PaletteCommand {
+			return CompactCommand(func(msg string) {
+				ctx.toast(msg, toast.ToastSuccess, 4*time.Second)
+			})
 		},
 	})
 	r.Register(Command{

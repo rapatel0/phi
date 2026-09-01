@@ -89,3 +89,18 @@ func TestLoadConfigThresholdTokens(t *testing.T) {
 		t.Fatalf("tokens=%d", cfg.ThresholdTokens)
 	}
 }
+
+func TestSaveConfigRoundTrip(t *testing.T) {
+	dir := t.TempDir()
+	t.Setenv("ALPHA_COMPACT_DIR", dir)
+	cfg := LoadConfig()
+	cfg.ThresholdPercent = 90
+	cfg.ThresholdTokens = 200_000
+	if err := SaveConfig(cfg); err != nil {
+		t.Fatal(err)
+	}
+	got := LoadConfig()
+	if got.ThresholdPercent != 90 || got.ThresholdTokens != 200_000 {
+		t.Fatalf("%+v", got)
+	}
+}

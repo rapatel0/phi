@@ -176,6 +176,31 @@ func applyJSON[T any](dst *T, raw json.RawMessage) {
 	_ = json.Unmarshal(raw, dst)
 }
 
+// SaveConfig writes cfg to the global compact config file.
+func SaveConfig(cfg Config) error {
+	path := ConfigPath()
+	if path == "" {
+		return os.ErrNotExist
+	}
+	if cfg.ThresholdPercent <= 0 {
+		cfg.ThresholdPercent = 95
+	}
+	if cfg.ThresholdPercent > 100 {
+		cfg.ThresholdPercent = 100
+	}
+	if cfg.ThresholdTokens <= 0 {
+		cfg.ThresholdTokens = 400_000
+	}
+	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+		return err
+	}
+	raw, err := json.MarshalIndent(cfg, "", "  ")
+	if err != nil {
+		return err
+	}
+	return os.WriteFile(path, append(raw, '\n'), 0o644)
+}
+
 // ResolveCompactor picks per-model override, then global, then the session model.
 func ResolveCompactor(session llm.ModelConfig, cfg Config) llm.ModelConfig {
 	spec := cfg.Compactor
