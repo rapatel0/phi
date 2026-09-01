@@ -13,6 +13,7 @@ import (
 	"github.com/rapatel0/alpha/internal/agent"
 	"github.com/rapatel0/alpha/internal/debuglog"
 	"github.com/rapatel0/alpha/internal/ext"
+	"github.com/rapatel0/alpha/internal/ext/wasmhost"
 	"github.com/rapatel0/alpha/internal/hooks"
 	"github.com/rapatel0/alpha/internal/job"
 	"github.com/rapatel0/alpha/internal/llm"
@@ -101,6 +102,7 @@ func NewController(bus *Bus, proj *project.Project, cwd string) (*Controller, er
 	c.initGate(config.Permissions)
 	c.agentsEnabled.Store(config.Agents.Enabled)
 
+	wasmhost.LoadDefault(cwd)
 	hooksManager := loadHooksManager(proj)
 	c.hooksManager.Store(hooksManager)
 

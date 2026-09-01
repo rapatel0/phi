@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/rapatel0/alpha/internal/agent"
+	"github.com/rapatel0/alpha/internal/ext/wasmhost"
 	"github.com/rapatel0/alpha/internal/hooks"
 	"github.com/rapatel0/alpha/internal/mcp"
 	"github.com/rapatel0/alpha/internal/session"
@@ -80,6 +81,8 @@ func runCmd(args []string) int {
 	} else if opts.session != "" {
 		resumeID = opts.session
 	}
+
+	wasmhost.LoadDefault(bs.Cwd)
 
 	engineOpts := agent.EngineOpts{
 		Model: bs.Config.Model(),

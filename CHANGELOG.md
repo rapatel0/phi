@@ -8,6 +8,12 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased]
 
+### Added
+
+- WASM plugins load from `~/.agents/plugins/*.wasm` and
+  `<cwd>/.agents/plugins/*.wasm` (wazero, no CGO). A module can register
+  slash commands. There is no filesystem in the sandbox.
+
 ### Changed
 
 - Settings → compact sets the autocompact window percent and token cap.

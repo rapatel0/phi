@@ -69,3 +69,13 @@ Then in `cmd/plugins.go`:
 ```go
 import _ "example.com/myext"
 ```
+
+## WASM plugins
+
+Drop a `*.wasm` file in `~/.agents/plugins/` or `<project>/.agents/plugins/`.
+Alpha loads it with wazero (pure Go). Guests can be Go `GOOS=wasip1 GOARCH=wasm`
+or any wasm32 toolchain.
+
+The module imports `alpha.register_command` and `alpha.set_toast`, and exports
+`memory`, `alpha_plugin_init`, and `alpha_plugin_command`. There is no
+filesystem. A bad module is skipped.
