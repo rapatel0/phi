@@ -9,21 +9,25 @@ import (
 	"strings"
 
 	"github.com/rapatel0/alpha/internal/auth"
+	"github.com/rapatel0/alpha/internal/profile"
 	"github.com/rapatel0/alpha/internal/project"
 )
 
 func loginCmd(args []string) int {
-	provider := ""
-	if len(args) > 0 && !strings.HasPrefix(args[0], "-") {
-		provider = strings.ToLower(strings.TrimSpace(args[0]))
+	opts, err := parseLoginArgs(args)
+	if err != nil {
+		fmt.Fprintln(os.Stderr, "alpha login:", err)
+		printLoginUsage(os.Stderr)
+		return ExitUsage
 	}
-	if provider == "" || provider == "-h" || provider == "--help" || provider == "help" {
+	if opts.help || opts.provider == "" {
 		printLoginUsage(os.Stdout)
-		if provider == "" {
+		if opts.provider == "" && !opts.help {
 			return ExitUsage
 		}
 		return ExitOK
 	}
+	provider := opts.provider
 
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt)
 	defer stop()
@@ -33,7 +37,18 @@ func loginCmd(args []string) int {
 		fmt.Fprintln(os.Stderr, "alpha login:", err)
 		return ExitError
 	}
-	store := auth.OpenStore(proj.Global().AuthFile())
+	root := proj.Global().Root()
+	profileName := opts.profile
+	if profileName == "" {
+		profileName, _ = profile.Resolve(root)
+	} else {
+		if _, err := profile.Create(root, profileName); err != nil {
+			fmt.Fprintln(os.Stderr, "alpha login:", err)
+			return ExitUsage
+		}
+	}
+	authFile := profile.AuthFile(root, profileName)
+	store := auth.OpenStore(authFile)
 
 	var cred auth.Credential
 	switch provider {
@@ -118,9 +133,45 @@ func loginCmd(args []string) int {
 		fmt.Fprintln(os.Stderr, "alpha login:", err)
 		return ExitError
 	}
-	fmt.Fprintf(os.Stderr, "saved %s credentials to %s\n", cred.Provider, proj.Global().AuthFile())
+	fmt.Fprintf(os.Stderr, "saved %s credentials for profile %s\n  %s\n", cred.Provider, profileName, authFile)
+	if profileName != profile.Default {
+		fmt.Fprintf(os.Stderr, "switch with:  alpha profile use %s\n", profileName)
+	}
 	fmt.Fprintln(os.Stderr, "Those models now appear in the TUI palette (Ctrl+K → settings → model).")
 	return ExitOK
+}
+
+type loginOpts struct {
+	provider string
+	profile  string
+	help     bool
+}
+
+func parseLoginArgs(args []string) (loginOpts, error) {
+	var opts loginOpts
+	for i := 0; i < len(args); i++ {
+		a := args[i]
+		switch {
+		case a == "-h" || a == "--help" || a == "help":
+			opts.help = true
+		case a == "--profile" || a == "-p":
+			i++
+			if i >= len(args) {
+				return opts, fmt.Errorf("%s needs a profile name", a)
+			}
+			opts.profile = strings.TrimSpace(args[i])
+		case strings.HasPrefix(a, "--profile="):
+			opts.profile = strings.TrimSpace(strings.TrimPrefix(a, "--profile="))
+		case strings.HasPrefix(a, "-") && a != "-":
+			return opts, fmt.Errorf("unknown flag %s", a)
+		default:
+			if opts.provider != "" {
+				return opts, fmt.Errorf("unexpected argument %q", a)
+			}
+			opts.provider = strings.ToLower(strings.TrimSpace(a))
+		}
+	}
+	return opts, nil
 }
 
 func stdinLines(ctx context.Context) <-chan string {
@@ -140,16 +191,18 @@ func stdinLines(ctx context.Context) <-chan string {
 }
 
 func printLoginUsage(w *os.File) {
-	fmt.Fprintf(w, `usage: alpha login <provider>
+	fmt.Fprintf(w, `usage: alpha login [--profile NAME] <provider>
 
-  alpha login anthropic   Claude Pro/Max (browser OAuth)
-  alpha login codex       ChatGPT Codex (device code)
-  alpha login xai         SuperGrok / X Premium (device code)
-  alpha login gemini      Google Gemini API key (AI Studio)
-  alpha login antigravity Google Antigravity (browser OAuth)
+  alpha login anthropic                 Claude Pro/Max (browser OAuth)
+  alpha login --profile work anthropic  same, into the work profile
+  alpha login codex                     ChatGPT Codex (device code)
+  alpha login xai                       SuperGrok / X Premium (device code)
+  alpha login gemini                    Google Gemini API key (AI Studio)
+  alpha login antigravity               Google Antigravity (browser OAuth)
 
-Credentials are stored in the active profile's auth.json (mode 0600).
-See 'alpha profile --help' to keep several logins side by side.
+Credentials are stored in that profile's auth.json (mode 0600).
+--profile writes there without switching the default profile.
+See 'alpha profile --help' to create and switch profiles.
 Config models[].api_key still wins when set.
 
 antigravity reaches Gemini and Claude models through Google's internal

@@ -86,6 +86,13 @@ func registerBuiltinCommands(r *CommandRegistry) {
 		Run:         profileCommand,
 	})
 	r.Register(Command{
+		Name:        "login",
+		Description: "Log in a provider on the active profile",
+		Slash:       true,
+		Insert:      "/login ",
+		Run:         loginCommand,
+	})
+	r.Register(Command{
 		Name: "settings-profile",
 		PaletteRoot: func(ctx CommandContext) palette.PaletteCommand {
 			return profileSettingsCommand(ctx.SetProfile, ctx.Prefill, ctx.Profile, ctx.Profiles)

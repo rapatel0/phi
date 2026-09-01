@@ -143,3 +143,11 @@ func TestUnknownStyleErrorListsAvailable(t *testing.T) {
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "concise, teacher")
 }
+
+func TestStyleDirsIncludesClaudeOutputStyles(t *testing.T) {
+	dirs := styleDirs("/repo", "/home/u")
+	assert.Contains(t, dirs, filepath.Join("/home/u", ".claude", "output-styles"))
+	assert.Contains(t, dirs, filepath.Join("/home/u", ".agents", "output-styles"))
+	assert.Contains(t, dirs, filepath.Join("/repo", ".alpha", "styles"))
+	assert.Equal(t, filepath.Join("/repo", ".alpha", "styles"), dirs[0], "project alpha styles win")
+}

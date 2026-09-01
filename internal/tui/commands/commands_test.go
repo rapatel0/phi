@@ -137,7 +137,7 @@ func TestSkillsCommand_Empty(t *testing.T) {
 
 func TestFilterSlashCommands(t *testing.T) {
 	all := FilterSlashCommands("")
-	require.Len(t, all, 5)
+	require.Len(t, all, 6)
 
 	resu := FilterSlashCommands("resu")
 	require.Len(t, resu, 1)

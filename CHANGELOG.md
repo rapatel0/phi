@@ -10,6 +10,10 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ### Changed
 
+- `/style` also loads `~/.claude/output-styles` and `~/.agents/output-styles`
+  (and the same names under the project). Alpha `styles/` dirs still win.
+- `/login` picks a provider for the active profile. `alpha login --profile NAME
+  <provider>` writes credentials to that profile without switching the default.
 - Session compaction is a hybrid: evidence selection, then an LLM
   handoff. Autocompact runs at 95% of the context window
   (`thresholdPercent` in `~/.alpha/compaction/config.json`). A global

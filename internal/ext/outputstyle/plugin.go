@@ -114,12 +114,24 @@ func (p *Plugin) list(styles map[string]Style) *hooks.CommandList {
 // defaultDirs returns the project style directory first, then the user one, so
 // a project can override a personal style of the same name.
 func defaultDirs() []string {
+	cwd, _ := os.Getwd()
+	home, _ := os.UserHomeDir()
+	return styleDirs(cwd, home)
+}
+
+// styleDirs lists search paths. Earlier entries win. Alpha project and user
+// dirs come first, then ~/.agents and peer homes such as ~/.claude/output-styles.
+func styleDirs(cwd, home string) []string {
 	var dirs []string
-	if cwd, err := os.Getwd(); err == nil {
+	if cwd != "" {
 		dirs = append(dirs, filepath.Join(brand.ProjectDir(cwd), "styles"))
+		dirs = append(dirs, filepath.Join(brand.AgentsProject(cwd), "output-styles"))
+		dirs = append(dirs, brand.PeerJoin(cwd, "output-styles")...)
 	}
-	if home, err := os.UserHomeDir(); err == nil {
+	if home != "" {
 		dirs = append(dirs, filepath.Join(brand.HomeDir(home), "styles"))
+		dirs = append(dirs, filepath.Join(brand.AgentsHome(home), "output-styles"))
+		dirs = append(dirs, brand.PeerJoin(home, "output-styles")...)
 	}
 	return dirs
 }
