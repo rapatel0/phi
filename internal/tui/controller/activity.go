@@ -3,7 +3,6 @@ package controller
 import (
 	"fmt"
 
-	"github.com/rapatel0/alpha/internal/components/status"
 	"github.com/rapatel0/alpha/internal/session"
 )
 
@@ -27,12 +26,13 @@ const (
 // It only mutates itself when Apply / SyncFromSnap are called on the UI goroutine.
 type ActivityHandler struct {
 	Current Activity
-	spin    *status.Spinner
+	onApply func()
 }
 
-// NewActivityHandler builds an ActivityHandler that owns the given spinner.
-func NewActivityHandler(spin *status.Spinner) *ActivityHandler {
-	return &ActivityHandler{spin: spin}
+// NewActivityHandler builds an ActivityHandler. onApply runs after Apply
+// (the footer uses it to reset a spinner frame).
+func NewActivityHandler(onApply func()) *ActivityHandler {
+	return &ActivityHandler{onApply: onApply}
 }
 
 // Apply sets activity from a SetActivityMsg (or direct call on UI thread).
@@ -41,8 +41,8 @@ func (h *ActivityHandler) Apply(a Activity) {
 		return
 	}
 	h.Current = a
-	if h.spin != nil {
-		h.spin.Frame = 0
+	if h.onApply != nil {
+		h.onApply()
 	}
 }
 

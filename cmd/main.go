@@ -37,6 +37,8 @@ func main() {
 			os.Exit(profileCmd(os.Args[2:]))
 		case "keys":
 			os.Exit(keysCmd(os.Args[2:]))
+		case "serve":
+			os.Exit(serveCmd(os.Args[2:]))
 		case "tui":
 			os.Exit(runTUIExit(runTUI()))
 		case "-h", "--help", "help":
@@ -167,5 +169,6 @@ func printMainUsage(w *os.File) {
   alpha sessions list  list persisted sessions for this directory
   alpha mcp …          manage MCP servers (see 'alpha mcp --help')
   alpha keys           show how this terminal reports key presses
+  alpha serve          loopback HTTP control plane (see 'alpha serve --help')
 `)
 }

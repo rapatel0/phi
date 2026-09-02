@@ -43,9 +43,13 @@ type FooterChrome struct {
 func NewFooterChrome(theme components.Theme, contextWindow int) *FooterChrome {
 	spin := status.NewSpinner(theme.ToolName)
 	return &FooterChrome{
-		theme:         theme,
-		spin:          spin,
-		activity:      controller.NewActivityHandler(spin),
+		theme: theme,
+		spin:  spin,
+		activity: controller.NewActivityHandler(func() {
+			if spin != nil {
+				spin.Frame = 0
+			}
+		}),
 		contextWindow: contextWindow,
 	}
 }

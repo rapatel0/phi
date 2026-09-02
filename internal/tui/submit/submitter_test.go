@@ -45,7 +45,11 @@ func TestSubmitter_IsBusy(t *testing.T) {
 func TestSubmitter_StreamActive_activity(t *testing.T) {
 	th := components.DefaultTheme()
 	spin := status.NewSpinner(th.ToolName)
-	activity := controller.NewActivityHandler(spin)
+	activity := controller.NewActivityHandler(func() {
+		if spin != nil {
+			spin.Frame = 0
+		}
+	})
 	sub := NewSubmitter(
 		nil,
 		nil,
