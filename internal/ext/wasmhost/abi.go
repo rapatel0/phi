@@ -251,10 +251,7 @@ func (p *loaded) hostSetActiveTools(_ context.Context, ptr, length uint32) int32
 // replyLen matches the truncation in writeAt, so the length a guest reads back
 // is the length that was written.
 func replyLen(b []byte) uint32 {
-	if len(b) > argsMax {
-		return argsMax
-	}
-	return uint32(len(b))
+	return uint32(min(len(b), argsMax))
 }
 
 // modelJSON renders the model fields a plugin may branch on.
