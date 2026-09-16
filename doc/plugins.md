@@ -83,7 +83,7 @@ clock, so Go `GOOS=wasip1` guests load and still find their state files. The
 - register: `register_command`, `register_tool`, `add_footer`,
   `on_session`, `on_before_agent_start`, `on_tool`, `on_tool_result`,
   `on_usage`, `enable_background`
-- results: `set_toast`, `set_result`, `set_submit`, `set_status`,
+- results: `set_toast`, `set_result`, `set_detail`, `set_submit`, `set_status`,
   `set_list`, `log`
 - host calls: `wake`, `compact`, `start_side`, `ask_question`,
   `model_info`, `read_asset`, `read_file`, `write_file`, `active_tools`,
@@ -99,7 +99,7 @@ calls `alpha_plugin_init`, so the Go runtime is up before the guest registers.
 
 Export indices count the imports a guest declares. `testdata/getter.wasm`
 declares 8 imports, so its first defined function has index 8. The host module
-registers 25 functions, and a guest imports the subset it needs.
+registers 26 functions, and a guest imports the subset it needs.
 
 Style and state lookup reads the same paths the compiled-in extensions see.
 Run `scripts/build-guests.sh` after a guest source change.

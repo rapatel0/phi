@@ -58,6 +58,9 @@ func setToast(ptr, length uint32)
 //go:wasmimport alpha set_result
 func setResult(ptr, length uint32)
 
+//go:wasmimport alpha set_detail
+func setDetail(ptr, length uint32)
+
 //go:wasmimport alpha set_submit
 func setSubmit(ptr, length uint32)
 
@@ -77,7 +80,7 @@ var (
 	h       *ext.Host
 	mgr     *hooks.Manager
 	cmds    = map[uint32]ext.Command{}
-	toolFns = map[uint32]func(context.Context, json.RawMessage) (string, error){}
+	toolFns = map[uint32]func(context.Context, json.RawMessage) (string, string, error){}
 )
 
 func main() {}
@@ -103,9 +106,9 @@ func initPlugin() int32 {
 		dp, dl := pair(t.Definition.Description)
 		sp, sl := pair(string(schema))
 		id := uint32(registerTool(np, nl, dp, dl, sp, sl))
-		toolFns[id] = func(ctx context.Context, raw json.RawMessage) (string, error) {
+		toolFns[id] = func(ctx context.Context, raw json.RawMessage) (string, string, error) {
 			res, err := run(ctx, raw)
-			return res.Content, err
+			return res.Content, res.Detail, err
 		}
 	}
 	addFooter()
@@ -151,12 +154,15 @@ func runTool(id, ptr, length uint32) int32 {
 	if !ok {
 		return 1
 	}
-	content, err := fn(context.Background(), json.RawMessage(buf(ptr, length)))
+	content, detail, err := fn(context.Background(), json.RawMessage(buf(ptr, length)))
 	if err != nil {
 		emit(setResult, err.Error())
 		return 1
 	}
 	emit(setResult, content)
+	if detail != "" {
+		emit(setDetail, detail)
+	}
 	return 0
 }
 

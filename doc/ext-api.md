@@ -373,6 +373,10 @@ Some units stay in Go. Each one needs surface a module cannot reach.
 
 The Tier B units (`tokenspeed`, `toolstats`, `todo`, `askuser`, `btw`, `goal`,
 `outputstyle`) have a WASM twin in `internal/ext/wasmhost/guests/tierb`. That
+guest dispatches hook entries inline, so every entry of the matching kind runs.
+The compiled-in manager skips non-fail-closed entries under read-only mode and
+detaches async entries. Tier B hooks are observers, so the difference is not
+visible in their output. That
 guest calls the same packages, so one text path serves both. The parity checks
 live in `internal/ext/wasmhost/abi_test.go`.
 

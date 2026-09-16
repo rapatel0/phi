@@ -21,6 +21,7 @@ import (
 	"github.com/rapatel0/alpha/internal/ext/toolstats"
 	"github.com/rapatel0/alpha/internal/hooks"
 	"github.com/rapatel0/alpha/internal/llm"
+	"github.com/rapatel0/alpha/internal/tools"
 )
 
 func TestModelJSONOmitsAPIKey(t *testing.T) {
@@ -169,14 +170,36 @@ func command(t *testing.T, h *ext.Host, name string, args ...string) hooks.Comma
 
 func toolContent(t *testing.T, h *ext.Host, name, input string) string {
 	t.Helper()
+	return toolRun(t, h, name, input).Content
+}
+
+func toolRun(t *testing.T, h *ext.Host, name, input string) tools.Result {
+	t.Helper()
 	for _, tl := range h.Tools() {
 		if tl.Definition.Name == name {
 			res, err := tl.Run(t.Context(), []byte(input))
 			require.NoError(t, err)
-			return res.Content
+			return res
 		}
 	}
 	t.Fatalf("tool %q not registered", name)
+	return tools.Result{}
+}
+
+// tryCommand runs one registered command and reports its error, so an error
+// path can be compared the same way a toast is.
+func tryCommand(t *testing.T, h *ext.Host, name string, args ...string) string {
+	t.Helper()
+	for _, c := range h.Commands() {
+		if c.Name == name {
+			_, err := c.Run(t.Context(), args)
+			if err == nil {
+				return ""
+			}
+			return err.Error()
+		}
+	}
+	t.Fatalf("command %q not registered", name)
 	return ""
 }
 
@@ -251,13 +274,13 @@ func TestGuestTodoToolAndFooterMatch(t *testing.T) {
 	goH, wasmH := goHost(t), wasmHost(t)
 	input := `{"todos":[{"id":"1","text":"a","status":"completed"},{"id":"2","text":"b","status":"pending"}]}`
 
-	goContent := toolContent(t, goH, "todo_write", input)
-	goFooter := footerOf(goH)
-	wasmContent := toolContent(t, wasmH, "todo_write", input)
-	wasmFooter := footerOf(wasmH)
+	goRun := toolRun(t, goH, "todo_write", input)
+	wasmRun := toolRun(t, wasmH, "todo_write", input)
 
-	assert.Equal(t, goContent, wasmContent)
-	assert.Equal(t, goFooter, wasmFooter)
+	assert.Equal(t, goRun.Content, wasmRun.Content)
+	require.NotEmpty(t, goRun.Detail, "compiled-in row summary")
+	assert.Equal(t, goRun.Detail, wasmRun.Detail, "guest row summary")
+	assert.Equal(t, footerOf(goH), footerOf(wasmH))
 }
 
 func TestGuestAskQuestionMatches(t *testing.T) {
@@ -331,4 +354,12 @@ func TestGuestStyleCommandMatches(t *testing.T) {
 	assert.Equal(t, goPick.Toast, wasmPick.Toast)
 	assert.Equal(t, goPick.Status, wasmPick.Status)
 	assert.Equal(t, footerOf(goH), footerOf(wasmH))
+}
+
+func TestGuestCommandErrorMatches(t *testing.T) {
+	goH, wasmH := goHost(t), wasmHost(t)
+
+	want := "ask something: /btw <question>, or /btw list"
+	assert.Equal(t, want, tryCommand(t, goH, "btw"), "compiled-in error")
+	assert.Equal(t, want, tryCommand(t, wasmH, "btw"), "guest error")
 }

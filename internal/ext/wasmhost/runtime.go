@@ -3,6 +3,7 @@ package wasmhost
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -50,6 +51,7 @@ type loaded struct {
 	mu        sync.Mutex
 	toast     string
 	result    string
+	detail    string
 	submit    string
 	status    string
 	statusSet bool
@@ -124,6 +126,7 @@ func loadOne(ctx context.Context, h *ext.Host, path string) error {
 		NewFunctionBuilder().WithFunc(plug.registerTool).Export("register_tool").
 		NewFunctionBuilder().WithFunc(plug.setToast).Export("set_toast").
 		NewFunctionBuilder().WithFunc(plug.setResult).Export("set_result").
+		NewFunctionBuilder().WithFunc(plug.setDetail).Export("set_detail").
 		NewFunctionBuilder().WithFunc(plug.setSubmit).Export("set_submit").
 		NewFunctionBuilder().WithFunc(plug.setStatus).Export("set_status").
 		NewFunctionBuilder().WithFunc(plug.setList).Export("set_list").
@@ -342,6 +345,18 @@ func (p *loaded) setResult(_ context.Context, ptr, length uint32) {
 	p.mu.Unlock()
 }
 
+// setDetail carries the one-line row summary a tool would show beside its
+// name. The compiled-in path sets it on tools.Result.
+func (p *loaded) setDetail(_ context.Context, ptr, length uint32) {
+	s, ok := p.read(ptr, length)
+	if !ok {
+		return
+	}
+	p.mu.Lock()
+	p.detail = s
+	p.mu.Unlock()
+}
+
 func (p *loaded) log(_ context.Context, ptr, length uint32) {
 	s, ok := p.read(ptr, length)
 	if !ok {
@@ -391,9 +406,11 @@ func (p *loaded) runCommand(ctx context.Context, id int32, args []string) (hooks
 	if !ok && len(raw) > 0 {
 		return hooks.CommandResult{}, fmt.Errorf("wasm %s: cannot write args", p.name)
 	}
-	if _, err := cmd.Call(ctx, uint64(uint32(id)), uint64(ptr), uint64(n)); err != nil {
+	rets, err := cmd.Call(ctx, uint64(uint32(id)), uint64(ptr), uint64(n))
+	if err != nil {
 		return hooks.CommandResult{}, err
 	}
+	failed := len(rets) > 0 && rets[0] != 0
 	p.mu.Lock()
 	res := hooks.CommandResult{
 		Toast:     p.toast,
@@ -406,13 +423,23 @@ func (p *loaded) runCommand(ctx context.Context, id int32, args []string) (hooks
 	p.status = ""
 	p.statusSet = false
 	p.list = nil
+	errText := p.result
 	p.mu.Unlock()
+	// A non-zero export code means the command failed. The compiled-in path
+	// surfaces the error text, so the guest gets the same treatment.
+	if failed {
+		if errText == "" {
+			errText = "wasm " + p.name + ": command failed"
+		}
+		return res, errors.New(errText)
+	}
 	return res, nil
 }
 
 func (p *loaded) runTool(ctx context.Context, id int32, input json.RawMessage) (tools.Result, error) {
 	p.mu.Lock()
 	p.result = ""
+	p.detail = ""
 	fn := p.toolFn
 	ptr, n, ok := p.writeScratch(input)
 	p.mu.Unlock()
@@ -427,6 +454,7 @@ func (p *loaded) runTool(ctx context.Context, id int32, input json.RawMessage) (
 	}
 	p.mu.Lock()
 	body := p.result
+	detail := p.detail
 	p.mu.Unlock()
-	return tools.Result{Content: body, Output: body}, nil
+	return tools.Result{Content: body, Detail: detail, Output: body}, nil
 }
