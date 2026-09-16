@@ -3,9 +3,28 @@ package input
 import (
 	"testing"
 
+	"github.com/pulseaiclub/xui"
+
 	"github.com/rapatel0/alpha/internal/components"
 	"github.com/rapatel0/alpha/internal/components/layout"
 )
+
+func TestTextFieldCtrlEditing(t *testing.T) {
+	f := &TextField{Value: "abc", Cursor: 1}
+	ctx := &components.EventContext{}
+	f.Handle(ctx, xui.KeyEvent{Code: xui.KeyRune, Rune: 'a', Mods: xui.ModCtrl, Press: true})
+	if f.Cursor != 0 {
+		t.Fatalf("Ctrl+A cursor=%d", f.Cursor)
+	}
+	f.Handle(ctx, xui.KeyEvent{Code: xui.KeyRune, Rune: 'e', Mods: xui.ModCtrl, Press: true})
+	if f.Cursor != 3 {
+		t.Fatalf("Ctrl+E cursor=%d", f.Cursor)
+	}
+	f.Handle(ctx, xui.KeyEvent{Code: xui.KeyRune, Rune: 'u', Mods: xui.ModCtrl, Press: true})
+	if f.Value != "" || f.Cursor != 0 || !ctx.Consume {
+		t.Fatalf("Ctrl+U value=%q cursor=%d consume=%v", f.Value, f.Cursor, ctx.Consume)
+	}
+}
 
 func TestDiffBlock(t *testing.T) {
 	d := &DiffBlock{Diff: "+added\n-removed\n context", Theme: components.DefaultTheme()}

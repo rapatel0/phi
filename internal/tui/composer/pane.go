@@ -38,6 +38,7 @@ type ComposerPane struct {
 	mention  mention.Picker
 	slash    mention.Picker
 	skill    mention.Picker
+	question mention.Picker
 	palette  palette.CommandPalette
 	sessions sessionpicker.Picker
 
@@ -64,6 +65,7 @@ type ComposerPane struct {
 	openSessions          func()
 	onIdleEscape          func() bool
 	onNotice              func(msg string, kind toast.ToastKind)
+	imageEnabled          func() bool
 	images                []llm.Image
 }
 
@@ -84,6 +86,7 @@ func NewComposerPane(theme components.Theme, model, cwd string) *ComposerPane {
 			Theme:  theme,
 			Prefix: "$",
 		},
+		question: mention.Picker{Theme: theme, NoPrefix: true},
 		palette: palette.CommandPalette{
 			Theme: theme,
 		},
@@ -102,6 +105,7 @@ func (c *ComposerPane) Wire(
 	publish func(controller.Msg),
 	drainBus func(),
 	onRedraw func(),
+	imageEnabled func() bool,
 	overlayBlocksComposer func() bool,
 	handlePermissionKey WireKeyHandler,
 	handleContinueKey WireKeyHandler,
@@ -121,6 +125,7 @@ func (c *ComposerPane) Wire(
 	c.publish = publish
 	c.drainBus = drainBus
 	c.onRedraw = onRedraw
+	c.imageEnabled = imageEnabled
 	c.overlayBlocksComposer = overlayBlocksComposer
 	c.handlePermissionKey = handlePermissionKey
 	c.handleContinueKey = handleContinueKey
@@ -148,9 +153,12 @@ func (c *ComposerPane) Wire(
 	c.Chat.OnMentionChange = c.onMentionChange
 	c.Chat.OnSlashChange = c.onSlashChange
 	c.Chat.OnSkillChange = c.onSkillChange
+	c.Chat.OnQuestionChange = c.onQuestionChange
 	c.Chat.OnPendingImagesChange = c.syncImagesFromLabels
 	c.mention.OnAccept = c.acceptMention
 	c.slash.OnAccept = c.acceptSlash
+	c.slash.OnComplete = c.completeSlash
+	c.question.OnAccept = c.acceptQuestion
 	c.skill.OnAccept = c.acceptSkill
 }
 
@@ -174,6 +182,8 @@ func (c *ComposerPane) HideCompleters() {
 	c.Chat.SlashOpen = false
 	c.skill.Hide()
 	c.Chat.SkillOpen = false
+	c.question.Hide()
+	c.Chat.QuestionOpen = false
 }
 
 // HidePalette closes the command palette if open.
@@ -260,6 +270,10 @@ func (c *ComposerPane) attachClipboard(noticeEmpty bool) bool {
 	if c == nil {
 		return false
 	}
+	if !c.imagesSupported() {
+		c.warnImagesDisabled()
+		return false
+	}
 	img, err := media.ReadClipboard()
 	if err != nil {
 		if noticeEmpty || err != media.ErrEmptyClipboard {
@@ -299,6 +313,10 @@ func (c *ComposerPane) AttachPath(path string) bool {
 	if c == nil {
 		return false
 	}
+	if !c.imagesSupported() {
+		c.warnImagesDisabled()
+		return false
+	}
 	img, err := media.LoadFile(path)
 	if err != nil {
 		c.notice(err.Error(), toast.ToastWarning)
@@ -328,11 +346,12 @@ func (c *ComposerPane) SyncBashBorder(text string) {
 	}
 }
 
-// CloseMentionSlash hides @ and / pickers.
+// CloseMentionSlash hides composer completers.
 func (c *ComposerPane) CloseMentionSlash() {
 	if c == nil {
 		return
 	}
+	c.closeQuestion()
 	c.mention.Hide()
 	c.Chat.MentionOpen = false
 	c.abandonMentionSearch()
@@ -340,6 +359,11 @@ func (c *ComposerPane) CloseMentionSlash() {
 	c.Chat.SlashOpen = false
 	c.skill.Hide()
 	c.Chat.SkillOpen = false
+}
+
+func (c *ComposerPane) closeQuestion() {
+	c.question.Hide()
+	c.Chat.QuestionOpen = false
 }
 
 // SetBashBorderActive toggles bash-mode border styling.
@@ -467,6 +491,7 @@ func (c *ComposerPane) SetTheme(th components.Theme) {
 	c.mention.Theme = th
 	c.slash.Theme = th
 	c.skill.Theme = th
+	c.question.Theme = th
 	c.SyncBashBorder(c.Chat.Value)
 }
 
@@ -547,6 +572,16 @@ func (c *ComposerPane) PickerOverlays(ctx components.DrawContext, listH, width i
 		out = append(out, components.SubSurface{
 			Origin:  components.Point{X: 0, Y: 0},
 			Surface: c.skill.Draw(ctx),
+			Z:       15,
+		})
+	}
+	if c.question.Open {
+		c.question.AnchorBottomY = listH
+		c.question.AnchorX = 0
+		c.question.AnchorWidth = width
+		out = append(out, components.SubSurface{
+			Origin:  components.Point{X: 0, Y: 0},
+			Surface: c.question.Draw(ctx),
 			Z:       15,
 		})
 	}
@@ -663,6 +698,12 @@ func (c *ComposerPane) Handle(ctx *components.EventContext, ev xui.Event) {
 			return
 		}
 		if ev.Press && ev.Code == xui.KeyEscape {
+			if c.question.Open {
+				c.question.Cancel()
+				c.Chat.QuestionOpen = false
+				ctx.ConsumeAndRedraw()
+				return
+			}
 			if c.slash.Open {
 				c.slash.Cancel()
 				c.Chat.SlashOpen = false
@@ -706,6 +747,11 @@ func (c *ComposerPane) Handle(ctx *components.EventContext, ev xui.Event) {
 		// text rather than a key event.
 		km := components.Keys
 		if ev.Press && km.Hit(ev, km.ImagePaste) {
+			if !c.imagesSupported() {
+				c.warnImagesDisabled()
+				ctx.ConsumeAndRedraw()
+				return
+			}
 			if c.attachClipboard(false) {
 				ctx.ConsumeAndRedraw()
 				return
@@ -749,6 +795,13 @@ func (c *ComposerPane) Handle(ctx *components.EventContext, ev xui.Event) {
 			c.palette.Handle(ctx, ev)
 			if !c.palette.Open {
 				c.FocusChat()
+			}
+			return
+		}
+		if c.question.Open && mentionNavKey(ev) {
+			c.question.Handle(ctx, ev)
+			if !c.question.Open {
+				c.Chat.QuestionOpen = false
 			}
 			return
 		}
@@ -822,6 +875,7 @@ func (c *ComposerPane) onMentionChange(active bool, query string) {
 	if c.slash.Open || c.Chat.SlashOpen {
 		return
 	}
+	c.closeQuestion()
 	c.slash.Hide()
 	c.Chat.SlashOpen = false
 	c.skill.Hide()
@@ -845,6 +899,7 @@ func (c *ComposerPane) onSlashChange(active bool, query string) {
 	}
 	c.mention.Hide()
 	c.Chat.MentionOpen = false
+	c.closeQuestion()
 	c.skill.Hide()
 	c.Chat.SkillOpen = false
 	c.abandonMentionSearch()
@@ -861,6 +916,32 @@ func (c *ComposerPane) onSlashChange(active bool, query string) {
 	c.Chat.SlashOpen = true
 }
 
+func (c *ComposerPane) onQuestionChange(active bool, query string) {
+	if c == nil {
+		return
+	}
+	if !active {
+		c.question.Hide()
+		c.Chat.QuestionOpen = false
+		return
+	}
+	c.mention.Hide()
+	c.Chat.MentionOpen = false
+	c.abandonMentionSearch()
+	c.slash.Hide()
+	c.Chat.SlashOpen = false
+	c.skill.Hide()
+	c.Chat.SkillOpen = false
+	items := filterQuestionItems(query, questionShortcutItems())
+	status := ""
+	if len(items) == 0 {
+		status = "No matching shortcuts"
+	}
+	c.question.SetResults(items, status)
+	c.question.Show()
+	c.Chat.QuestionOpen = true
+}
+
 func (c *ComposerPane) onSkillChange(active bool, query string) {
 	if c == nil {
 		return
@@ -874,6 +955,7 @@ func (c *ComposerPane) onSkillChange(active bool, query string) {
 	if c.mention.Open || c.Chat.MentionOpen || c.slash.Open || c.Chat.SlashOpen {
 		return
 	}
+	c.closeQuestion()
 
 	list := skills.Filter(skills.LoadDirs(skills.SearchDirs(c.skillPath, c.cwd)), query)
 	items := make([]mention.Item, 0, len(list))
@@ -887,6 +969,17 @@ func (c *ComposerPane) onSkillChange(active bool, query string) {
 	c.skill.SetResults(items, status)
 	c.skill.Show()
 	c.Chat.SkillOpen = true
+}
+
+func (c *ComposerPane) acceptQuestion(_ mention.Item) {
+	if c == nil {
+		return
+	}
+	_, start, end, ok := chat.ActiveQuestion(c.Chat.Value, c.Chat.Cursor)
+	if ok {
+		c.Chat.ReplaceRange(start, end, "")
+	}
+	c.closeQuestion()
 }
 
 // acceptSkill inserts the literal $name token. The model reads it and decides
@@ -977,6 +1070,17 @@ func (c *ComposerPane) acceptMention(item mention.Item) {
 	c.abandonMentionSearch()
 	c.mention.Hide()
 	c.Chat.MentionOpen = false
+	if !c.imagesSupported() {
+		c.warnImagesDisabled()
+		c.Chat.ReplaceRange(start, end, "@"+item.Path+" ")
+		return
+	}
+	if img, err := media.LoadFile(resolveMentionPath(c.cwd, item.Path)); err == nil {
+		if c.addImage(img) {
+			c.Chat.ReplaceRange(start, end, "")
+			return
+		}
+	}
 	c.Chat.ReplaceRange(start, end, "@"+item.Path+" ")
 }
 
@@ -1005,6 +1109,51 @@ func (c *ComposerPane) acceptSlash(item mention.Item) {
 		if c.drainBus != nil {
 			c.drainBus()
 		}
+	}
+}
+
+func (c *ComposerPane) completeSlash(item mention.Item) {
+	if c == nil {
+		return
+	}
+	start, end, insert := c.slashTarget(item)
+	if !strings.HasSuffix(insert, " ") {
+		insert += " "
+	}
+	c.Chat.ReplaceRange(start, end, insert)
+	c.slash.Hide()
+	c.Chat.SlashOpen = false
+}
+
+func (c *ComposerPane) slashTarget(item mention.Item) (start, end int, insert string) {
+	_, start, end, ok := chat.ActiveSlash(c.Chat.Value, c.Chat.Cursor)
+	if !ok {
+		start, end = 0, c.Chat.Cursor
+	}
+	if c.commands != nil {
+		insert = c.commands.LookupInsert(item.Path)
+	}
+	if insert == "" {
+		insert = "/" + item.Path
+	}
+	return start, end, insert
+}
+
+func resolveMentionPath(cwd, path string) string {
+	path = strings.TrimSpace(path)
+	if filepath.IsAbs(path) {
+		return filepath.Clean(path)
+	}
+	return filepath.Join(cwd, path)
+}
+
+func (c *ComposerPane) imagesSupported() bool {
+	return c == nil || c.imageEnabled == nil || c.imageEnabled()
+}
+
+func (c *ComposerPane) warnImagesDisabled() {
+	if c != nil && c.onNotice != nil {
+		c.notice("Current model does not support images (set image_enabled: true in config)", toast.ToastWarning)
 	}
 }
 

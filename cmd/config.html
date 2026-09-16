@@ -346,8 +346,9 @@
 
   .field-name { grid-column: span 5; }
   .field-base { grid-column: span 7; }
-  .field-key { grid-column: span 9; }
+  .field-key { grid-column: span 6; }
   .field-context { grid-column: span 3; }
+  .field-image { grid-column: span 3; }
 
   .field-label-row {
     display: flex;
@@ -693,7 +694,7 @@
     .model-card-actions { width: 100%; justify-content: flex-end; }
     .default-control { flex: 1 1 auto; }
     .model-fields, .settings-fields, .rules-grid, .rule-body { grid-template-columns: minmax(0, 1fr); }
-    .field-name, .field-base, .field-key, .field-context, .settings-fields .field-full, .rule-body .field-wide { grid-column: auto; }
+    .field-name, .field-base, .field-key, .field-context, .field-image, .settings-fields .field-full, .rule-body .field-wide { grid-column: auto; }
     .panel { padding-right: 0; }
     .panel + .panel { margin-top: 26px; padding-top: 26px; padding-left: 0; border-top: 1px solid var(--border); border-left: 0; }
     .rule-group + .rule-group { padding-top: 24px; padding-left: 0; border-top: 1px solid var(--border); border-left: 0; }
@@ -969,6 +970,8 @@ const I18N = {
     apiKeyPlaceholder: "Enter API key",
     contextWindow: "Context window",
     contextWindowHelp: "Maximum context length the model can handle.",
+    imageEnabled: "Image enabled",
+    imageEnabledHelp: "Allow attaching images to messages for this model.",
     contextPlaceholder: "e.g. 200000",
     fetchModels: "Fetch models",
     fetchModelsTitle: "Fetch model list from the current API base URL",
@@ -1076,6 +1079,8 @@ const I18N = {
     apiKeyPlaceholder: "输入 API Key",
     contextWindow: "上下文窗口",
     contextWindowHelp: "模型可处理的最大上下文长度。",
+    imageEnabled: "图片支持",
+    imageEnabledHelp: "允许为该模型附加图片消息。",
     contextPlaceholder: "例如 200000",
     fetchModels: "获取模型",
     fetchModelsTitle: "从当前 API 地址获取模型列表",
@@ -1423,6 +1428,7 @@ function addModelRow(model) {
     placeholder: t("contextPlaceholder"),
     inputmode: "numeric",
   });
+  const image = el("input", { type: "checkbox", "aria-label": t("imageEnabled") });
   const def = el("input", { type: "radio", name: "default-model" });
   const fetchButton = el("button", {
     type: "button",
@@ -1453,6 +1459,7 @@ function addModelRow(model) {
   if (value.apiKey) key.value = value.apiKey;
   if (value.baseUrl) base.value = value.baseUrl;
   if (value.contextWindow) context.value = value.contextWindow;
+  if (value.imageEnabled) image.checked = true;
   if (value.default || (!model && modelRows.length === 0)) def.checked = true;
 
   const badge = el("span", { class: "model-badge", hidden: "hidden" }, t("startupModel"));
@@ -1463,6 +1470,9 @@ function addModelRow(model) {
     key,
     base,
     context,
+    image,
+    imageTouched: false,
+    origImageEnabled: value.imageEnabled != null ? value.imageEnabled : null,
     def,
     fetchButton,
     modelPicker,
@@ -1491,6 +1501,7 @@ function addModelRow(model) {
     field("apiBase", "apiBaseHelp", base, "field-base", base.id),
     field("apiKey", "apiKeyHelp", keyShell, "field-key", key.id),
     field("contextWindow", "contextWindowHelp", context, "field-context", context.id, "tokens"),
+    field("imageEnabled", "imageEnabledHelp", image, "field-image", image.id),
   );
 
   const defaultLabel = el("label", { class: "default-control" }, def, el("span", { "data-i18n": "setStartupModel" }, t("setStartupModel")));
@@ -1529,6 +1540,7 @@ function addModelRow(model) {
     markDirty("models");
   });
   context.addEventListener("input", () => { markDirty("models"); });
+  image.addEventListener("change", () => { row.imageTouched = true; markDirty("models"); });
   def.addEventListener("change", () => {
     markDirty("models");
     syncModelStates();
@@ -1685,6 +1697,7 @@ function buildPayload() {
       apiKey: row.key.value.trim(),
       baseUrl: row.base.value.trim(),
       contextWindow: readOptionalInteger(row.context),
+      imageEnabled: row.imageTouched ? row.image.checked : row.origImageEnabled,
       default: row.def.checked,
     })),
     skillPath: dirty.skillPath ? ($("skillPath").value.trim() || null) : (orig && orig.skillPath != null ? orig.skillPath : null),

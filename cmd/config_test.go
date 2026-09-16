@@ -24,6 +24,7 @@ const configUIFixture = `models:
     api_key: key-a
     base_url: https://a.example/v1
     context_window: 1000
+    image_enabled: true
     default: true
   - name: model-b
     api_key: key-b
@@ -57,6 +58,8 @@ func TestConfigHandlerGETAndRoundTrip(t *testing.T) {
 	require.Len(t, got.Models, 2)
 	assert.Equal(t, "model-a", got.Models[0].Name)
 	assert.True(t, got.Models[0].Default)
+	require.NotNil(t, got.Models[0].ImageEnabled)
+	assert.True(t, *got.Models[0].ImageEnabled)
 	require.NotNil(t, got.Permissions)
 	require.NotNil(t, got.Permissions.Bash)
 	assert.Equal(t, []string{"^git "}, got.Permissions.Bash.Allow)
@@ -86,6 +89,7 @@ func TestConfigHandlerGETAndRoundTrip(t *testing.T) {
 	require.Len(t, cfg.Models, 1)
 	assert.Equal(t, "model-a", cfg.Model().Name)
 	assert.Equal(t, "new-key", cfg.Model().APIKey)
+	assert.True(t, cfg.Model().ImageEnabled)
 	assert.Equal(t, "readonly", string(cfg.Permissions.Mode))
 	assert.True(t, cfg.Permissions.DangerouslyAllowAll)
 	assert.Equal(t, []string{"^git "}, cfg.Permissions.BashAllow)

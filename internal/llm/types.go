@@ -21,6 +21,8 @@ type ModelConfig struct {
 	// ContextWindow is the model's context window in tokens.
 	// Zero disables session compaction (safe default).
 	ContextWindow int
+	// ImageEnabled opts this model into image attachments.
+	ImageEnabled bool
 }
 
 // Role identifies the participant in a chat message.

@@ -15,6 +15,9 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
   later sub-agents. Each role can inherit the parent model.
 - Persisted sessions can fork at their current leaf, retaining context while
   writing a new child JSONL file.
+- Model image attachments can be enabled per model. The composer supports safe
+  image file mentions, clipboard attachments, picker completion, shortcut help,
+  and standard Ctrl+A/Ctrl+E/Ctrl+U editing controls.
 - One tool round now overlaps independent read-only calls. A batch of
   `websearch`, `webfetch`, and `read` calls pays one wait. Blocking calls such
   as `ask_user_question` still run first, and writes stay in order.

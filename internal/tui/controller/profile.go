@@ -140,6 +140,11 @@ func (c *Controller) SetModel(name string) error {
 	return nil
 }
 
+// ImageEnabled reports whether the active model accepts image attachments.
+func (c *Controller) ImageEnabled() bool {
+	return c != nil && c.modelCfg.ImageEnabled
+}
+
 const modelListTTL = 2 * time.Minute
 
 // RefreshModelCatalog fetches /models from each unique provider endpoint and

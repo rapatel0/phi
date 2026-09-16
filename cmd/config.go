@@ -45,6 +45,7 @@ type modelDoc struct {
 	APIKey        string `yaml:"api_key"                  json:"apiKey"`
 	BaseURL       string `yaml:"base_url"                 json:"baseUrl"`
 	ContextWindow *int   `yaml:"context_window,omitempty" json:"contextWindow,omitempty"`
+	ImageEnabled  *bool  `yaml:"image_enabled,omitempty"  json:"imageEnabled,omitempty"`
 	Default       bool   `yaml:"default,omitempty"        json:"default"`
 }
 

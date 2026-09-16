@@ -77,7 +77,25 @@ func (t *TextField) Handle(ctx *components.EventContext, ev xui.Event) {
 			ctx.ConsumeAndRedraw()
 			return
 		case xui.KeyRune:
-			if e.Mods.Has(xui.ModCtrl) || e.Mods.Has(xui.ModAlt) || e.Mods.Has(xui.ModSuper) {
+			if e.Mods.Has(xui.ModCtrl) {
+				switch e.Rune {
+				case 'a', 'A':
+					t.Cursor = 0
+				case 'e', 'E':
+					t.Cursor = len(t.Value)
+				case 'u', 'U':
+					if t.Value != "" {
+						t.Value = ""
+						t.Cursor = 0
+						t.notify()
+					}
+				default:
+					return
+				}
+				ctx.ConsumeAndRedraw()
+				return
+			}
+			if e.Mods.Has(xui.ModAlt) || e.Mods.Has(xui.ModSuper) {
 				return
 			}
 			if e.Rune >= 0x20 || e.Rune == '\t' {

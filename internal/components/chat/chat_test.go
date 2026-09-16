@@ -72,6 +72,33 @@ func TestChatInputTyping(t *testing.T) {
 	}
 }
 
+func TestChatInputCtrlEditing(t *testing.T) {
+	c := &ChatInput{Value: "one\ntwo", Cursor: len("one\nt")}
+	ctx := &components.EventContext{}
+	c.Handle(ctx, xui.KeyEvent{Code: xui.KeyRune, Rune: 'a', Mods: xui.ModCtrl, Press: true})
+	if c.Cursor != len("one\n") {
+		t.Fatalf("Ctrl+A cursor=%d", c.Cursor)
+	}
+	c.Handle(ctx, xui.KeyEvent{Code: xui.KeyRune, Rune: 'e', Mods: xui.ModCtrl, Press: true})
+	if c.Cursor != len("one\ntwo") {
+		t.Fatalf("Ctrl+E cursor=%d", c.Cursor)
+	}
+	c.Handle(ctx, xui.KeyEvent{Code: xui.KeyRune, Rune: 'u', Mods: xui.ModCtrl, Press: true})
+	if c.Value != "" || c.Cursor != 0 || !ctx.Consume {
+		t.Fatalf("Ctrl+U value=%q cursor=%d consume=%v", c.Value, c.Cursor, ctx.Consume)
+	}
+}
+
+func TestActiveQuestion(t *testing.T) {
+	q, start, end, ok := ActiveQuestion("?ctrl", 5)
+	if !ok || q != "ctrl" || start != 0 || end != 5 {
+		t.Fatalf("got %q %d:%d %v", q, start, end, ok)
+	}
+	if _, _, _, ok := ActiveQuestion("hello?", 6); ok {
+		t.Fatal("question help must require a leading token")
+	}
+}
+
 func TestChatInputMentionOpenDefersNav(t *testing.T) {
 	c := &ChatInput{MinBodyRows: 3, Value: "@a\nb", Cursor: 2, MentionOpen: true}
 	ctx := &components.EventContext{}

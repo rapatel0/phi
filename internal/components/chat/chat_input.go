@@ -68,7 +68,8 @@ type ChatInput struct {
 	OnMentionChange func(active bool, query string)
 	// OnSlashChange is called after Value or Cursor changes that may
 	// activate/deactivate a leading /command. active is false when none.
-	OnSlashChange func(active bool, query string)
+	OnSlashChange    func(active bool, query string)
+	OnQuestionChange func(active bool, query string)
 	// OnSkillChange is called after Value or Cursor changes that may
 	// activate/deactivate a $skill token. active is false when none.
 	OnSkillChange func(active bool, query string)
@@ -80,14 +81,15 @@ type ChatInput struct {
 	// SlashOpen is set while the /command picker is visible (same nav deferral).
 	SlashOpen bool
 	// SkillOpen is set while the $skill picker is visible (same nav deferral).
-	SkillOpen bool
+	SkillOpen    bool
+	QuestionOpen bool
 
 	// dumpNextDraw is set on paste/insert when ALPHA_DEBUG=1.
 	dumpNextDraw bool
 }
 
 func (c *ChatInput) completerOpen() bool {
-	return c.MentionOpen || c.SlashOpen || c.SkillOpen
+	return c.MentionOpen || c.SlashOpen || c.SkillOpen || c.QuestionOpen
 }
 
 func (c *ChatInput) bodyRows(width int, method xui.WidthMethod) int {
@@ -337,7 +339,22 @@ func (c *ChatInput) Handle(ctx *components.EventContext, ev xui.Event) {
 			}
 			return
 		case xui.KeyRune:
-			if e.Mods.Has(xui.ModCtrl) || e.Mods.Has(xui.ModAlt) || e.Mods.Has(xui.ModSuper) {
+			if e.Mods.Has(xui.ModCtrl) {
+				switch e.Rune {
+				case 'a', 'A':
+					c.Cursor = lineStart(c.Value, c.Cursor)
+				case 'e', 'E':
+					c.Cursor = lineEnd(c.Value, c.Cursor)
+				case 'u', 'U':
+					c.clear()
+				default:
+					return
+				}
+				c.notifyCompleters()
+				ctx.ConsumeAndRedraw()
+				return
+			}
+			if e.Mods.Has(xui.ModAlt) || e.Mods.Has(xui.ModSuper) {
 				return
 			}
 			if r := typedRune(e); r >= 0x20 || r == '\t' {
@@ -436,6 +453,7 @@ func (c *ChatInput) notifyCompleters() {
 	c.notifyMention()
 	c.notifySlash()
 	c.notifySkill()
+	c.notifyQuestion()
 }
 
 func (c *ChatInput) notifyMention() {
@@ -460,6 +478,24 @@ func (c *ChatInput) notifySkill() {
 	}
 	q, _, _, ok := ActiveSkill(c.Value, c.Cursor)
 	c.OnSkillChange(ok, q)
+}
+
+func (c *ChatInput) notifyQuestion() {
+	if c.OnQuestionChange == nil {
+		return
+	}
+	q, _, _, ok := ActiveQuestion(c.Value, c.Cursor)
+	c.OnQuestionChange(ok, q)
+}
+
+func (c *ChatInput) clear() {
+	if c.Value != "" {
+		c.Value = ""
+		c.Cursor = 0
+		c.notifyChange()
+	}
+	c.ClearPendingImages()
+	c.ClearPendingSkills()
 }
 
 // ReplaceRange replaces value[start:end] with text and places the cursor after it.

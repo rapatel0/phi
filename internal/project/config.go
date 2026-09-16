@@ -322,7 +322,7 @@ func parseConfigFile(path string) (*Config, error) {
 }
 
 func modelEntryToConfig(m modelEntry) llm.ModelConfig {
-	cfg := llm.ModelConfig{Name: m.Name, APIKey: m.APIKey, BaseURL: m.BaseURL}
+	cfg := llm.ModelConfig{Name: m.Name, APIKey: m.APIKey, BaseURL: m.BaseURL, ImageEnabled: m.ImageEnabled}
 	if m.ContextWindow != nil && *m.ContextWindow > 0 {
 		cfg.ContextWindow = *m.ContextWindow
 	}
@@ -353,6 +353,7 @@ type modelEntry struct {
 	APIKey        string `yaml:"api_key"`
 	BaseURL       string `yaml:"base_url"`
 	ContextWindow *int   `yaml:"context_window"`
+	ImageEnabled  bool   `yaml:"image_enabled"`
 	Default       bool   `yaml:"default"`
 }
 

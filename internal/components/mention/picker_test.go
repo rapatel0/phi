@@ -48,6 +48,27 @@ func TestPickerHandleNav(t *testing.T) {
 	}
 }
 
+func TestPickerTabCompletesWithoutAccepting(t *testing.T) {
+	accepted, completed := false, false
+	p := &Picker{
+		Items:      []Item{{Path: "clear"}},
+		OnAccept:   func(Item) { accepted = true },
+		OnComplete: func(Item) { completed = true },
+	}
+	p.Show()
+	if !p.HandleNav(xui.KeyEvent{Press: true, Code: xui.KeyTab}) {
+		t.Fatal("expected consume")
+	}
+	if accepted || !completed || p.Open {
+		t.Fatalf("accepted=%v completed=%v open=%v", accepted, completed, p.Open)
+	}
+	p = &Picker{Items: []Item{{Path: "clear"}}, OnComplete: func(Item) { completed = true }}
+	p.Show()
+	if !p.HandleNav(xui.KeyEvent{Press: true, Code: xui.KeyTab, Mods: xui.ModShift}) || p.Open {
+		t.Fatal("Shift+Tab must also complete and close")
+	}
+}
+
 func TestPickerDrawClosed(t *testing.T) {
 	p := &Picker{Theme: components.DefaultTheme()}
 	surf := p.Draw(components.DrawContext{
