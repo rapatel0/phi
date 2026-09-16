@@ -23,9 +23,6 @@ const (
 	// navMaxHits caps reported matches. Past this the model is skimming, not
 	// reading.
 	navMaxHits = 40
-
-	// hoverContext is the number of lines around a definition in a hover body.
-	hoverContext = 3
 )
 
 // DiagnosticsTool returns lsp_diagnostics: checker findings for named files.
@@ -233,10 +230,7 @@ func hoverBlock(h hit) string {
 func collectHits(root, only, symbol string) []hit {
 	var hits []hit
 	add := func(path string, lineNo int, line string) {
-		col := strings.Index(line, symbol)
-		if col < 0 {
-			col = 0
-		}
+		col := max(strings.Index(line, symbol), 0)
 		hits = append(hits, hit{
 			File:       path,
 			Line:       lineNo,
