@@ -33,12 +33,10 @@ func TestS4DualSpawnWait(t *testing.T) {
 		}),
 	})
 	require.NoError(t, err)
-	// The test context is already canceled when cleanups run, so close on a
-	// fresh context: a canceled close returns before the job store drains
-	// and the temp-dir cleanup then fails on a half-written directory.
-	// t.Context() is canceled before cleanups run, and a canceled close
-	// returns before the job store drains.
-	t.Cleanup(func() { _ = mgr.Close(t.Context()) })
+	// Cleanups run after the test context is canceled. Close on a canceled
+	// context returns before the job store drains, which leaves writes racing
+	// the temp-dir cleanup, so the close gets a context that stays live.
+	t.Cleanup(func() { _ = mgr.Close(context.WithoutCancel(t.Context())) })
 
 	reg := tools.NewRegistry(tools.AgentTools(tools.AgentDeps{
 		Manager:  mgr,
@@ -105,12 +103,10 @@ func TestS4Cancel(t *testing.T) {
 		}),
 	})
 	require.NoError(t, err)
-	// The test context is already canceled when cleanups run, so close on a
-	// fresh context: a canceled close returns before the job store drains
-	// and the temp-dir cleanup then fails on a half-written directory.
-	// t.Context() is canceled before cleanups run, and a canceled close
-	// returns before the job store drains.
-	t.Cleanup(func() { _ = mgr.Close(t.Context()) })
+	// Cleanups run after the test context is canceled. Close on a canceled
+	// context returns before the job store drains, which leaves writes racing
+	// the temp-dir cleanup, so the close gets a context that stays live.
+	t.Cleanup(func() { _ = mgr.Close(context.WithoutCancel(t.Context())) })
 
 	reg := tools.NewRegistry(tools.AgentTools(tools.AgentDeps{
 		Manager:  mgr,

@@ -205,7 +205,7 @@ func agentListTool(deps AgentDeps) tooldef.Tool {
 				Properties: llm.Object{},
 			},
 		},
-		Run: func(ctx context.Context, input json.RawMessage) (tooldef.Result, error) {
+		Run: func(ctx context.Context, _ json.RawMessage) (tooldef.Result, error) {
 			list, err := deps.Manager.ListForParent(ctx, deps.ParentID())
 			if err != nil {
 				return tooldef.Result{}, err
