@@ -33,6 +33,9 @@ func TestS4DualSpawnWait(t *testing.T) {
 		}),
 	})
 	require.NoError(t, err)
+	// The test context is already canceled when cleanups run, so close on a
+	// fresh context: a canceled close returns before the job store drains
+	// and the temp-dir cleanup then fails on a half-written directory.
 	t.Cleanup(func() { _ = mgr.Close(t.Context()) })
 
 	reg := tools.NewRegistry(tools.AgentTools(tools.AgentDeps{
@@ -100,6 +103,9 @@ func TestS4Cancel(t *testing.T) {
 		}),
 	})
 	require.NoError(t, err)
+	// The test context is already canceled when cleanups run, so close on a
+	// fresh context: a canceled close returns before the job store drains
+	// and the temp-dir cleanup then fails on a half-written directory.
 	t.Cleanup(func() { _ = mgr.Close(t.Context()) })
 
 	reg := tools.NewRegistry(tools.AgentTools(tools.AgentDeps{

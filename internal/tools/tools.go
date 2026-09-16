@@ -88,6 +88,7 @@ func DefaultTools() []Tool {
 		skilltool.SkillTool(),
 		webfetchtool.WebFetchTool(),
 		websearchtool.WebSearchTool(),
+		websearchtool.XSearchTool(),
 	}
 }
 
@@ -106,5 +107,6 @@ func ReadonlyTools() []Tool {
 		skilltool.SkillTool(),
 		webfetchtool.WebFetchTool(),
 		websearchtool.WebSearchTool(),
+		websearchtool.XSearchTool(),
 	}
 }

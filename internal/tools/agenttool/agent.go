@@ -18,6 +18,13 @@ import (
 
 const agentSummaryLimit = 12000 // bytes, keep parent context small
 
+// Defaults for agent_log. A full child transcript is the thing the parent
+// should not pay for, so the tail stays short even when asked for more.
+const (
+	agentLogDefaultLines = 50
+	agentLogMaxLines     = 400
+)
+
 const agentLaunchGuidance = `Launch a specialized sub-agent. Pick a role:
 
 - explore (default): read-only search/structure (tools: bash, read, grep, ls, find). Use when a keyword/file search is uncertain or would take many find/grep rounds.
@@ -62,6 +69,7 @@ func AgentTools(deps AgentDeps) []tooldef.Tool {
 		agentSpawnTool(deps),
 		agentListTool(deps),
 		agentWaitTool(deps),
+		agentLogTool(deps),
 		agentCancelTool(deps),
 	}
 }
@@ -301,6 +309,81 @@ func agentCancelTool(deps AgentDeps) tooldef.Tool {
 			}
 			body := util.MustJSONIndent(map[string]any{"ok": true})
 			return tooldef.Result{Content: body, Detail: "cancelled", Output: body}, nil
+		},
+	}
+}
+
+// agentLogTool reads a job's own progress log, which agent_wait does not:
+// a wait returns only the final summary, so a stalled job otherwise has no
+// readable state until it finishes.
+func agentLogTool(deps AgentDeps) tooldef.Tool {
+	return tooldef.Tool{
+		Definition: llm.ToolDefinition{
+			Name: "agent_log",
+			Description: `Read the recent progress lines of one sub-agent job.
+
+Works while the job runs, so a long job is not a black box. Use agent_wait for the final summary.`,
+			Params: &llm.FunctionParameters{
+				Type: "object",
+				Properties: llm.Object{
+					"job_id": llm.Object{
+						"type":        "string",
+						"description": "Job id from agent_spawn.",
+					},
+					"tail_lines": llm.Object{
+						"type":        "integer",
+						"description": "Max trailing lines to return (default 50, max 400).",
+					},
+				},
+				Required: []string{"job_id"},
+			},
+			Readable: true,
+		},
+		DetailFromArgs: func(input json.RawMessage) string {
+			var in struct {
+				JobID string `json:"job_id"`
+			}
+			_ = json.Unmarshal(input, &in)
+			return in.JobID
+		},
+		Run: func(ctx context.Context, input json.RawMessage) (tooldef.Result, error) {
+			if err := requireOwned(ctx, deps, input); err != nil {
+				return tooldef.Result{}, err
+			}
+			var in struct {
+				JobID     string `json:"job_id"`
+				TailLines int    `json:"tail_lines"`
+			}
+			if err := json.Unmarshal(input, &in); err != nil {
+				return tooldef.Result{}, err
+			}
+			limit := in.TailLines
+			switch {
+			case limit <= 0:
+				limit = agentLogDefaultLines
+			case limit > agentLogMaxLines:
+				limit = agentLogMaxLines
+			}
+
+			events, err := deps.Manager.Log(ctx, in.JobID, limit)
+			if err != nil {
+				return tooldef.Result{}, err
+			}
+			lines := make([]string, 0, len(events))
+			for _, ev := range events {
+				lines = append(lines, ev.Message)
+			}
+			body := util.MustJSONIndent(map[string]any{
+				"job_id": in.JobID,
+				"lines":  lines,
+				"count":  len(lines),
+			})
+			body = truncateBytes(body, agentSummaryLimit)
+			return tooldef.Result{
+				Content: body,
+				Output:  body,
+				Detail:  fmt.Sprintf("%d lines", len(lines)),
+			}, nil
 		},
 	}
 }

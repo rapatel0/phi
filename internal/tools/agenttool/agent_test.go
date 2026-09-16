@@ -22,6 +22,9 @@ func TestAgentToolsSpawnWaitForcesDepthAndParent(t *testing.T) {
 		}),
 	})
 	require.NoError(t, err)
+	// The test context is already canceled when cleanups run, so close on a
+	// fresh context: a canceled close returns before the job store drains
+	// and the temp-dir cleanup then fails on a half-written directory.
 	t.Cleanup(func() { _ = mgr.Close(t.Context()) })
 
 	reg := tools.NewRegistry(tools.AgentTools(tools.AgentDeps{
@@ -64,6 +67,9 @@ func TestAgentToolsSpawnRoleWorker(t *testing.T) {
 		}),
 	})
 	require.NoError(t, err)
+	// The test context is already canceled when cleanups run, so close on a
+	// fresh context: a canceled close returns before the job store drains
+	// and the temp-dir cleanup then fails on a half-written directory.
 	t.Cleanup(func() { _ = mgr.Close(t.Context()) })
 
 	reg := tools.NewRegistry(tools.AgentTools(tools.AgentDeps{
@@ -98,6 +104,9 @@ func TestAgentToolsSpawnRequiresDescription(t *testing.T) {
 		}),
 	})
 	require.NoError(t, err)
+	// The test context is already canceled when cleanups run, so close on a
+	// fresh context: a canceled close returns before the job store drains
+	// and the temp-dir cleanup then fails on a half-written directory.
 	t.Cleanup(func() { _ = mgr.Close(t.Context()) })
 
 	reg := tools.NewRegistry(tools.AgentTools(tools.AgentDeps{
@@ -125,6 +134,9 @@ func TestAgentToolsSpawnBadRole(t *testing.T) {
 		}),
 	})
 	require.NoError(t, err)
+	// The test context is already canceled when cleanups run, so close on a
+	// fresh context: a canceled close returns before the job store drains
+	// and the temp-dir cleanup then fails on a half-written directory.
 	t.Cleanup(func() { _ = mgr.Close(t.Context()) })
 
 	reg := tools.NewRegistry(tools.AgentTools(tools.AgentDeps{
@@ -149,6 +161,9 @@ func TestAgentWaitRejectsForeignParent(t *testing.T) {
 		}),
 	})
 	require.NoError(t, err)
+	// The test context is already canceled when cleanups run, so close on a
+	// fresh context: a canceled close returns before the job store drains
+	// and the temp-dir cleanup then fails on a half-written directory.
 	t.Cleanup(func() { _ = mgr.Close(t.Context()) })
 
 	info, err := mgr.Spawn(t.Context(), job.SpawnRequest{
