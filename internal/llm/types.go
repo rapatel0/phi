@@ -153,7 +153,12 @@ type ToolDefinition struct {
 	Name        string              `json:"name"`
 	Description string              `json:"description"`
 	Params      *FunctionParameters `json:"parameters"`
-	Readable    bool                `json:"-"`
+	// Readable marks a tool that cannot see a later call's state, so the
+	// executor may run several of them at once.
+	Readable bool `json:"-"`
+	// AskFirst marks a tool whose answer decides the rest of the batch, so it
+	// runs before the readable group instead of after it.
+	AskFirst bool `json:"-"`
 }
 
 // FunctionParameters is JSON Schema for tool params.

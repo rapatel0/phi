@@ -4,8 +4,10 @@ import (
 	"context"
 	"encoding/json"
 	"strings"
+	"sync"
 	"sync/atomic"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -440,4 +442,99 @@ type recordingGate struct {
 func (g *recordingGate) Check(_ context.Context, req permission.Request) (permission.Decision, string) {
 	g.last = req
 	return permission.Allow, ""
+}
+
+// slowTool returns a readable tool that holds for d and returns its name.
+func slowTool(name string, d time.Duration) tools.Tool {
+	return tools.Tool{
+		Definition: llm.ToolDefinition{Name: name, Readable: true},
+		Run: func(context.Context, json.RawMessage) (tools.Result, error) {
+			time.Sleep(d)
+			return tools.Result{Content: name}, nil
+		},
+	}
+}
+
+func call(id, name string) llm.ToolCall {
+	return llm.ToolCall{ID: id, Function: llm.Function{Name: name, Arguments: `{}`}}
+}
+
+func TestExecutorReadableCallsOverlap(t *testing.T) {
+	reg := tools.Registry{
+		"a": slowTool("a", 60*time.Millisecond),
+		"b": slowTool("b", 60*time.Millisecond),
+		"c": slowTool("c", 60*time.Millisecond),
+	}
+	ex := NewExecutor(reg, permission.AllowAll{}, nil, nil)
+
+	start := time.Now()
+	msgs := ex.Run(t.Context(), []llm.ToolCall{call("1", "a"), call("2", "b"), call("3", "c")},
+		func(session.ToolData) bool { return true })
+	elapsed := time.Since(start)
+
+	require.Len(t, msgs, 3)
+	// Serial execution costs at least 180ms. Overlap should land near 60ms.
+	assert.Less(t, elapsed, 150*time.Millisecond, "readable calls must overlap")
+}
+
+func TestExecutorKeepsResultsInCallOrder(t *testing.T) {
+	reg := tools.Registry{
+		"slowread": slowTool("slowread", 60*time.Millisecond),
+		"fastread": slowTool("fastread", 5*time.Millisecond),
+		"write": {
+			Definition: llm.ToolDefinition{Name: "write"},
+			Run: func(context.Context, json.RawMessage) (tools.Result, error) {
+				return tools.Result{Content: "write"}, nil
+			},
+		},
+	}
+	ex := NewExecutor(reg, permission.AllowAll{}, nil, nil)
+
+	msgs := ex.Run(t.Context(), []llm.ToolCall{
+		call("1", "slowread"),
+		call("2", "write"),
+		call("3", "fastread"),
+	}, func(session.ToolData) bool { return true })
+
+	require.Len(t, msgs, 3)
+	assert.Equal(t, []string{"slowread", "write", "fastread"},
+		[]string{msgs[0].Content, msgs[1].Content, msgs[2].Content})
+	assert.Equal(t, []string{"1", "2", "3"},
+		[]string{msgs[0].ToolCallID, msgs[1].ToolCallID, msgs[2].ToolCallID})
+}
+
+func TestExecutorAskFirstRunsBeforeReadable(t *testing.T) {
+	var mu sync.Mutex
+	var order []string
+	record := func(name string) {
+		mu.Lock()
+		order = append(order, name)
+		mu.Unlock()
+	}
+
+	reg := tools.Registry{
+		"ask": {
+			Definition: llm.ToolDefinition{Name: "ask", AskFirst: true},
+			Run: func(context.Context, json.RawMessage) (tools.Result, error) {
+				record("ask")
+				return tools.Result{Content: "ask"}, nil
+			},
+		},
+		"read": {
+			Definition: llm.ToolDefinition{Name: "read", Readable: true},
+			Run: func(context.Context, json.RawMessage) (tools.Result, error) {
+				time.Sleep(10 * time.Millisecond)
+				record("read")
+				return tools.Result{Content: "read"}, nil
+			},
+		},
+	}
+
+	ex := NewExecutor(reg, permission.AllowAll{}, nil, nil)
+	ex.Run(t.Context(), []llm.ToolCall{call("1", "read"), call("2", "ask")},
+		func(session.ToolData) bool { return true })
+
+	mu.Lock()
+	defer mu.Unlock()
+	assert.Equal(t, []string{"ask", "read"}, order, "question must be answered before reads")
 }

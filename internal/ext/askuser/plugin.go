@@ -4,7 +4,7 @@ package askuser
 import (
 	"context"
 	"encoding/json"
-	"fmt"
+	"errors"
 	"strings"
 
 	"github.com/rapatel0/alpha/internal/ext"
@@ -24,6 +24,9 @@ func (Plugin) Register(h *ext.Host) error {
 		Definition: llm.ToolDefinition{
 			Name:        "ask_user_question",
 			Description: "Ask the user a multiple-choice question instead of guessing. Use when a preference, trade-off, or missing requirement would change the work.",
+			// The answer decides the rest of the batch, so the executor runs
+			// this call before the read-only group.
+			AskFirst: true,
 			Params: &llm.FunctionParameters{
 				Type: "object",
 				Properties: llm.Object{
@@ -54,7 +57,7 @@ func (Plugin) Register(h *ext.Host) error {
 				return tools.Result{}, err
 			}
 			if strings.TrimSpace(in.Prompt) == "" || len(in.Options) == 0 {
-				return tools.Result{}, fmt.Errorf("ask_user_question: prompt and options are required")
+				return tools.Result{}, errors.New("ask_user_question: prompt and options are required")
 			}
 			ans, err := ext.Default().AskQuestion(ctx, ext.Question{
 				Header:  in.Header,

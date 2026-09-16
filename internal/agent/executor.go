@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"strings"
+	"sync"
 
 	"github.com/rapatel0/alpha/internal/hooks"
 	"github.com/rapatel0/alpha/internal/llm"
@@ -85,22 +86,109 @@ func (e *Executor) activeHooks() *hooks.Manager {
 	return e.hooks
 }
 
-// Run executes tool calls in order, yielding ToolData updates via emit.
-// Returns role=tool messages for the next LLM turn (including cancel stubs).
+// maxParallelReadable bounds concurrent read-only tool runs. Web search and
+// fetch dominate the wait, so the win comes from overlap rather than from a
+// wide pool, and a wide pool would multiply provider rate limits.
+const maxParallelReadable = 4
+
+// Run executes one batch of tool calls and returns role=tool messages in call
+// order, yielding ToolData updates via emit (including cancel stubs).
+//
+// The batch is ordered, not the calls: blocking questions first, then the
+// read-only calls overlapping each other, then everything else. A model that
+// asks for two searches and a file read pays one wait, not three.
 func (e *Executor) Run(
 	ctx context.Context,
 	calls []llm.ToolCall,
 	emit func(session.ToolData) bool,
 ) []llm.Message {
-	results := make([]llm.Message, 0, len(calls))
-	for _, call := range calls {
-		if ctx.Err() != nil {
-			results = append(results, e.cancelResult(call, emit))
-			continue
-		}
-		results = append(results, e.runOne(ctx, call, emit))
-	}
+	emit = serializeEmit(emit)
+	results := make([]llm.Message, len(calls))
+	ask, read, rest := e.bucketCalls(calls)
+	e.runIndexes(ctx, calls, results, emit, ask, 1)
+	e.runIndexes(ctx, calls, results, emit, read, maxParallelReadable)
+	e.runIndexes(ctx, calls, results, emit, rest, 1)
 	return results
+}
+
+// bucketCalls splits call indexes into the three run groups. Each index lands
+// in exactly one group, so every call still gets a result slot.
+func (e *Executor) bucketCalls(calls []llm.ToolCall) (ask, read, rest []int) {
+	for i, call := range calls {
+		switch {
+		case e.registry[call.Function.Name].Definition.AskFirst:
+			ask = append(ask, i)
+		case e.registry[call.Function.Name].Definition.Readable:
+			read = append(read, i)
+		default:
+			rest = append(rest, i)
+		}
+	}
+	return ask, read, rest
+}
+
+// runIndexes runs the given indexes with at most workers in flight and writes
+// each result into its own slot, so the returned order matches the order the
+// model asked for.
+func (e *Executor) runIndexes(
+	ctx context.Context,
+	calls []llm.ToolCall,
+	results []llm.Message,
+	emit func(session.ToolData) bool,
+	indexes []int,
+	workers int,
+) {
+	if len(indexes) == 0 {
+		return
+	}
+	if workers > len(indexes) {
+		workers = len(indexes)
+	}
+	if workers < 2 {
+		for _, i := range indexes {
+			results[i] = e.runCall(ctx, calls[i], emit)
+		}
+		return
+	}
+
+	type slot struct {
+		index int
+		msg   llm.Message
+	}
+
+	// The semaphore bounds in-flight work, and every worker reports into a
+	// buffered channel this goroutine reads, so results stay in call order.
+	sem := make(chan struct{}, workers)
+	done := make(chan slot, len(indexes))
+	for _, i := range indexes {
+		go func(i int) {
+			sem <- struct{}{}
+			defer func() { <-sem }()
+			done <- slot{index: i, msg: e.runCall(ctx, calls[i], emit)}
+		}(i)
+	}
+	for range indexes {
+		s := <-done
+		results[s.index] = s.msg
+	}
+}
+
+func (e *Executor) runCall(ctx context.Context, call llm.ToolCall, emit func(session.ToolData) bool) llm.Message {
+	if ctx.Err() != nil {
+		return e.cancelResult(call, emit)
+	}
+	return e.runOne(ctx, call, emit)
+}
+
+// serializeEmit keeps one ToolData frame intact for the UI goroutine while
+// several read-only calls run at once. The bool answer still drives cancels.
+func serializeEmit(emit func(session.ToolData) bool) func(session.ToolData) bool {
+	var mu sync.Mutex
+	return func(td session.ToolData) bool {
+		mu.Lock()
+		defer mu.Unlock()
+		return emit(td)
+	}
 }
 
 func (e *Executor) runOne(ctx context.Context, call llm.ToolCall, emit func(session.ToolData) bool) llm.Message {
