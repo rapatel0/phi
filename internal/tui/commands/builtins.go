@@ -21,6 +21,7 @@ func NewBuiltinRegistry() *CommandRegistry {
 }
 
 func registerBuiltinCommands(r *CommandRegistry) {
+	(&DiffCommands{}).Register(r)
 	r.Register(Command{
 		Name:        "sessions",
 		Description: "List sessions for this directory",

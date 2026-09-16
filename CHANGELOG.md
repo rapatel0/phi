@@ -10,6 +10,7 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ### Added
 
+- `/diff` opens a full-screen unified git diff review. Add line notes and send them to the agent.
 - One tool round now overlaps independent read-only calls. A batch of
   `websearch`, `webfetch`, and `read` calls pays one wait. Blocking calls such
   as `ask_user_question` still run first, and writes stay in order.

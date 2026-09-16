@@ -22,6 +22,7 @@ import (
 	"github.com/rapatel0/alpha/internal/tui/commands"
 	"github.com/rapatel0/alpha/internal/tui/composer"
 	"github.com/rapatel0/alpha/internal/tui/controller"
+	"github.com/rapatel0/alpha/internal/tui/diffpane"
 	"github.com/rapatel0/alpha/internal/tui/footer"
 	"github.com/rapatel0/alpha/internal/tui/overlays"
 	"github.com/rapatel0/alpha/internal/tui/pathutil"
@@ -54,6 +55,7 @@ type Editor struct {
 	toast      toast.Toast
 	tasks      *tasks.Pane
 	child      *childview.View
+	diff       *diffpane.Pane
 
 	ctrl *controller.Controller
 
@@ -145,6 +147,13 @@ func NewEditor(
 			e.toast.Show(msg, kind, d)
 		},
 	)
+	e.diff = diffpane.New(
+		e.theme,
+		e.cwd,
+		func(text string) { e.Publish(controller.SubmitMsg{Text: text}) },
+		func(text string) bool { return e.vx != nil && e.vx.CopyToClipboard(text) == nil },
+		func(msg string) { e.toast.Show(msg, toast.ToastWarning, 3*time.Second) },
+	)
 	e.hookCmds = &commands.HookCommands{
 		Registry: e.commands,
 		Ctrl:     e.ctrl,
@@ -210,6 +219,7 @@ func NewEditor(
 		e.setAgents,
 		e.addPendingSkill,
 		e.copyLastMessage,
+		e.openDiff,
 		e.modelNames,
 		e.skillPath,
 	)
@@ -362,6 +372,13 @@ func (e *Editor) drainBus() {
 }
 
 func (e *Editor) Handle(ctx *components.EventContext, ev xui.Event) {
+	if e.diff != nil && e.diff.Active() {
+		e.diff.Handle(ctx, ev)
+		if !e.diff.Active() && e.composer != nil {
+			e.composer.FocusChat()
+		}
+		return
+	}
 	if e.child != nil {
 		if ke, ok := ev.(xui.KeyEvent); ok && ke.CtrlC() {
 			e.composer.Handle(ctx, ev)
@@ -425,6 +442,16 @@ func (e *Editor) Handle(ctx *components.EventContext, ev xui.Event) {
 		}
 	}
 	e.composer.Handle(ctx, ev)
+}
+
+func (e *Editor) openDiff(args []string) {
+	if e == nil || e.diff == nil {
+		return
+	}
+	e.diff.OpenGit(e.cwd, args)
+	if e.App != nil {
+		e.App.RequestFocus(e)
+	}
 }
 
 func (e *Editor) followChild(jobID string) {
@@ -679,6 +706,12 @@ func (e *Editor) handleCopyKey(ctx *components.EventContext, ke xui.KeyEvent) bo
 func (e *Editor) Draw(ctx components.DrawContext) components.Surface {
 	e.drainBus()
 
+	if e.diff != nil && e.diff.Active() {
+		surf := e.diff.Draw(ctx)
+		surf.Widget = e
+		return surf
+	}
+
 	if e.footer != nil {
 		e.footer.AdvanceTick()
 	}
@@ -850,6 +883,9 @@ func (e *Editor) applyTheme(name string) {
 	e.transcript.SetTheme(th)
 	e.footer.SetTheme(th)
 	e.overlays.SetTheme(th)
+	if e.diff != nil {
+		e.diff.SetTheme(th)
+	}
 	e.toast.Show("Theme: "+name, toast.ToastSuccess, 2*time.Second)
 	if e.vx != nil {
 		e.vx.QueueRefresh()
@@ -947,6 +983,7 @@ type commandBridge struct {
 	setAgents       func(bool)
 	addSkill        func(string)
 	copyLastMessage func()
+	openDiff        func([]string)
 
 	modelNames []string
 	skillPath  string
@@ -968,6 +1005,7 @@ func newCommandBridge(
 	setAgents func(bool),
 	addSkill func(string),
 	copyLastMessage func(),
+	openDiff func([]string),
 	modelNames []string,
 	skillPath string,
 ) *commandBridge {
@@ -986,6 +1024,7 @@ func newCommandBridge(
 		setAgents:       setAgents,
 		addSkill:        addSkill,
 		copyLastMessage: copyLastMessage,
+		openDiff:        openDiff,
 		modelNames:      append([]string(nil), modelNames...),
 		skillPath:       skillPath,
 	}
@@ -1081,6 +1120,7 @@ func (b *commandBridge) context() commands.CommandContext {
 			}
 		},
 		CopyLastMessage: b.copyLastMessage,
+		OpenDiff:        b.openDiff,
 		ModelNames:      b.modelNames,
 		SkillPath:       b.skillPath,
 		Cwd:             b.cwd,

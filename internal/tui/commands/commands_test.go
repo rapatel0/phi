@@ -137,7 +137,7 @@ func TestSkillsCommand_Empty(t *testing.T) {
 
 func TestFilterSlashCommands(t *testing.T) {
 	all := FilterSlashCommands("")
-	require.Len(t, all, 6)
+	require.Len(t, all, 7)
 
 	resu := FilterSlashCommands("resu")
 	require.Len(t, resu, 1)
@@ -155,17 +155,20 @@ func TestFilterSlashCommands(t *testing.T) {
 	assert.Equal(t, "/sessions", LookupSlashInsert("sessions"))
 	assert.Equal(t, "/clear", LookupSlashInsert("clear"))
 	assert.Equal(t, "/image", LookupSlashInsert("image"))
+	assert.Equal(t, "/diff ", LookupSlashInsert("diff"))
 }
 
 func TestCommandRegistry_DispatchSlash(t *testing.T) {
 	r := NewBuiltinRegistry()
 	var sessions, cleared int
 	var resumeID string
+	var diffArgs []string
 
 	ctx := CommandContext{
 		ShowSessions:  func() { sessions++ },
 		ResumeSession: func(id string) { resumeID = id },
 		ClearSession:  func() { cleared++ },
+		OpenDiff:      func(args []string) { diffArgs = append([]string(nil), args...) },
 	}
 
 	assert.True(t, r.DispatchSlash("/sessions", ctx))
@@ -177,6 +180,9 @@ func TestCommandRegistry_DispatchSlash(t *testing.T) {
 	assert.True(t, r.DispatchSlash("/resume", ctx))
 	assert.Equal(t, 2, sessions)
 	assert.Equal(t, "abc", resumeID)
+
+	assert.True(t, r.DispatchSlash("/diff staged", ctx))
+	assert.Equal(t, []string{"staged"}, diffArgs)
 
 	assert.True(t, r.DispatchSlash("/clear", ctx))
 	assert.Equal(t, 1, cleared)

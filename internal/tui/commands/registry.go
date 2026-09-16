@@ -39,6 +39,7 @@ type CommandContext struct {
 	PasteImage      func()
 	AttachImagePath func(path string)
 	CopyLastMessage func()
+	OpenDiff        func([]string)
 
 	ModelNames []string
 	SkillPath  string
