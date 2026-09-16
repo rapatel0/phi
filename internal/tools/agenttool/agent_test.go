@@ -148,7 +148,9 @@ func TestAgentToolsSpawnBadRole(t *testing.T) {
 }
 
 func TestChildToolsExcludeAgent(t *testing.T) {
-	for _, tool := range tools.DefaultTools() {
+	defaults := tools.DefaultTools()
+	require.NotEmpty(t, defaults, "an empty registry would pass this check by accident")
+	for _, tool := range defaults {
 		assert.NotContains(t, tool.Definition.Name, "agent_")
 	}
 }

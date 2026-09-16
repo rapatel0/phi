@@ -139,7 +139,9 @@ func TestS4Cancel(t *testing.T) {
 }
 
 func TestS4ChildToolsNoAgentSpawn(t *testing.T) {
-	for _, tool := range agent.ChildTools() {
+	child := agent.ChildTools()
+	require.NotEmpty(t, child, "an empty child registry would pass this check by accident")
+	for _, tool := range child {
 		assert.NotEqual(t, "agent_spawn", tool.Definition.Name)
 		assert.False(t, strings.HasPrefix(tool.Definition.Name, "agent_"))
 		assert.NotEqual(t, "write", tool.Definition.Name)
