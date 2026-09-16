@@ -374,7 +374,7 @@ Some units stay in Go. Each one needs surface a module cannot reach.
 The Tier B units (`tokenspeed`, `toolstats`, `todo`, `askuser`, `btw`, `goal`,
 `outputstyle`) have a WASM twin in `internal/ext/wasmhost/guests/tierb`. That
 guest calls the same packages, so one text path serves both. The parity checks
-live in `internal/ext/wasmhost/guests_test.go`.
+live in `internal/ext/wasmhost/abi_test.go`.
 
 ## Constraints
 

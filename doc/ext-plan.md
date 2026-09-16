@@ -96,7 +96,7 @@ Keep the Go versions. Add wasip1 guests for `tokenspeed`, `toolstats`, `todo`, `
 Slice 5 landed. `internal/ext/wasmhost/guests/tierb` builds one guest that
 forwards calls to the compiled-in Tier B packages, so footer and command text
 cannot drift between paths. `scripts/build-guests.sh` rebuilds it and
-`guests_test.go` compares both paths on one input. A Go guest needs
+`abi_test.go` compares both paths on one input. A Go guest needs
 `//go:wasmexport` with `-buildmode=c-shared`; the loader calls `_initialize`
 before `alpha_plugin_init`.
 
