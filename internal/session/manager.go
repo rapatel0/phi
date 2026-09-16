@@ -180,6 +180,61 @@ func (sm *Manager) Append(msg llm.Message) (string, error) {
 }
 
 // AppendCompaction adds a compaction entry as a new leaf and returns its ID.
+// Fork creates a persisted child session with the current conversation tree.
+// Forking an in-memory manager is rejected because there is no safe destination
+// for the child JSONL file.
+func (sm *Manager) Fork() (*Manager, error) {
+	sm.mu.Lock()
+	defer sm.mu.Unlock()
+
+	if !sm.shouldFlush || sm.config.sessionDir == "" {
+		return nil, fmt.Errorf("session: cannot fork an in-memory session")
+	}
+
+	newID := generateSessionID()
+	parentID := sm.sessionID
+	header := SessionHeader{
+		Type:          EntrySession,
+		ID:            newID,
+		Timestamp:     time.Now().Format("2006-01-02T15-04-05"),
+		Cwd:           sm.cwd,
+		ParentSession: parentID,
+	}
+	copied := make([]MessageEntry, 0, len(sm.entries))
+	copied = append(copied, header)
+	copied = append(copied, sm.entries[1:]...)
+
+	byIDs := make(map[string]MessageEntry, len(copied))
+	for _, entry := range copied {
+		byIDs[entry.GetID()] = entry
+	}
+
+	var leafCopy *string
+	if sm.leafID != nil {
+		id := *sm.leafID
+		leafCopy = &id
+	}
+
+	file := filepath.Join(sm.config.sessionDir,
+		fmt.Sprintf("%s_%s.jsonl", time.Now().Format("2006-01-02T15-04-05"), newID))
+	fork := &Manager{
+		cwd:             sm.cwd,
+		config:          ManagerConfig{sessionDir: sm.config.sessionDir, shouldFlush: true, parentID: parentID},
+		entries:         copied,
+		byIDs:           byIDs,
+		leafID:          leafCopy,
+		sessionID:       newID,
+		shouldFlush:     true,
+		sessionFile:     file,
+		hasAssistantMsg: sm.hasAssistantMsg,
+	}
+	if err := fork.flushAllEntries(); err != nil {
+		return nil, err
+	}
+	fork.flushed = true
+	return fork, nil
+}
+
 func (sm *Manager) AppendCompaction(compaction Compaction) (string, error) {
 	sm.mu.Lock()
 	defer sm.mu.Unlock()

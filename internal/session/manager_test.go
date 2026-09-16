@@ -223,3 +223,35 @@ func TestBuildSessionContext(t *testing.T) {
 		assert.Equal(t, "msg3", ctx[2].GetID())
 	})
 }
+
+func TestManagerForkPersistsIndependentChild(t *testing.T) {
+	dir := t.TempDir()
+	source, err := NewSessionManager(dir, WithSessionDir(dir), WithShouldFlush(true))
+	require.NoError(t, err)
+	_, err = source.Append(llm.Message{Role: llm.RoleUser, Content: "hello"})
+	require.NoError(t, err)
+	_, err = source.Append(llm.Message{Role: llm.RoleAssistant, Content: "hi"})
+	require.NoError(t, err)
+
+	fork, err := source.Fork()
+	require.NoError(t, err)
+	assert.NotEqual(t, source.ID(), fork.ID())
+	assert.NotEqual(t, source.File(), fork.File())
+	assert.Equal(t, source.Cwd(), fork.Cwd())
+	assert.Equal(t, source.BuildContext(), fork.BuildContext())
+	assert.Equal(t, source.ID(), fork.entries[0].(SessionHeader).ParentSession)
+	assert.FileExists(t, fork.File())
+
+	before := source.Len()
+	_, err = fork.Append(llm.Message{Role: llm.RoleUser, Content: "child"})
+	require.NoError(t, err)
+	assert.Equal(t, before, source.Len())
+	assert.Equal(t, before+1, fork.Len())
+}
+
+func TestManagerForkRejectsInMemorySession(t *testing.T) {
+	manager := NewManager(t.TempDir())
+	_, err := manager.Fork()
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "in-memory")
+}
