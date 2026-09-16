@@ -12,6 +12,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/rapatel0/alpha/internal/ext"
+
 	"github.com/rapatel0/alpha/internal/agent"
 	"github.com/rapatel0/alpha/internal/ext/wasmhost"
 	"github.com/rapatel0/alpha/internal/hooks"
@@ -125,6 +127,9 @@ func runCmd(args []string) int {
 		fmt.Fprintln(os.Stderr, "alpha run:", err)
 		return ExitUsage
 	}
+	ext.Default().SetModelInfo(engineOpts.Model)
+	ext.Default().SetToolScope(engine.SetToolFilter)
+	ext.Default().SetToolNames(engine.ToolNames)
 	if opts.maxRounds > 0 {
 		if err := engine.SetMaxRounds(opts.maxRounds); err != nil {
 			fmt.Fprintln(os.Stderr, "alpha run:", err)

@@ -145,6 +145,9 @@ func NewController(bus *Bus, proj *project.Project, cwd string) (*Controller, er
 	ext.Default().SetSideChannel(c.startSide)
 	ext.Default().SetWake(c.wake)
 	ext.Default().SetCompact(c.compactNow)
+	ext.Default().SetModelInfo(c.modelCfg)
+	ext.Default().SetToolScope(eng.SetToolFilter)
+	ext.Default().SetToolNames(eng.ToolNames)
 	c.startBackgroundExtensions()
 	c.emitSessionStart("startup", eng.SessionID(), "")
 	return c, nil

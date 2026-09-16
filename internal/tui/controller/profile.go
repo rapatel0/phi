@@ -8,6 +8,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/rapatel0/alpha/internal/ext"
+
 	"github.com/rapatel0/alpha/internal/debuglog"
 	"github.com/rapatel0/alpha/internal/llm"
 	"github.com/rapatel0/alpha/internal/llm/modellist"
@@ -132,6 +134,9 @@ func (c *Controller) SetModel(name string) error {
 		return err
 	}
 	c.modelCfg = model
+	// Extensions pick per-model text, so a model switch has to refresh what
+	// they were told about the previous one.
+	ext.Default().SetModelInfo(model)
 	return nil
 }
 

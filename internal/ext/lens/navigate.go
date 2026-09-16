@@ -329,7 +329,20 @@ func skipDir(name string) bool {
 
 func skipFile(name string) bool {
 	switch strings.ToLower(filepath.Ext(name)) {
-	case ".png", ".jpg", ".jpeg", ".gif", ".webp", ".ico", ".woff", ".woff2", ".ttf", ".zip", ".gz", ".pdf", ".so", ".dylib":
+	case ".png",
+		".jpg",
+		".jpeg",
+		".gif",
+		".webp",
+		".ico",
+		".woff",
+		".woff2",
+		".ttf",
+		".zip",
+		".gz",
+		".pdf",
+		".so",
+		".dylib":
 		return true
 	}
 	return false

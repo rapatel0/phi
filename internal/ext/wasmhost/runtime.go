@@ -38,8 +38,10 @@ type toolSpec struct {
 }
 
 type loaded struct {
-	name      string
-	host      *ext.Host
+	name string
+	host *ext.Host
+	// dir is the directory holding this module, the root for read_asset.
+	dir       string
 	mod       api.Module
 	mem       api.Memory
 	cmd       api.Function
@@ -102,6 +104,7 @@ func loadOne(ctx context.Context, h *ext.Host, path string) error {
 	plug := &loaded{
 		name:     name,
 		host:     h,
+		dir:      filepath.Dir(path),
 		cmdName:  map[int32]string{},
 		cmdDesc:  map[int32]string{},
 		toolSpec: map[int32]toolSpec{},
@@ -135,6 +138,12 @@ func loadOne(ctx context.Context, h *ext.Host, path string) error {
 		NewFunctionBuilder().WithFunc(plug.hostCompact).Export("compact").
 		NewFunctionBuilder().WithFunc(plug.hostStartSide).Export("start_side").
 		NewFunctionBuilder().WithFunc(plug.hostAskQuestion).Export("ask_question").
+		NewFunctionBuilder().WithFunc(plug.hostModelInfo).Export("model_info").
+		NewFunctionBuilder().WithFunc(plug.hostReadAsset).Export("read_asset").
+		NewFunctionBuilder().WithFunc(plug.hostReadFile).Export("read_file").
+		NewFunctionBuilder().WithFunc(plug.hostWriteFile).Export("write_file").
+		NewFunctionBuilder().WithFunc(plug.hostActiveTools).Export("active_tools").
+		NewFunctionBuilder().WithFunc(plug.hostSetActiveTools).Export("set_active_tools").
 		Instantiate(ctx)
 	if err != nil {
 		_ = rt.Close(ctx)
@@ -242,7 +251,10 @@ func (p *loaded) registerCommand(_ context.Context, namePtr, nameLen, descPtr, d
 	return id
 }
 
-func (p *loaded) registerTool(_ context.Context, namePtr, nameLen, descPtr, descLen, schemaPtr, schemaLen uint32) uint32 {
+func (p *loaded) registerTool(
+	_ context.Context,
+	namePtr, nameLen, descPtr, descLen, schemaPtr, schemaLen uint32,
+) uint32 {
 	name, ok := p.read(namePtr, nameLen)
 	if !ok || strings.TrimSpace(name) == "" {
 		return 0

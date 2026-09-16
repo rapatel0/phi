@@ -10,6 +10,14 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ### Added
 
+- One tool round now overlaps independent read-only calls. A batch of
+  `websearch`, `webfetch`, and `read` calls pays one wait. Blocking calls such
+  as `ask_user_question` still run first, and writes stay in order.
+- `x_search`, `lsp_diagnostics`, `lsp_navigation`, and `agent_log` are available
+  to the model. `agent_log` reads a running job's progress lines.
+- WASM plugins can call `model_info`, `read_asset`, `read_file`, `write_file`,
+  `active_tools`, and `set_active_tools`. Model info omits the API key. Plugin
+  state lives under `~/.alpha/plugins/<name>/`.
 - WASM plugins load from `~/.agents/plugins/*.wasm` and
   `<cwd>/.agents/plugins/*.wasm` (wazero, no CGO). A module can register
   slash commands and tools. The host import surface matches `ext.Host`

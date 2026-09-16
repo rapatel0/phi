@@ -50,10 +50,28 @@ func priorityFor(message SourceMessage) int {
 	case "system", "developer", "user":
 		return 0
 	}
-	if matchAny(text, []string{"decision", "decided", "blocker", "blocked", "fix", "fixed", "edit", "edited", "write", "written", "created"}) {
+	if matchAny(
+		text,
+		[]string{
+			"decision",
+			"decided",
+			"blocker",
+			"blocked",
+			"fix",
+			"fixed",
+			"edit",
+			"edited",
+			"write",
+			"written",
+			"created",
+		},
+	) {
 		return 1
 	}
-	if matchAny(text, []string{"error", "fail", "failed", "warn", "warning", "pass", "test", "exit code", "exception"}) {
+	if matchAny(
+		text,
+		[]string{"error", "fail", "failed", "warn", "warning", "pass", "test", "exit code", "exception"},
+	) {
 		return 2
 	}
 	if strings.Contains(message.Kind, "tool") || strings.Contains(message.Kind, "read") {

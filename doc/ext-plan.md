@@ -93,6 +93,13 @@ Done when one guest under `testdata/` calls each new function and `go test ./int
 
 Keep the Go versions. Add wasip1 guests for `tokenspeed`, `toolstats`, `todo`, `askuser`, `btw`, `goal`, `outputstyle` under `testdata/`, and require the same footer and command text from either path.
 
+Slice 5 landed as the ABI additions in Slice 4 plus the fixture set under
+`testdata/`. Go `GOOS=wasip1 GOARCH=wasm` builds export only `memory` and
+`_start`, so a Go guest cannot expose `alpha_plugin_init`. Guests that need the
+named exports are written in a toolchain that emits them. Tier B keeps its Go
+implementation and is exercised by the same footer and command assertions the
+guests use.
+
 ### Slice 6 - Re-check the core four
 
 After Slice 4, test whether `compact` and `loop` still need Go. Record the decision here and in `doc/ext-api.md`.

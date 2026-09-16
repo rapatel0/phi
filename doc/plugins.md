@@ -84,7 +84,15 @@ can load. The `alpha` import module matches `ext.Host`:
   `on_usage`, `enable_background`
 - results: `set_toast`, `set_result`, `set_submit`, `set_status`,
   `set_list`, `log`
-- host calls: `wake`, `compact`, `start_side`, `ask_question`
+- host calls: `wake`, `compact`, `start_side`, `ask_question`,
+  `model_info`, `read_asset`, `read_file`, `write_file`, `active_tools`,
+  `set_active_tools`
+
+Getters write bytes at the reply scratch offset and return the length.
+`model_info` omits the API key. `read_asset` reads beside the module file;
+`read_file` and `write_file` are scoped to `~/.alpha/plugins/<name>/`.
+Go `GOOS=wasip1` builds export only `memory` and `_start`, so a guest that
+needs these calls is written in a toolchain that emits named exports.
 
 Exports: `memory`, `alpha_plugin_init`, and optionally
 `alpha_plugin_command`, `alpha_plugin_tool`, `alpha_plugin_footer`,

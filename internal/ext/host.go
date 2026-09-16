@@ -6,6 +6,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/rapatel0/alpha/internal/llm"
 	"github.com/rapatel0/alpha/internal/permission"
 	"github.com/rapatel0/alpha/internal/tools"
 )
@@ -52,6 +53,13 @@ type Host struct {
 	wake         WakeFunc
 	compact      CompactFunc
 	background   []Background
+
+	// model describes the active model. The shell installs it, because only
+	// the shell knows which connection answered the last turn.
+	model llm.ModelConfig
+	// scopeFn narrows the advertised tool set, and namesFn reads it back.
+	scopeFn func(names []string)
+	namesFn func() []string
 }
 
 // WakeFunc starts a turn with text the user did not type.
@@ -100,6 +108,78 @@ func Default() *Host { return defaultHost }
 
 // NewHost returns an empty host (tests).
 func NewHost() *Host { return &Host{} }
+
+// SetModelInfo records the active model so extensions can pick per-model text
+// without parsing the config file themselves.
+func (h *Host) SetModelInfo(cfg llm.ModelConfig) {
+	if h == nil {
+		return
+	}
+	h.mu.Lock()
+	h.model = cfg
+	h.mu.Unlock()
+}
+
+// ModelInfo returns the active model description. The API key is dropped: a
+// plugin that needs a credential uses the host calls instead.
+func (h *Host) ModelInfo() llm.ModelConfig {
+	if h == nil {
+		return llm.ModelConfig{}
+	}
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	cfg := h.model
+	cfg.APIKey = ""
+	return cfg
+}
+
+// SetToolScope installs the tool-name scoper supplied by the shell.
+func (h *Host) SetToolScope(fn func(names []string)) {
+	if h == nil {
+		return
+	}
+	h.mu.Lock()
+	h.scopeFn = fn
+	h.mu.Unlock()
+}
+
+// ApplyToolScope narrows which tools the model is offered. An empty list
+// restores every tool.
+func (h *Host) ApplyToolScope(names []string) {
+	if h == nil {
+		return
+	}
+	h.mu.Lock()
+	fn := h.scopeFn
+	h.mu.Unlock()
+	if fn != nil {
+		fn(names)
+	}
+}
+
+// SetToolNames installs the reader for the currently advertised tool names.
+func (h *Host) SetToolNames(fn func() []string) {
+	if h == nil {
+		return
+	}
+	h.mu.Lock()
+	h.namesFn = fn
+	h.mu.Unlock()
+}
+
+// ToolNames lists the tools the model is currently offered.
+func (h *Host) ToolNames() []string {
+	if h == nil {
+		return nil
+	}
+	h.mu.Lock()
+	fn := h.namesFn
+	h.mu.Unlock()
+	if fn == nil {
+		return nil
+	}
+	return fn()
+}
 
 // Background is implemented by an extension that owns work outliving a turn.
 //

@@ -58,6 +58,9 @@ type Engine struct {
 	hooks       *hooks.Manager
 	mcp         *mcp.Pool
 	baseTools   []tools.Tool // constructor set; rebindTools must not drop it
+	// toolScope narrows what the model is offered. An empty scope means every
+	// built-in and extension tool is advertised.
+	toolScope []string
 
 	session *Session
 }
@@ -102,7 +105,7 @@ func NewEngine(opts EngineOpts) (*Engine, error) {
 		engine.maxRounds = opts.MaxRounds
 	}
 	engine.authFile = opts.AuthFile
-	toolList := engine.buildToolList(engine.baseTools)
+	toolList := engine.currentTools()
 	engine.client = engine.newClient(tools.Definitions(toolList))
 	engine.bindExecutor(tools.NewRegistry(toolList))
 	return engine, nil
@@ -186,9 +189,60 @@ func (engine *Engine) SetJobs(jobs *job.Manager) {
 }
 
 func (engine *Engine) rebindTools() {
-	toolList := engine.buildToolList(engine.baseTools)
+	toolList := engine.currentTools()
 	engine.client = engine.newClient(tools.Definitions(toolList))
 	engine.bindExecutor(tools.NewRegistry(toolList))
+}
+
+// currentTools is the advertised set: built-ins, extension tools, MCP tools,
+// then the scope an extension asked for.
+func (engine *Engine) currentTools() []tools.Tool {
+	return engine.applyToolScope(engine.buildToolList(engine.baseTools))
+}
+
+// SetToolFilter narrows the advertised tool set for later requests. An empty
+// list restores every tool. Extensions use it to stop a small model from
+// paying for tools it cannot drive.
+func (engine *Engine) SetToolFilter(names []string) {
+	if engine == nil {
+		return
+	}
+	engine.toolScope = append([]string(nil), names...)
+	engine.rebindTools()
+}
+
+// ToolNames lists the currently advertised tool names.
+func (engine *Engine) ToolNames() []string {
+	list := engine.currentTools()
+	out := make([]string, 0, len(list))
+	for _, t := range list {
+		out = append(out, t.Definition.Name)
+	}
+	return out
+}
+
+// applyToolScope keeps the named tools. An empty scope, or a scope that would
+// empty the set, keeps everything: a plugin typo must not silence the harness.
+func (engine *Engine) applyToolScope(list []tools.Tool) []tools.Tool {
+	if len(engine.toolScope) == 0 {
+		return list
+	}
+	keep := make(map[string]struct{}, len(engine.toolScope))
+	for _, n := range engine.toolScope {
+		if n = strings.TrimSpace(n); n != "" {
+			keep[n] = struct{}{}
+		}
+	}
+	out := make([]tools.Tool, 0, len(list))
+	for _, t := range list {
+		if _, ok := keep[t.Definition.Name]; ok {
+			out = append(out, t)
+		}
+	}
+	if len(out) == 0 {
+		return list
+	}
+	return out
 }
 
 func (engine *Engine) systemPrompt() string {

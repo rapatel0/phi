@@ -85,3 +85,41 @@ func TestCompactReachesTheShell(t *testing.T) {
 		t.Fatal("compact func not called")
 	}
 }
+
+func TestModelInfoDropsTheAPIKey(t *testing.T) {
+	h := NewHost()
+	h.SetModelInfo(llm.ModelConfig{Name: "grok-4.6", APIKey: "secret", ContextWindow: 500_000})
+
+	got := h.ModelInfo()
+	if got.Name != "grok-4.6" || got.APIKey != "" || got.ContextWindow != 500_000 {
+		t.Fatalf("model info = %+v", got)
+	}
+}
+
+func TestToolScopeRoundTrip(t *testing.T) {
+	h := NewHost()
+	var scoped []string
+	h.SetToolScope(func(names []string) { scoped = names })
+	h.SetToolNames(func() []string { return []string{"read", "grep"} })
+
+	h.ApplyToolScope([]string{"read"})
+	if len(scoped) != 1 || scoped[0] != "read" {
+		t.Fatalf("scope = %v", scoped)
+	}
+	if names := h.ToolNames(); len(names) != 2 || names[0] != "read" {
+		t.Fatalf("names = %v", names)
+	}
+}
+
+func TestHostSettersTolerateNilHost(t *testing.T) {
+	var h *Host
+	h.SetModelInfo(llm.ModelConfig{Name: "x"})
+	h.ApplyToolScope([]string{"read"})
+
+	if h.ModelInfo().Name != "" {
+		t.Fatal("nil host must return a zero config")
+	}
+	if h.ToolNames() != nil {
+		t.Fatal("nil host must return no names")
+	}
+}

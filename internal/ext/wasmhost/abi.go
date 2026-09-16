@@ -4,10 +4,16 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"math"
+	"os"
+	"path/filepath"
+	"strings"
 	"time"
 
+	"github.com/rapatel0/alpha/internal/brand"
 	"github.com/rapatel0/alpha/internal/ext"
 	"github.com/rapatel0/alpha/internal/hooks"
+	"github.com/rapatel0/alpha/internal/llm"
 	"github.com/rapatel0/alpha/internal/permission"
 )
 
@@ -141,6 +147,176 @@ func (p *loaded) hostAskQuestion(ctx context.Context, hPtr, hLen, pPtr, pLen, oP
 	}
 	_ = p.writeAt(replyScratch, raw)
 	return 0
+}
+
+// hostModelInfo answers with a small description of the active model, so a
+// guest can pick per-model text without parsing the config file. The API key is
+// left out: a plugin that needs a credential uses the host calls instead.
+// The return value is the JSON length; the bytes sit at replyScratch.
+func (p *loaded) hostModelInfo() int32 {
+	if p.host == nil {
+		return 0
+	}
+	raw := modelJSON(p.host.ModelInfo())
+	if !p.writeAt(replyScratch, raw) {
+		return 0
+	}
+	return replyLen(len(raw))
+}
+
+// hostReadAsset reads a file next to the module, which is how a plugin ships
+// its own text: prompt fragments, templates, a small table. WASI is mounted
+// without a filesystem, so this is the only read path a guest has.
+func (p *loaded) hostReadAsset(_ context.Context, ptr, length uint32) int32 {
+	rel, ok := p.read(ptr, length)
+	if !ok {
+		return 0
+	}
+	full := assetPath(p.dir, rel)
+	raw, err := os.ReadFile(full)
+	if err != nil {
+		return 0
+	}
+	if len(raw) > argsMax {
+		raw = raw[:argsMax]
+	}
+	if !p.writeAt(replyScratch, raw) {
+		return 0
+	}
+	return replyLen(len(raw))
+}
+
+// hostReadFile reads from the plugin's own state directory.
+func (p *loaded) hostReadFile(_ context.Context, ptr, length uint32) int32 {
+	rel, ok := p.read(ptr, length)
+	if !ok {
+		return 0
+	}
+	raw, err := os.ReadFile(statePath(pluginHome(), p.name, rel))
+	if err != nil {
+		return 0
+	}
+	if len(raw) > argsMax {
+		raw = raw[:argsMax]
+	}
+	if !p.writeAt(replyScratch, raw) {
+		return 0
+	}
+	return replyLen(len(raw))
+}
+
+// hostWriteFile writes into the plugin's own state directory. Arguments are
+// the relative path and the contents, in that order.
+func (p *loaded) hostWriteFile(_ context.Context, ptr, length, valPtr, valLen uint32) int32 {
+	rel, ok := p.read(ptr, length)
+	body, okVal := p.read(valPtr, valLen)
+	if !ok || !okVal {
+		return 1
+	}
+	full := statePath(pluginHome(), p.name, rel)
+	if err := os.MkdirAll(filepath.Dir(full), 0o700); err != nil {
+		return 1
+	}
+	if err := os.WriteFile(full, []byte(body), 0o600); err != nil {
+		return 1
+	}
+	return 0
+}
+
+// hostActiveTools lists the tools the model is currently offered.
+func (p *loaded) hostActiveTools() int32 {
+	if p.host == nil {
+		return 0
+	}
+	raw, err := json.Marshal(p.host.ToolNames())
+	if err != nil {
+		return 0
+	}
+	if !p.writeAt(replyScratch, raw) {
+		return 0
+	}
+	return replyLen(len(raw))
+}
+
+// hostSetActiveTools narrows the advertised tool set. An empty list restores
+// every tool, so a plugin that mis-filters can always undo it.
+func (p *loaded) hostSetActiveTools(_ context.Context, ptr, length uint32) int32 {
+	text, ok := p.read(ptr, length)
+	if !ok || p.host == nil {
+		return 1
+	}
+	p.host.ApplyToolScope(scopeNames(text))
+	return 0
+}
+
+// replyLen bounds a length before the int32 conversion, so a huge read cannot
+// wrap into a negative length that a guest would trust.
+func replyLen(n int) int32 {
+	if n > math.MaxInt32 {
+		return math.MaxInt32
+	}
+	return int32(n)
+}
+
+// modelJSON renders the model fields a plugin may branch on.
+func modelJSON(cfg llm.ModelConfig) []byte {
+	raw, err := json.Marshal(map[string]any{
+		"name":           cfg.Name,
+		"base_url":       cfg.BaseURL,
+		"context_window": cfg.ContextWindow,
+		"skill_path":     cfg.SkillPath,
+	})
+	if err != nil {
+		return []byte(`{"name":""}`)
+	}
+	return raw
+}
+
+// scopeNames accepts either a JSON array or a comma-separated list, because a
+// guest that only knows strings should not have to build JSON.
+func scopeNames(text string) []string {
+	text = strings.TrimSpace(text)
+	if text == "" {
+		return nil
+	}
+	if strings.HasPrefix(text, "[") {
+		var list []string
+		if json.Unmarshal([]byte(text), &list) == nil {
+			return list
+		}
+	}
+	parts := strings.Split(text, ",")
+	out := make([]string, 0, len(parts))
+	for _, p := range parts {
+		if p = strings.TrimSpace(p); p != "" {
+			out = append(out, p)
+		}
+	}
+	return out
+}
+
+// assetPath keeps a guest inside the directory that holds its own module.
+func assetPath(dir, rel string) string {
+	if dir == "" {
+		dir = "."
+	}
+	return filepath.Join(dir, filepath.Clean("/"+strings.TrimSpace(rel)))
+}
+
+// statePath keeps plugin state under ~/.alpha/plugins/<name>/.
+func statePath(home, name, rel string) string {
+	if home == "" {
+		home = "."
+	}
+	return filepath.Join(brand.HomeDir(home), "plugins", name, filepath.Clean("/"+strings.TrimSpace(rel)))
+}
+
+// pluginHome roots plugin state in the user's alpha directory.
+func pluginHome() string {
+	if home, err := os.UserHomeDir(); err == nil && home != "" {
+		return home
+	}
+	return "."
 }
 
 func (p *loaded) writeAt(off uint32, b []byte) bool {

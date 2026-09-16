@@ -47,7 +47,11 @@ func loginCommand(ctx CommandContext) error {
 	}
 	provider := strings.ToLower(strings.TrimSpace(args[0]))
 	if !knownLoginProvider(provider) {
-		ctx.toast("unknown provider "+provider+" (want anthropic, codex, xai, gemini, antigravity)", toast.ToastError, 6*time.Second)
+		ctx.toast(
+			"unknown provider "+provider+" (want anthropic, codex, xai, gemini, antigravity)",
+			toast.ToastError,
+			6*time.Second,
+		)
 		return nil
 	}
 	ctx.toast(loginCLI(profileName, provider), toast.ToastSuccess, 10*time.Second)
@@ -86,7 +90,18 @@ func loginCLI(profileName, provider string) string {
 
 func knownLoginProvider(name string) bool {
 	switch name {
-	case "anthropic", "claude", "codex", "chatgpt", "openai", "xai", "grok", "supergrok", "gemini", "google", "antigravity", "google-antigravity":
+	case "anthropic",
+		"claude",
+		"codex",
+		"chatgpt",
+		"openai",
+		"xai",
+		"grok",
+		"supergrok",
+		"gemini",
+		"google",
+		"antigravity",
+		"google-antigravity":
 		return true
 	default:
 		return false
