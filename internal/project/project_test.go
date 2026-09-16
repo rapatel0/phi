@@ -200,6 +200,34 @@ agents:
 	assert.True(t, p.Config().Agents.Enabled)
 }
 
+func TestLoadConfigAgentRoleModels(t *testing.T) {
+	p := discoverInTempHome(t)
+	require.NoError(t, os.WriteFile(p.Global().ConfigFile(), []byte(`
+models:
+  - name: parent
+    api_key: parent-key
+  - name: explorer
+    api_key: explorer-key
+  - name: reviewer
+    api_key: reviewer-key
+agents:
+  models:
+    explore: explorer
+    review: reviewer
+    worker: missing-model
+`), 0o644))
+
+	require.NoError(t, p.LoadConfig())
+	cfg := p.Config()
+	assert.True(t, cfg.Agents.Enabled, "omitted agents.enabled defaults to true")
+	assert.Equal(t, "explorer", cfg.Agents.Models.Explore)
+	assert.Equal(t, "reviewer", cfg.Agents.Models.Review)
+	assert.Equal(t, "missing-model", cfg.Agents.Models.Worker)
+	assert.Equal(t, "explorer", cfg.ModelForRole("explore", cfg.Model()).Name)
+	assert.Equal(t, "reviewer", cfg.ModelForRole("review", cfg.Model()).Name)
+	assert.Equal(t, "parent", cfg.ModelForRole("worker", cfg.Model()).Name)
+}
+
 func TestLoadConfigAgentsDisabled(t *testing.T) {
 	p := discoverInTempHome(t)
 	require.NoError(t, os.WriteFile(p.Global().ConfigFile(), []byte(`

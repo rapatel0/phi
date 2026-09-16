@@ -39,6 +39,40 @@ type Config struct {
 // to keep ordinary sessions lean and avoid loading the extra tool schemas.
 type AgentsConfig struct {
 	Enabled bool // true when absent from config
+	Models  AgentsRoleModels
+}
+
+// AgentsRoleModels names optional models for child-agent roles. An empty name
+// inherits the parent model. Unknown names are retained in config and fall
+// back to the parent when a child is started.
+type AgentsRoleModels struct {
+	Explore string
+	Review  string
+	Worker  string
+}
+
+// ModelForRole resolves a child role against configured models, falling back to
+// parent when the role has no configured or usable model.
+func (c *Config) ModelForRole(role string, parent llm.ModelConfig) llm.ModelConfig {
+	if c == nil {
+		return parent
+	}
+	name := ""
+	switch strings.ToLower(strings.TrimSpace(role)) {
+	case "explore":
+		name = c.Agents.Models.Explore
+	case "review":
+		name = c.Agents.Models.Review
+	case "worker":
+		name = c.Agents.Models.Worker
+	}
+	if name == "" {
+		return parent
+	}
+	if model, ok := c.FindModel(name); ok {
+		return model
+	}
+	return parent
 }
 
 // Model returns the default model config with the skill path applied, ready
@@ -275,7 +309,14 @@ func parseConfigFile(path string) (*Config, error) {
 		applyPermissions(&cfg.Permissions, raw.Permissions)
 	}
 	if raw.Agents != nil {
-		cfg.Agents.Enabled = raw.Agents.Enabled
+		if raw.Agents.Enabled != nil {
+			cfg.Agents.Enabled = *raw.Agents.Enabled
+		}
+		cfg.Agents.Models = AgentsRoleModels{
+			Explore: strings.TrimSpace(raw.Agents.Models.Explore),
+			Review:  strings.TrimSpace(raw.Agents.Models.Review),
+			Worker:  strings.TrimSpace(raw.Agents.Models.Worker),
+		}
 	}
 	return cfg, nil
 }
@@ -297,7 +338,14 @@ type fileConfig struct {
 }
 
 type agentsConfig struct {
-	Enabled bool `yaml:"enabled"`
+	Enabled *bool              `yaml:"enabled"`
+	Models  agentsModelsConfig `yaml:"models"`
+}
+
+type agentsModelsConfig struct {
+	Explore string `yaml:"explore"`
+	Review  string `yaml:"review"`
+	Worker  string `yaml:"worker"`
 }
 
 type modelEntry struct {

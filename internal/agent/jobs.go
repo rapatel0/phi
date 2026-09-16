@@ -18,7 +18,7 @@ import (
 func NewJobManager(
 	root string,
 	model llm.ModelConfig,
-	modelFn func() llm.ModelConfig,
+	modelFn func(job.Role) llm.ModelConfig,
 	hooksFn func() *hooks.Manager,
 	authFn func() string,
 	hub ChildHub,

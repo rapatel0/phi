@@ -17,6 +17,8 @@ import (
 	"github.com/rapatel0/alpha/internal/agent"
 	"github.com/rapatel0/alpha/internal/ext/wasmhost"
 	"github.com/rapatel0/alpha/internal/hooks"
+	"github.com/rapatel0/alpha/internal/job"
+	"github.com/rapatel0/alpha/internal/llm"
 	"github.com/rapatel0/alpha/internal/mcp"
 	"github.com/rapatel0/alpha/internal/session"
 	"github.com/rapatel0/alpha/internal/util"
@@ -111,7 +113,9 @@ func runCmd(args []string) int {
 	}
 	if bs.Config.Agents.Enabled {
 		hooksMgr := engineOpts.Hooks
-		jobs, jobErr := agent.NewJobManager(bs.Proj.JobsDir(), bs.Config.Model(), nil, func() *hooks.Manager {
+		jobs, jobErr := agent.NewJobManager(bs.Proj.JobsDir(), bs.Config.Model(), func(role job.Role) llm.ModelConfig {
+			return bs.Config.ModelForRole(string(role), bs.Config.Model())
+		}, func() *hooks.Manager {
 			return hooksMgr
 		}, bs.Proj.Global().AuthFile, nil)
 		if jobErr != nil {

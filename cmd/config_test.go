@@ -61,7 +61,8 @@ func TestConfigHandlerGETAndRoundTrip(t *testing.T) {
 	require.NotNil(t, got.Permissions.Bash)
 	assert.Equal(t, []string{"^git "}, got.Permissions.Bash.Allow)
 	require.NotNil(t, got.Agents)
-	assert.False(t, got.Agents.Enabled)
+	require.NotNil(t, got.Agents.Enabled)
+	assert.False(t, *got.Agents.Enabled)
 	assert.Equal(t, path, got.Path)
 
 	// Edit: drop model-b and change the api_key, keep permissions untouched.

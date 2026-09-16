@@ -28,12 +28,12 @@ import (
 // sub-agents the same way. HooksFn wins when set (live reload).
 type EngineRunner struct {
 	Model     llm.ModelConfig
-	ModelFn   func() llm.ModelConfig // if set, preferred over Model
-	Gate      permission.Gate        // nil → SpecForRole(job.Role).Mode on WorkDir
-	Tools     []tools.Tool           // nil → SpecForRole(job.Role).Tools
-	MaxRounds int                    // 0 → Engine default
-	Hooks     *hooks.Manager         // shared with parent; nil = no hooks
-	HooksFn   func() *hooks.Manager  // if set, preferred over Hooks
+	ModelFn   func(job.Role) llm.ModelConfig // if set, preferred over Model
+	Gate      permission.Gate                // nil → SpecForRole(job.Role).Mode on WorkDir
+	Tools     []tools.Tool                   // nil → SpecForRole(job.Role).Tools
+	MaxRounds int                            // 0 → Engine default
+	Hooks     *hooks.Manager                 // shared with parent; nil = no hooks
+	HooksFn   func() *hooks.Manager          // if set, preferred over Hooks
 	AuthFile  string
 	// AuthFn is preferred over AuthFile, so a profile switch reaches
 	// sub-agents started later instead of leaving them on the old account.
@@ -89,7 +89,7 @@ func (r EngineRunner) Run(ctx context.Context, env job.RunEnv) (string, error) {
 
 	model := r.Model
 	if r.ModelFn != nil {
-		model = r.ModelFn()
+		model = r.ModelFn(env.Job.Role)
 	}
 
 	hookMgr := r.Hooks

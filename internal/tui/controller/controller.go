@@ -107,8 +107,8 @@ func NewController(bus *Bus, proj *project.Project, cwd string) (*Controller, er
 	c.hooksManager.Store(hooksManager)
 
 	c.children = newChildRegistry()
-	jobs, err := agent.NewJobManager(proj.JobsDir(), c.modelCfg, func() llm.ModelConfig {
-		return c.modelCfg
+	jobs, err := agent.NewJobManager(proj.JobsDir(), c.modelCfg, func(role job.Role) llm.ModelConfig {
+		return config.ModelForRole(string(role), c.modelCfg)
 	}, c.Hooks, c.authFile, c)
 	if err != nil {
 		return nil, err
