@@ -91,10 +91,17 @@ can load. The `alpha` import module matches `ext.Host`:
 Getters write bytes at the reply scratch offset and return the length.
 `model_info` omits the API key. `read_asset` reads beside the module file;
 `read_file` and `write_file` are scoped to `~/.alpha/plugins/<name>/`.
-Go `GOOS=wasip1` builds export only `memory` and `_start`, so a guest that
-needs these calls is written in a toolchain that emits named exports. Named
-exports count from zero across imports first: with 9 imported host functions,
-the first defined function is index 9. `testdata/*.wasm` shows that layout.
+Write a guest in Go with `GOOS=wasip1 GOARCH=wasm` and
+`-buildmode=c-shared`. Mark entry points with `//go:wasmexport` and host calls
+with `//go:wasmimport alpha <name>`. The loader runs `_initialize` first, then
+calls `alpha_plugin_init`, so the Go runtime is up before the guest registers.
+
+Export indices count imported functions first. With 9 imports, the first
+defined function has index 9. `testdata/*.wasm` shows that layout.
+
+The host gives a guest HOME, a mount for HOME and the working directory, and a
+clock. Style and state lookup then reads the same paths the compiled-in
+extensions see. Run `scripts/build-guests.sh` after a guest source change.
 
 Exports: `memory`, `alpha_plugin_init`, and optionally
 `alpha_plugin_command`, `alpha_plugin_tool`, `alpha_plugin_footer`,

@@ -360,6 +360,22 @@ All five steps are done.
 
 Add the next event when an extension needs it.
 
+## Compiled-in units
+
+Some units stay in Go. Each one needs surface a module cannot reach.
+
+| Unit | Reason |
+| --- | --- |
+| `compact` | Calls `internal/session/compaction` for config load, ledger search, and hit formatting. |
+| `loop` | Needs a real `permission.Gate`, `tools/bashtool`, and a timer scheduler. `bgPlugin.SetGate` is a stub in the WASM host. |
+| `mediaguard` | Only user of `OnBeforeProviderRequest`, which rewrites messages before the payload is built. |
+| `lens` | Runs external checkers through `exec.CommandContext` and `exec.LookPath`. |
+
+The Tier B units (`tokenspeed`, `toolstats`, `todo`, `askuser`, `btw`, `goal`,
+`outputstyle`) have a WASM twin in `internal/ext/wasmhost/guests/tierb`. That
+guest calls the same packages, so one text path serves both. The parity checks
+live in `internal/ext/wasmhost/guests_test.go`.
+
 ## Constraints
 
 - The tool loop stays PreHooks then Gate/Ask then Run then PostHooks. An

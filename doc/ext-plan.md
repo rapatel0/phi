@@ -93,16 +93,20 @@ Done when one guest under `testdata/` calls each new function and `go test ./int
 
 Keep the Go versions. Add wasip1 guests for `tokenspeed`, `toolstats`, `todo`, `askuser`, `btw`, `goal`, `outputstyle` under `testdata/`, and require the same footer and command text from either path.
 
-Slice 5 landed as the ABI additions in Slice 4 plus the fixture set under
-`testdata/`. Go `GOOS=wasip1 GOARCH=wasm` builds export only `memory` and
-`_start`, so a Go guest cannot expose `alpha_plugin_init`. Guests that need the
-named exports are written in a toolchain that emits them. Tier B keeps its Go
-implementation and is exercised by the same footer and command assertions the
-guests use.
+Slice 5 landed. `internal/ext/wasmhost/guests/tierb` builds one guest that
+forwards calls to the compiled-in Tier B packages, so footer and command text
+cannot drift between paths. `scripts/build-guests.sh` rebuilds it and
+`guests_test.go` compares both paths on one input. A Go guest needs
+`//go:wasmexport` with `-buildmode=c-shared`; the loader calls `_initialize`
+before `alpha_plugin_init`.
 
 ### Slice 6 - Re-check the core four
 
-After Slice 4, test whether `compact` and `loop` still need Go. Record the decision here and in `doc/ext-api.md`.
+Done. `compact` and `loop` keep their Go implementation. `compact` needs
+`internal/session/compaction` for config load, ledger search, and hit
+formatting. `loop` needs `permission.Gate`, `tools/bashtool`, and a timer
+scheduler. `mediaguard` and `lens` also stay compiled in. See
+`doc/ext-api.md`.
 
 ## Verification
 
