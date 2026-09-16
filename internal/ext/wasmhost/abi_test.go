@@ -203,6 +203,21 @@ func tryCommand(t *testing.T, h *ext.Host, name string, args ...string) string {
 	return ""
 }
 
+func toolError(t *testing.T, h *ext.Host, name, input string) string {
+	t.Helper()
+	for _, tl := range h.Tools() {
+		if tl.Definition.Name == name {
+			_, err := tl.Run(t.Context(), []byte(input))
+			if err == nil {
+				return ""
+			}
+			return err.Error()
+		}
+	}
+	t.Fatalf("tool %q not registered", name)
+	return ""
+}
+
 func footerOf(h *ext.Host) string { return joinBits(h.FooterBits()) }
 
 func labels(list *hooks.CommandList) []string {
@@ -362,4 +377,14 @@ func TestGuestCommandErrorMatches(t *testing.T) {
 	want := "ask something: /btw <question>, or /btw list"
 	assert.Equal(t, want, tryCommand(t, goH, "btw"), "compiled-in error")
 	assert.Equal(t, want, tryCommand(t, wasmH, "btw"), "guest error")
+}
+
+func TestGuestToolErrorMatches(t *testing.T) {
+	goH, wasmH := goHost(t), wasmHost(t)
+	input := `{"todos":"bad"}`
+
+	goErr := toolError(t, goH, "todo_write", input)
+	wasmErr := toolError(t, wasmH, "todo_write", input)
+	require.NotEmpty(t, goErr, "compiled-in tool should reject malformed todos")
+	assert.Equal(t, goErr, wasmErr, "guest tool error")
 }

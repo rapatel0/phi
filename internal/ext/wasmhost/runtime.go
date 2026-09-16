@@ -449,12 +449,20 @@ func (p *loaded) runTool(ctx context.Context, id int32, input json.RawMessage) (
 	if !ok && len(input) > 0 {
 		return tools.Result{}, fmt.Errorf("wasm %s: cannot write args", p.name)
 	}
-	if _, err := fn.Call(ctx, uint64(uint32(id)), uint64(ptr), uint64(n)); err != nil {
+	rets, err := fn.Call(ctx, uint64(uint32(id)), uint64(ptr), uint64(n))
+	if err != nil {
 		return tools.Result{}, err
 	}
+	failed := len(rets) > 0 && rets[0] != 0
 	p.mu.Lock()
 	body := p.result
 	detail := p.detail
 	p.mu.Unlock()
+	if failed {
+		if body == "" {
+			body = "wasm " + p.name + ": tool failed"
+		}
+		return tools.Result{}, errors.New(body)
+	}
 	return tools.Result{Content: body, Detail: detail, Output: body}, nil
 }
