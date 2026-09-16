@@ -708,20 +708,6 @@ func lineEnd(s string, off int) int {
 	return off + i
 }
 
-func runeIndex(s string, n int) int {
-	if n <= 0 {
-		return 0
-	}
-	i := 0
-	for pos := range s {
-		if i == n {
-			return pos
-		}
-		i++
-	}
-	return len(s)
-}
-
 func dumpSurfaceRow(label string, buf []xui.Cell, rowW, row int) {
 	if buf == nil || row < 0 || rowW < 1 {
 		return
