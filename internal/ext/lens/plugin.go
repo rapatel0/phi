@@ -38,6 +38,8 @@ func (*Plugin) Name() string { return "lens" }
 // Register wires the post-tool hook and the /lens command.
 func (p *Plugin) Register(h *ext.Host) error {
 	h.OnToolResult("edit,write", p.check)
+	h.RegisterTool(DiagnosticsTool())
+	h.RegisterTool(NavigationTool())
 	h.RegisterCommand(ext.Command{
 		Name:        "lens",
 		Description: "Show the problems found in the file last written",
