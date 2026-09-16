@@ -42,8 +42,12 @@ type Controller struct {
 	sessionDir string
 	cwd        string
 	modelCfg   llm.ModelConfig
-	jobs       *job.Manager
-	unsubJobs  func()
+	// roleModels stores session-only model selections for child roles.
+	// Empty or missing entries inherit the parent model.
+	roleModelsMu sync.RWMutex
+	roleModels   map[job.Role]string
+	jobs         *job.Manager
+	unsubJobs    func()
 
 	gate          permission.Gate
 	askTimeoutSec int
@@ -93,6 +97,7 @@ func NewController(bus *Bus, proj *project.Project, cwd string) (*Controller, er
 		sessionDir:    proj.SessionDir(),
 		askTimeoutSec: 120,
 		modelCfg:      proj.Config().Model(),
+		roleModels:    make(map[job.Role]string),
 	}
 	// Default: no permission prompts. Toggle via command palette → settings → permissions.
 	c.allowAll.Store(true)
@@ -101,15 +106,22 @@ func NewController(bus *Bus, proj *project.Project, cwd string) (*Controller, er
 
 	c.initGate(config.Permissions)
 	c.agentsEnabled.Store(config.Agents.Enabled)
+	for role, name := range map[job.Role]string{
+		job.RoleExplore: config.Agents.Models.Explore,
+		job.RoleReview:  config.Agents.Models.Review,
+		job.RoleWorker:  config.Agents.Models.Worker,
+	} {
+		if name != "" {
+			c.roleModels[role] = strings.TrimSpace(name)
+		}
+	}
 
 	wasmhost.LoadDefault(cwd)
 	hooksManager := loadHooksManager(proj)
 	c.hooksManager.Store(hooksManager)
 
 	c.children = newChildRegistry()
-	jobs, err := agent.NewJobManager(proj.JobsDir(), c.modelCfg, func(role job.Role) llm.ModelConfig {
-		return config.ModelForRole(string(role), c.modelCfg)
-	}, c.Hooks, c.authFile, c)
+	jobs, err := agent.NewJobManager(proj.JobsDir(), c.modelCfg, c.modelForRole, c.Hooks, c.authFile, c)
 	if err != nil {
 		return nil, err
 	}
@@ -230,6 +242,59 @@ func (c *Controller) SetAgentsEnabled(v bool) {
 	if c.engine != nil {
 		c.engine.SetJobs(c.engineJobs())
 	}
+}
+
+// modelForRole returns the session selection for role, or the parent model.
+func (c *Controller) modelForRole(role job.Role) llm.ModelConfig {
+	if c == nil {
+		return llm.ModelConfig{}
+	}
+	role = job.NormalizeRole(string(role))
+	c.roleModelsMu.RLock()
+	name := c.roleModels[role]
+	parent := c.modelCfg
+	c.roleModelsMu.RUnlock()
+	if name != "" && c.proj != nil && c.proj.Config() != nil {
+		if model, ok := c.proj.Config().FindModel(name); ok {
+			return model
+		}
+		debuglog.Logf("agents: unknown role model %q for %s; using parent", name, role)
+	}
+	return parent
+}
+
+// SetRoleModel sets a session-only model for a child role.
+// Empty name clears the selection so the child inherits the parent model.
+func (c *Controller) SetRoleModel(role, name string) error {
+	if c == nil {
+		return errors.New("controller not initialized")
+	}
+	r, err := job.ParseRole(role)
+	if err != nil {
+		return err
+	}
+	name = strings.TrimSpace(name)
+	if name == "" {
+		c.roleModelsMu.Lock()
+		if c.roleModels != nil {
+			delete(c.roleModels, r)
+		}
+		c.roleModelsMu.Unlock()
+		return nil
+	}
+	if c.proj == nil || c.proj.Config() == nil {
+		return errors.New("project not available")
+	}
+	if _, ok := c.proj.Config().FindModel(name); !ok {
+		return fmt.Errorf("unknown model %q", name)
+	}
+	c.roleModelsMu.Lock()
+	if c.roleModels == nil {
+		c.roleModels = make(map[job.Role]string)
+	}
+	c.roleModels[r] = name
+	c.roleModelsMu.Unlock()
+	return nil
 }
 
 // Hooks returns the currently loaded hooks manager (may be nil).

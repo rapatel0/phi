@@ -11,6 +11,10 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 ### Added
 
 - `/diff` opens a full-screen unified git diff review. Add line notes and send them to the agent.
+- Settings → agents → models selects explore, review, and worker models for
+  later sub-agents. Each role can inherit the parent model.
+- Persisted sessions can fork at their current leaf, retaining context while
+  writing a new child JSONL file.
 - One tool round now overlaps independent read-only calls. A batch of
   `websearch`, `webfetch`, and `read` calls pays one wait. Blocking calls such
   as `ask_user_question` still run first, and writes stay in order.

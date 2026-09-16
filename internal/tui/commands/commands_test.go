@@ -43,10 +43,10 @@ func TestPermissionsCommand_Toggle(t *testing.T) {
 
 func TestAgentsCommand_Toggle(t *testing.T) {
 	var enabled *bool
-	cmd := AgentsCommand(func(v bool) { enabled = &v })
+	cmd := AgentsCommand(func(v bool) { enabled = &v }, nil, nil)
 	assert.Equal(t, "settings", cmd.Noun)
 	assert.Equal(t, "agents", cmd.Verb)
-	require.Len(t, cmd.Submenu, 2)
+	require.Len(t, cmd.Submenu, 3)
 
 	cmd.Submenu[0].Run()
 	require.NotNil(t, enabled)
@@ -54,6 +54,30 @@ func TestAgentsCommand_Toggle(t *testing.T) {
 
 	cmd.Submenu[1].Run()
 	assert.False(t, *enabled)
+}
+
+func TestAgentsCommand_RoleModels(t *testing.T) {
+	var gotRole, gotName string
+	cmd := AgentsCommand(nil, func(role, name string) {
+		gotRole, gotName = role, name
+	}, []string{"cheap", "strong"})
+	models := cmd.Submenu[2]
+	assert.Equal(t, "models", models.Verb)
+	require.Len(t, models.Submenu, 3)
+	assert.Equal(t, "explore", models.Submenu[0].Verb)
+	assert.Equal(t, "review", models.Submenu[1].Verb)
+	assert.Equal(t, "worker", models.Submenu[2].Verb)
+
+	explore := models.Submenu[0]
+	require.Len(t, explore.Submenu, 3)
+	assert.Equal(t, "(inherit parent)", explore.Submenu[0].Verb)
+	explore.Submenu[0].Run()
+	assert.Equal(t, "explore", gotRole)
+	assert.Empty(t, gotName)
+
+	explore.Submenu[2].Run()
+	assert.Equal(t, "explore", gotRole)
+	assert.Equal(t, "strong", gotName)
 }
 
 func TestHooksCommand_ListAndReload(t *testing.T) {

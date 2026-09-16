@@ -217,6 +217,7 @@ func NewEditor(
 		e.applyTheme,
 		e.setPermissions,
 		e.setAgents,
+		e.setRoleModel,
 		e.addPendingSkill,
 		e.copyLastMessage,
 		e.openDiff,
@@ -924,6 +925,21 @@ func (e *Editor) setAgents(enabled bool) {
 	e.toast.Show(msg, toast.ToastSuccess, 2*time.Second)
 }
 
+func (e *Editor) setRoleModel(role, name string) {
+	if e == nil || e.ctrl == nil {
+		return
+	}
+	if err := e.ctrl.SetRoleModel(role, name); err != nil {
+		e.toast.Show(err.Error(), toast.ToastError, 3*time.Second)
+		return
+	}
+	msg := fmt.Sprintf("Sub-agent %s: inherit parent", role)
+	if name != "" {
+		msg = fmt.Sprintf("Sub-agent %s: %s", role, name)
+	}
+	e.toast.Show(msg, toast.ToastSuccess, 2*time.Second)
+}
+
 func (e *Editor) reloadHooks() {
 	n, warns, err := e.ctrl.ReloadHooks()
 	if err != nil {
@@ -981,6 +997,7 @@ type commandBridge struct {
 	applyTheme      func(string)
 	setPermissions  func(bool)
 	setAgents       func(bool)
+	setRoleModel    func(string, string)
 	addSkill        func(string)
 	copyLastMessage func()
 	openDiff        func([]string)
@@ -1003,6 +1020,7 @@ func newCommandBridge(
 	applyTheme func(string),
 	setPermissions func(bool),
 	setAgents func(bool),
+	setRoleModel func(string, string),
 	addSkill func(string),
 	copyLastMessage func(),
 	openDiff func([]string),
@@ -1022,6 +1040,7 @@ func newCommandBridge(
 		applyTheme:      applyTheme,
 		setPermissions:  setPermissions,
 		setAgents:       setAgents,
+		setRoleModel:    setRoleModel,
 		addSkill:        addSkill,
 		copyLastMessage: copyLastMessage,
 		openDiff:        openDiff,
@@ -1106,6 +1125,7 @@ func (b *commandBridge) context() commands.CommandContext {
 		ApplyTheme:     b.applyTheme,
 		SetPermissions: b.setPermissions,
 		SetAgents:      b.setAgents,
+		SetRoleModel:   b.setRoleModel,
 		ReloadHooks:    b.reloadHooks,
 		ListHooks:      b.listHooks,
 		AddSkill:       b.addSkill,
