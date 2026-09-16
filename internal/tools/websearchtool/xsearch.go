@@ -100,17 +100,19 @@ func joinHandles(handles []string) string {
 // xaiConfig picks the xAI connection for the search request.
 //
 // An xAI session already holds the right key and base URL. Any other session
-// still needs a key, so XAI_API_KEY is the documented fallback, matching what
-// alpha config reads for the xAI provider.
+// still needs a key, so XAI_API_KEY comes first, matching what alpha config
+// reads for the xAI provider; the session key is only the last fallback.
+// The session model name survives only when it names an xAI model: a Claude
+// or GPT name is not valid on the xAI endpoint.
 func xaiConfig(cfg llm.ModelConfig) llm.ModelConfig {
 	if nativeBackend(cfg) == "xai" {
 		return cfg
 	}
-	key := strings.TrimSpace(cfg.APIKey)
+	key := strings.TrimSpace(os.Getenv("XAI_API_KEY"))
 	if key == "" {
-		key = strings.TrimSpace(os.Getenv("XAI_API_KEY"))
+		key = strings.TrimSpace(cfg.APIKey)
 	}
-	if cfg.Name == "" {
+	if name := strings.ToLower(cfg.Name); name == "" || !strings.HasPrefix(name, "grok") {
 		cfg.Name = xaiSearchModel
 	}
 	cfg.APIKey = key

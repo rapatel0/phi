@@ -1,7 +1,6 @@
 package websearchtool
 
 import (
-	"context"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
@@ -52,7 +51,7 @@ func TestRunXSearchReturnsPostsAndSources(t *testing.T) {
 	httpClient = srv.Client()
 	defer func() { httpClient = prev }()
 
-	ctx := tooldef.WithModel(context.Background(), llm.ModelConfig{
+	ctx := tooldef.WithModel(t.Context(), llm.ModelConfig{
 		Name:    "grok-4.6",
 		APIKey:  "k",
 		BaseURL: srv.URL,
@@ -65,7 +64,7 @@ func TestRunXSearchReturnsPostsAndSources(t *testing.T) {
 }
 
 func TestRunXSearchRejectsEmptyQuery(t *testing.T) {
-	_, err := XSearchTool().Run(context.Background(), json.RawMessage(`{"query":"  "}`))
+	_, err := XSearchTool().Run(t.Context(), json.RawMessage(`{"query":"  "}`))
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "query is required")
 }
