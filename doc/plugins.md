@@ -76,8 +76,9 @@ Drop a `*.wasm` file in `~/.agents/plugins/` or `<project>/.agents/plugins/`.
 Alpha loads it with wazero (pure Go). Guests can be Go `GOOS=wasip1 GOARCH=wasm`
 or any wasm32 toolchain.
 
-The host instantiates WASI without a filesystem so Go `GOOS=wasip1` guests
-can load. The `alpha` import module matches `ext.Host`:
+The host starts WASI with HOME and the working directory mounted, plus a
+clock, so Go `GOOS=wasip1` guests load and still find their state files. The
+`alpha` import module matches `ext.Host`:
 
 - register: `register_command`, `register_tool`, `add_footer`,
   `on_session`, `on_before_agent_start`, `on_tool`, `on_tool_result`,
@@ -89,20 +90,19 @@ can load. The `alpha` import module matches `ext.Host`:
   `set_active_tools`
 
 Getters write bytes at the reply scratch offset and return the length.
-`model_info` omits the API key. `read_asset` reads beside the module file;
+`model_info` omits the API key. `read_asset` reads beside the module file.
 `read_file` and `write_file` are scoped to `~/.alpha/plugins/<name>/`.
 Write a guest in Go with `GOOS=wasip1 GOARCH=wasm` and
 `-buildmode=c-shared`. Mark entry points with `//go:wasmexport` and host calls
 with `//go:wasmimport alpha <name>`. The loader runs `_initialize` first, then
 calls `alpha_plugin_init`, so the Go runtime is up before the guest registers.
 
-Export indices count imported functions first. The host module registers 25
-imports, so the first defined function has index 25. `testdata/getter.wasm`
-shows that layout.
+Export indices count the imports a guest declares. `testdata/getter.wasm`
+declares 8 imports, so its first defined function has index 8. The host module
+registers 25 functions, and a guest imports the subset it needs.
 
-The host gives a guest HOME, a mount for HOME and the working directory, and a
-clock. Style and state lookup then reads the same paths the compiled-in
-extensions see. Run `scripts/build-guests.sh` after a guest source change.
+Style and state lookup reads the same paths the compiled-in extensions see.
+Run `scripts/build-guests.sh` after a guest source change.
 
 Exports: `memory`, `alpha_plugin_init`, and optionally
 `alpha_plugin_command`, `alpha_plugin_tool`, `alpha_plugin_footer`,

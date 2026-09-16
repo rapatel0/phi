@@ -21,7 +21,7 @@ actually make. The result decides what alpha must offer.
 | `registerProvider` | 5 | Not modeled |
 
 Two facts follow. First, slash commands matter more than any other capability.
-Second, alpha already has most of the machinery; it is reachable from external
+Second, alpha already has most of the machinery. It is reachable from external
 process hooks but not from in-process Go code.
 
 ## The two halves that exist today
@@ -104,7 +104,7 @@ func (h *Host) Backgrounds() []Background
 ```
 
 `Wake` is how a scheduled fire reaches the agent when nobody is typing. The
-shell installs it, the same way it installs the side channel; without it `Wake`
+shell installs it, the same way it installs the side channel. Without it `Wake`
 reports that nothing is listening, which is the correct answer in a headless
 run. It also refuses while a turn is streaming, because two prompts in flight
 would interleave. Treat the error as "try again later", not as a failure.
@@ -129,7 +129,7 @@ refuse until one arrives, or the tool becomes a way around a denied `bash`
 call. [`internal/ext/loop`](../internal/ext/loop) is the worked example.
 
 `OnToolResult` is how an extension tells the model something about work it just
-did. The returned string is appended to the tool result; returning `""` adds
+did. The returned string is appended to the tool result. Returning `""` adds
 nothing, which is the right answer when there is nothing to report. Unlike
 `OnTool`'s post handler it runs synchronously, because the note has to be ready
 before the result reaches the model. Keep the work short and bound anything
@@ -350,7 +350,7 @@ Each step is useful on its own and does not require the next.
 All five steps are done.
 
 1. ~~**`RegisterCommand`.**~~ Unblocks 16 of 17 measured extensions. The registry
-   path already existed; this exposed it to Go.
+   path already existed. This exposed it to Go.
 2. ~~**`OnSession`.**~~ Lets an extension react to session lifecycle events.
 3. ~~**`agent_start` / `agent_end`.**~~ The most requested missing events, and
    the only turn events a headless run fires.

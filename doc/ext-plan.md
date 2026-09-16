@@ -33,11 +33,11 @@ These use only surface the `alpha` import module already exports.
 
 ## Sequencing problem
 
-`Executor.Run` walks the calls of one assistant message in a strict loop (`internal/agent/executor.go:90`). Each call completes its whole Pre -> Gate -> Run -> Post cycle before the next one starts. Two `websearch` calls and one `read` therefore cost the sum of their latency. Provider guidance in the overlay promises parallel calls for independent work. The executor does not honor it.
+`Executor.Run` walks the calls of one assistant message in three groups (`internal/agent/executor.go`). Blocking questions run alone first, read-only calls overlap up to four at a time, then everything else runs in order. Each call still completes its whole Pre -> Gate -> Run -> Post cycle, and the returned messages keep call order.
 
 Two supporting facts:
 
-1. `tooldef.Tool.Readable` is set on eleven tools and read by nothing. It is the ready-made parallel-safety signal.
+1. `tooldef.Tool.Readable` is set on thirteen tools. The executor reads it as the parallel-safety signal for the read-only group.
 2. `emit` returns a bool that drives cancel stubs, and `Run` returns `[]llm.Message` in call order. Both orderings must survive concurrency.
 
 ### Rules for one round
@@ -81,13 +81,13 @@ Done when the TUI and `alpha run` send the same prompt text.
 
 ### Slice 3 - Harness tools
 
-Add `x_search`, `lsp_diagnostics`, `lsp_navigation`, and `agent_log` in `internal/tools`, registered in the default registry. One commit each, with a happy-path and an error-path test.
+Add `x_search` and `agent_log` in `internal/tools`, registered in the default registry. Add `lsp_diagnostics` and `lsp_navigation` in `internal/ext/lens`, registered on `ext.Host` by the lens plugin. One commit each, with a happy-path and an error-path test.
 
 ### Slice 4 - ABI additions
 
 Add `model_info`, `read_asset`, `read_file`, `write_file`, `active_tools`, `set_active_tools` to the `alpha` import module in `internal/ext/wasmhost`, and register them in the host builder list in `runtime.go`. Keep the API key out of `model_info`.
 
-Done when one guest under `testdata/` calls each new function and `go test ./internal/ext/wasmhost` passes. Run that package alone first; it once hit a 600-second timeout before passing.
+Done. `testdata/getter.wasm` calls `model_info`, `read_asset`, `active_tools`, and `set_active_tools`, so reply offsets and returned lengths are checked against a real guest. `read_file` and `write_file` are covered by the path-helper tests in `abi_test.go`, which pin asset and state scoping. Run that package alone first. It once hit a 600-second timeout before passing.
 
 ### Slice 5 - Guests for Tier B
 
@@ -97,7 +97,7 @@ Slice 5 landed. `internal/ext/wasmhost/guests/tierb` builds one guest that
 forwards calls to the compiled-in Tier B packages, so footer and command text
 cannot drift between paths. `scripts/build-guests.sh` rebuilds it and
 `abi_test.go` compares both paths on one input. A Go guest needs
-`//go:wasmexport` with `-buildmode=c-shared`; the loader calls `_initialize`
+`//go:wasmexport` with `-buildmode=c-shared`. The loader calls `_initialize`
 before `alpha_plugin_init`.
 
 ### Slice 6 - Re-check the core four

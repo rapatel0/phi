@@ -22,11 +22,12 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
   with `-buildmode=c-shared` starts through `_initialize`, then sees HOME, a
   mount for HOME and the working directory, and a clock. The Tier B extensions
   ship such a guest, so footer and command text match the compiled-in path.
+  `scripts/build-guests.sh` rebuilds the committed fixtures.
 - WASM plugins load from `~/.agents/plugins/*.wasm` and
   `<cwd>/.agents/plugins/*.wasm` (wazero, no CGO). A module can register
   slash commands and tools. The host import surface matches `ext.Host`
   (session hooks, prompt, tool gate, footer, wake, compact, side
-  conversations, questions). WASI is present without a filesystem.
+  conversations, questions). WASI mounts HOME and the working directory.
 
 ### Changed
 
