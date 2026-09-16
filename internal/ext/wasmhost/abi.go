@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"math"
 	"os"
 	"path/filepath"
 	"strings"
@@ -153,7 +152,7 @@ func (p *loaded) hostAskQuestion(ctx context.Context, hPtr, hLen, pPtr, pLen, oP
 // guest can pick per-model text without parsing the config file. The API key is
 // left out: a plugin that needs a credential uses the host calls instead.
 // The return value is the JSON length; the bytes sit at replyScratch.
-func (p *loaded) hostModelInfo() int32 {
+func (p *loaded) hostModelInfo() uint32 {
 	if p.host == nil {
 		return 0
 	}
@@ -161,13 +160,13 @@ func (p *loaded) hostModelInfo() int32 {
 	if !p.writeAt(replyScratch, raw) {
 		return 0
 	}
-	return replyLen(len(raw))
+	return replyLen(raw)
 }
 
 // hostReadAsset reads a file next to the module, which is how a plugin ships
 // its own text: prompt fragments, templates, a small table. WASI is mounted
 // without a filesystem, so this is the only read path a guest has.
-func (p *loaded) hostReadAsset(_ context.Context, ptr, length uint32) int32 {
+func (p *loaded) hostReadAsset(_ context.Context, ptr, length uint32) uint32 {
 	rel, ok := p.read(ptr, length)
 	if !ok {
 		return 0
@@ -183,11 +182,11 @@ func (p *loaded) hostReadAsset(_ context.Context, ptr, length uint32) int32 {
 	if !p.writeAt(replyScratch, raw) {
 		return 0
 	}
-	return replyLen(len(raw))
+	return replyLen(raw)
 }
 
 // hostReadFile reads from the plugin's own state directory.
-func (p *loaded) hostReadFile(_ context.Context, ptr, length uint32) int32 {
+func (p *loaded) hostReadFile(_ context.Context, ptr, length uint32) uint32 {
 	rel, ok := p.read(ptr, length)
 	if !ok {
 		return 0
@@ -202,7 +201,7 @@ func (p *loaded) hostReadFile(_ context.Context, ptr, length uint32) int32 {
 	if !p.writeAt(replyScratch, raw) {
 		return 0
 	}
-	return replyLen(len(raw))
+	return replyLen(raw)
 }
 
 // hostWriteFile writes into the plugin's own state directory. Arguments are
@@ -224,7 +223,7 @@ func (p *loaded) hostWriteFile(_ context.Context, ptr, length, valPtr, valLen ui
 }
 
 // hostActiveTools lists the tools the model is currently offered.
-func (p *loaded) hostActiveTools() int32 {
+func (p *loaded) hostActiveTools() uint32 {
 	if p.host == nil {
 		return 0
 	}
@@ -235,7 +234,7 @@ func (p *loaded) hostActiveTools() int32 {
 	if !p.writeAt(replyScratch, raw) {
 		return 0
 	}
-	return replyLen(len(raw))
+	return replyLen(raw)
 }
 
 // hostSetActiveTools narrows the advertised tool set. An empty list restores
@@ -249,13 +248,13 @@ func (p *loaded) hostSetActiveTools(_ context.Context, ptr, length uint32) int32
 	return 0
 }
 
-// replyLen bounds a length before the int32 conversion, so a huge read cannot
-// wrap into a negative length that a guest would trust.
-func replyLen(n int) int32 {
-	if n > math.MaxInt32 {
-		return math.MaxInt32
+// replyLen matches the truncation in writeAt, so the length a guest reads back
+// is the length that was written.
+func replyLen(b []byte) uint32 {
+	if len(b) > argsMax {
+		return argsMax
 	}
-	return int32(n)
+	return uint32(len(b))
 }
 
 // modelJSON renders the model fields a plugin may branch on.
