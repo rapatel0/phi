@@ -261,9 +261,10 @@ func sideViaHost(_ context.Context, req ext.SideRequest) (ext.SideResult, error)
 }
 
 // readReply copies the bytes at the reply offset up to its terminating zero.
+// The cap matches the host reply scratch, so a long getter reply arrives whole.
 func readReply() []byte {
 	out := make([]byte, 0, 256)
-	for i := range 4096 {
+	for i := range 16384 {
 		b := buf(replyScratch+uint32(i), 1)
 		if len(b) == 0 || b[0] == 0 {
 			break
