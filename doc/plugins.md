@@ -92,7 +92,9 @@ Getters write bytes at the reply scratch offset and return the length.
 `model_info` omits the API key. `read_asset` reads beside the module file;
 `read_file` and `write_file` are scoped to `~/.alpha/plugins/<name>/`.
 Go `GOOS=wasip1` builds export only `memory` and `_start`, so a guest that
-needs these calls is written in a toolchain that emits named exports.
+needs these calls is written in a toolchain that emits named exports. Named
+exports count from zero across imports first: with 9 imported host functions,
+the first defined function is index 9. `testdata/*.wasm` shows that layout.
 
 Exports: `memory`, `alpha_plugin_init`, and optionally
 `alpha_plugin_command`, `alpha_plugin_tool`, `alpha_plugin_footer`,
