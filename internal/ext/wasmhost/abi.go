@@ -322,7 +322,12 @@ func (p *loaded) writeAt(off uint32, b []byte) bool {
 	if len(b) > argsMax {
 		b = b[:argsMax]
 	}
-	return p.mem.Write(off, b)
+	if !p.mem.Write(off, b) {
+		return false
+	}
+	// Guests that scan the reply for its terminating zero must not run into
+	// the tail of an older, longer reply left in linear memory.
+	return p.mem.Write(off+uint32(len(b)), []byte{0})
 }
 
 func (p *loaded) call(ctx context.Context, name string, args ...uint64) (uint64, error) {
@@ -348,7 +353,13 @@ func (p *loaded) handleSession(ctx context.Context, ev hooks.SessionEvent) error
 	if err != nil {
 		return err
 	}
+	if len(raw) > argsMax {
+		raw = raw[:argsMax]
+	}
 	kind := []byte(ev.Kind)
+	if len(kind) > argsMax {
+		kind = kind[:argsMax]
+	}
 	if !p.writeAt(argsScratch, kind) || !p.writeAt(eventScratch, raw) {
 		return fmt.Errorf("wasm %s: cannot write session event", p.name)
 	}
@@ -381,6 +392,9 @@ func (p *loaded) handlePrompt(ctx context.Context, user, sys string) (string, er
 
 func (p *loaded) handleToolPre(ctx context.Context, ev hooks.Event) error {
 	raw, _ := json.Marshal(ev)
+	if len(raw) > argsMax {
+		raw = raw[:argsMax]
+	}
 	if !p.writeAt(argsScratch, raw) {
 		return fmt.Errorf("wasm %s: cannot write tool event", p.name)
 	}
@@ -409,6 +423,9 @@ func (p *loaded) handleToolPost(ctx context.Context, ev hooks.Event) error {
 
 func (p *loaded) handleToolResult(ctx context.Context, ev hooks.Event) (string, error) {
 	raw, _ := json.Marshal(ev)
+	if len(raw) > argsMax {
+		raw = raw[:argsMax]
+	}
 	p.result = ""
 	if !p.writeAt(argsScratch, raw) {
 		return "", nil

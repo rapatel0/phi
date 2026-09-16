@@ -96,8 +96,9 @@ Write a guest in Go with `GOOS=wasip1 GOARCH=wasm` and
 with `//go:wasmimport alpha <name>`. The loader runs `_initialize` first, then
 calls `alpha_plugin_init`, so the Go runtime is up before the guest registers.
 
-Export indices count imported functions first. With 9 imports, the first
-defined function has index 9. `testdata/*.wasm` shows that layout.
+Export indices count imported functions first. The host module registers 25
+imports, so the first defined function has index 25. `testdata/getter.wasm`
+shows that layout.
 
 The host gives a guest HOME, a mount for HOME and the working directory, and a
 clock. Style and state lookup then reads the same paths the compiled-in
