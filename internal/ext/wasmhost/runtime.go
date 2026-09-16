@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"strings"
@@ -112,7 +113,7 @@ func loadOne(ctx context.Context, h *ext.Host, path string) error {
 
 	rt := wazero.NewRuntimeWithConfig(ctx, wazero.NewRuntimeConfig().
 		WithCloseOnContextDone(true).
-		WithMemoryLimitPages(32),
+		WithMemoryLimitPages(2048),
 	)
 	if _, err := wasi_snapshot_preview1.Instantiate(ctx, rt); err != nil {
 		_ = rt.Close(ctx)
@@ -149,7 +150,7 @@ func loadOne(ctx context.Context, h *ext.Host, path string) error {
 		_ = rt.Close(ctx)
 		return fmt.Errorf("host: %w", err)
 	}
-	mod, err := rt.InstantiateWithConfig(ctx, bin, wazero.NewModuleConfig().WithName(name))
+	mod, err := rt.InstantiateWithConfig(ctx, bin, guestConfig(name))
 	if err != nil {
 		_ = rt.Close(ctx)
 		return fmt.Errorf("instantiate: %w", err)
@@ -161,6 +162,20 @@ func loadOne(ctx context.Context, h *ext.Host, path string) error {
 		return fmt.Errorf("missing memory export")
 	}
 	plug.mem = mem
+	// A Go-built guest keeps its runtime uninitialized until the entry point
+	// runs. Calling it here, rather than letting wazero run it at instantiate
+	// time, keeps the instance alive for the named exports below. Go uses
+	// `_initialize` for reactors and `_start` for command modules.
+	entry := "_initialize"
+	if mod.ExportedFunction(entry) == nil {
+		entry = "_start"
+	}
+	if entryFn := mod.ExportedFunction(entry); entryFn != nil {
+		if _, err := entryFn.Call(ctx); err != nil {
+			_ = rt.Close(ctx)
+			return fmt.Errorf("entry %s: %w", entry, err)
+		}
+	}
 	initFn := mod.ExportedFunction(exportInit)
 	if initFn == nil {
 		_ = rt.Close(ctx)
@@ -181,6 +196,40 @@ func loadOne(ctx context.Context, h *ext.Host, path string) error {
 		return h.Add(bgPlugin{plug})
 	}
 	return h.Add(plug)
+}
+
+// guestConfig gives a guest what the compiled-in path sees: HOME, the
+// directories under it, the working directory, and a clock. Go-built guests need
+// the clock for their scheduler, and the Tier B units read style and state files
+// by path, so those paths have to resolve inside the instance.
+func guestConfig(name string) wazero.ModuleConfig {
+	cfg := wazero.NewModuleConfig().
+		WithName(name).
+		WithStartFunctions().
+		WithSysWalltime().
+		WithSysNanotime().
+		WithStdout(io.Discard).
+		WithStderr(io.Discard)
+
+	home, herr := os.UserHomeDir()
+	if herr == nil && home != "" {
+		cfg = cfg.WithEnv("HOME", home)
+	} else {
+		home = ""
+	}
+	cwd, cerr := os.Getwd()
+	if cerr != nil {
+		cwd = ""
+	}
+
+	fs := wazero.NewFSConfig()
+	if home != "" {
+		fs = fs.WithDirMount(home, home)
+	}
+	if cwd != "" && cwd != home {
+		fs = fs.WithDirMount(cwd, cwd)
+	}
+	return cfg.WithFSConfig(fs)
 }
 
 func (p *loaded) Name() string { return "wasm:" + p.name }
