@@ -164,8 +164,8 @@ func (p *loaded) hostModelInfo() uint32 {
 }
 
 // hostReadAsset reads a file next to the module, which is how a plugin ships
-// its own text: prompt fragments, templates, a small table. WASI is mounted
-// without a filesystem, so this is the only read path a guest has.
+// its own text: prompt fragments, templates, a small table. This path stays
+// beside the module even though the guest also sees its mounted HOME and cwd.
 func (p *loaded) hostReadAsset(_ context.Context, ptr, length uint32) uint32 {
 	rel, ok := p.read(ptr, length)
 	if !ok {
@@ -175,9 +175,6 @@ func (p *loaded) hostReadAsset(_ context.Context, ptr, length uint32) uint32 {
 	raw, err := os.ReadFile(full)
 	if err != nil {
 		return 0
-	}
-	if len(raw) > argsMax {
-		raw = raw[:argsMax]
 	}
 	if !p.writeAt(replyScratch, raw) {
 		return 0
@@ -194,9 +191,6 @@ func (p *loaded) hostReadFile(_ context.Context, ptr, length uint32) uint32 {
 	raw, err := os.ReadFile(statePath(pluginHome(), p.name, rel))
 	if err != nil {
 		return 0
-	}
-	if len(raw) > argsMax {
-		raw = raw[:argsMax]
 	}
 	if !p.writeAt(replyScratch, raw) {
 		return 0
@@ -248,8 +242,8 @@ func (p *loaded) hostSetActiveTools(_ context.Context, ptr, length uint32) int32
 	return 0
 }
 
-// replyLen matches the truncation in writeAt, so the length a guest reads back
-// is the length that was written.
+// replyLen returns the length a guest reads back. writeAt rejects oversized
+// replies, so this never reports a clipped payload.
 func replyLen(b []byte) uint32 {
 	return uint32(min(len(b), argsMax))
 }
@@ -316,11 +310,8 @@ func pluginHome() string {
 }
 
 func (p *loaded) writeAt(off uint32, b []byte) bool {
-	if p.mem == nil {
+	if p.mem == nil || len(b) > argsMax {
 		return false
-	}
-	if len(b) > argsMax {
-		b = b[:argsMax]
 	}
 	if !p.mem.Write(off, b) {
 		return false
@@ -353,13 +344,7 @@ func (p *loaded) handleSession(ctx context.Context, ev hooks.SessionEvent) error
 	if err != nil {
 		return err
 	}
-	if len(raw) > argsMax {
-		raw = raw[:argsMax]
-	}
 	kind := []byte(ev.Kind)
-	if len(kind) > argsMax {
-		kind = kind[:argsMax]
-	}
 	if !p.writeAt(argsScratch, kind) || !p.writeAt(eventScratch, raw) {
 		return fmt.Errorf("wasm %s: cannot write session event", p.name)
 	}
@@ -392,9 +377,6 @@ func (p *loaded) handlePrompt(ctx context.Context, user, sys string) (string, er
 
 func (p *loaded) handleToolPre(ctx context.Context, ev hooks.Event) error {
 	raw, _ := json.Marshal(ev)
-	if len(raw) > argsMax {
-		raw = raw[:argsMax]
-	}
 	if !p.writeAt(argsScratch, raw) {
 		return fmt.Errorf("wasm %s: cannot write tool event", p.name)
 	}
@@ -423,9 +405,6 @@ func (p *loaded) handleToolPost(ctx context.Context, ev hooks.Event) error {
 
 func (p *loaded) handleToolResult(ctx context.Context, ev hooks.Event) (string, error) {
 	raw, _ := json.Marshal(ev)
-	if len(raw) > argsMax {
-		raw = raw[:argsMax]
-	}
 	p.result = ""
 	if !p.writeAt(argsScratch, raw) {
 		return "", nil

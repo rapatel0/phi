@@ -377,11 +377,8 @@ func (p *loaded) read(ptr, length uint32) (string, bool) {
 }
 
 func (p *loaded) writeScratch(b []byte) (ptr, length uint32, ok bool) {
-	if p.mem == nil {
+	if p.mem == nil || len(b) > argsMax {
 		return 0, 0, false
-	}
-	if len(b) > argsMax {
-		b = b[:argsMax]
 	}
 	if !p.mem.Write(argsScratch, b) {
 		return 0, 0, false
