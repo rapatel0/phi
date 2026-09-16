@@ -78,6 +78,10 @@ func runXSearch(ctx context.Context, input json.RawMessage) (tooldef.Result, err
 	}
 
 	cfg := xaiConfig(tooldef.Model(ctx))
+	if cfg.APIKey == "" {
+		return tooldef.Result{}, errors.New(
+			"x_search: no xAI key. Export XAI_API_KEY, or set a key for the xai provider in the config file.")
+	}
 	text, err := responsesSearch(ctx, prompt, cfg, xaiDefault)
 	if err != nil {
 		return tooldef.Result{}, fmt.Errorf("x_search: %w", err)

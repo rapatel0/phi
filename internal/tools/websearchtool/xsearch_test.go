@@ -63,6 +63,14 @@ func TestRunXSearchReturnsPostsAndSources(t *testing.T) {
 	assert.Equal(t, "release notes", res.Detail)
 }
 
+func TestXSearchNeedsAKey(t *testing.T) {
+	t.Setenv("XAI_API_KEY", "")
+
+	_, err := XSearchTool().Run(t.Context(), []byte(`{"query":"grok 4.6 release notes"}`))
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "XAI_API_KEY")
+}
+
 func TestRunXSearchRejectsEmptyQuery(t *testing.T) {
 	_, err := XSearchTool().Run(t.Context(), json.RawMessage(`{"query":"  "}`))
 	require.Error(t, err)
