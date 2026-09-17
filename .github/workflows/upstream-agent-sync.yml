@@ -1,0 +1,108 @@
+name: Upstream agent sync
+
+on:
+  schedule:
+    - cron: "17 */6 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+
+concurrency:
+  group: upstream-agent-sync
+  cancel-in-progress: false
+
+jobs:
+  detect:
+    runs-on: ubuntu-latest
+    outputs:
+      changed: ${{ steps.compare.outputs.changed }}
+      upstream_sha: ${{ steps.compare.outputs.upstream_sha }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Compare upstream
+        id: compare
+        env:
+          UPSTREAM_REPOSITORY: pulseaiclub/phi
+        run: |
+          git remote add upstream "https://github.com/${UPSTREAM_REPOSITORY}.git"
+          git fetch --no-tags upstream main
+          upstream_sha="$(git rev-parse upstream/main)"
+          echo "upstream_sha=${upstream_sha}" >> "$GITHUB_OUTPUT"
+          if git merge-base --is-ancestor upstream/main HEAD; then
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+            echo "upstream main is already included"
+          else
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+            echo "upstream main contains changes to review"
+          fi
+
+  update:
+    needs: detect
+    if: needs.detect.outputs.changed == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: Set up mise
+        uses: jdx/mise-action@v4
+
+      - name: Fetch upstream
+        run: |
+          git remote add upstream https://github.com/pulseaiclub/phi.git
+          git fetch --no-tags upstream main
+
+      - name: Check required agent credentials
+        env:
+          ALPHA_API_KEY: ${{ secrets.ALPHA_API_KEY }}
+          ALPHA_MODEL: ${{ secrets.ALPHA_MODEL }}
+        run: |
+          if [[ -z "$ALPHA_API_KEY" || -z "$ALPHA_MODEL" ]]; then
+            echo "Set ALPHA_API_KEY and ALPHA_MODEL repository secrets before enabling this workflow."
+            exit 1
+          fi
+
+      - name: Run upstream update agent
+        env:
+          ALPHA_API_KEY: ${{ secrets.ALPHA_API_KEY }}
+          ALPHA_BASE_URL: ${{ secrets.ALPHA_BASE_URL }}
+          ALPHA_MODEL: ${{ secrets.ALPHA_MODEL }}
+          UPSTREAM_SHA: ${{ needs.detect.outputs.upstream_sha }}
+        run: |
+          branch="automation/upstream-sync-${UPSTREAM_SHA:0:12}"
+          if git ls-remote --exit-code --heads origin "$branch" >/dev/null 2>&1; then
+            echo "A sync branch for ${UPSTREAM_SHA} already exists."
+            exit 0
+          fi
+          git switch -c "$branch"
+          go run ./cmd run --yolo --max-rounds 32 --timeout 20m -p "
+          Synchronize this Alpha fork with upstream/main at ${UPSTREAM_SHA}.
+          Inspect git diff HEAD..upstream/main and port only compatible upstream changes.
+          Preserve Alpha architecture, permission-gate ordering, hashline edit behavior, and Go style.
+          Update tests, documentation, and CHANGELOG.md for user-visible changes.
+          Do not modify .github/workflows/upstream-agent-sync.yml.
+          Do not commit or push. Leave all edits in the working tree for this workflow.
+          Run mise run test and mise run fmt-check before you finish.
+          If no upstream change applies cleanly, leave the working tree unchanged and explain why.
+          "
+          if git diff --quiet; then
+            echo "The agent made no changes."
+            exit 0
+          fi
+          git add -A
+          git commit -m "chore: sync upstream changes"
+          git push --set-upstream origin "$branch"
+          gh pr create \
+            --base main \
+            --head "$branch" \
+            --title "chore: sync upstream changes" \
+            --body "Automated upstream sync for pulseaiclub/phi at ${UPSTREAM_SHA}. The Alpha agent reviewed and tested the proposed changes."
