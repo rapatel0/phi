@@ -96,3 +96,16 @@ func TestTranscriptPane_TakeAndRestoreSubagents(t *testing.T) {
 		t.Fatal("RestoreSubagents should put the store back")
 	}
 }
+
+func TestTranscriptPane_NeedsAnimWhileWelcomeIsVisible(t *testing.T) {
+	th := components.DefaultTheme()
+	pane := NewTranscriptPane(th, status.NewSpinner(th.ToolName), "Alpha")
+	if !pane.NeedsAnim() {
+		t.Fatal("empty welcome pane must request animation")
+	}
+	pane.ApplySession(session.UserAppend{Text: "hello"})
+	pane.Sync()
+	if pane.NeedsAnim() {
+		t.Fatal("populated pane must not request welcome animation")
+	}
+}

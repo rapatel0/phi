@@ -317,6 +317,11 @@ func (t *TranscriptPane) Draw(ctx components.DrawContext, width, height int) com
 	return listSurf
 }
 
+// NeedsAnim reports whether the welcome mark needs timer-driven redraws.
+func (t *TranscriptPane) NeedsAnim() bool {
+	return t != nil && !t.noWelcome && len(t.list.Entries) == 0
+}
+
 // HandlePageKey forwards page up/down to the message list.
 func (t *TranscriptPane) HandlePageKey(ctx *components.EventContext, ev xui.KeyEvent) {
 	if t != nil {

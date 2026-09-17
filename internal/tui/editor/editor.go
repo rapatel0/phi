@@ -833,10 +833,16 @@ func (e *Editor) RequestRedraw() {
 	e.requestRedraw()
 }
 
-// NeedsAnim is true while a spinner should move. Idle frames skip the 60fps
-// redraw so the caret does not blink from hide/show cursor each tick.
+// NeedsAnim is true while a spinner or the welcome mark should move. Idle
+// frames skip the 60fps redraw so the caret does not blink from hide/show.
 func (e *Editor) NeedsAnim() bool {
-	return e != nil && e.footer != nil && e.footer.ShowSpinner()
+	if e == nil {
+		return false
+	}
+	if e.footer != nil && e.footer.ShowSpinner() {
+		return true
+	}
+	return e.child == nil && e.transcript != nil && e.transcript.NeedsAnim()
 }
 
 func (e *Editor) addPendingSkill(name string) {
