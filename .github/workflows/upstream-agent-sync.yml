@@ -34,10 +34,11 @@ jobs:
           git remote add upstream "https://github.com/${UPSTREAM_REPOSITORY}.git"
           git fetch --no-tags upstream main
           upstream_sha="$(git rev-parse upstream/main)"
+          marker="automation/upstream-sync-${upstream_sha}"
           echo "upstream_sha=${upstream_sha}" >> "$GITHUB_OUTPUT"
-          if git merge-base --is-ancestor upstream/main HEAD; then
+          if git ls-remote --exit-code origin "refs/tags/${marker}" >/dev/null 2>&1; then
             echo "changed=false" >> "$GITHUB_OUTPUT"
-            echo "upstream main is already included"
+            echo "upstream ${upstream_sha} already has a sync marker"
           else
             echo "changed=true" >> "$GITHUB_OUTPUT"
             echo "upstream main contains changes to review"
@@ -96,6 +97,8 @@ jobs:
           "
           if git diff --quiet; then
             echo "The agent made no changes."
+            git tag "automation/upstream-sync-${UPSTREAM_SHA}"
+            git push origin "refs/tags/automation/upstream-sync-${UPSTREAM_SHA}"
             exit 0
           fi
           git add -A
@@ -106,3 +109,5 @@ jobs:
             --head "$branch" \
             --title "chore: sync upstream changes" \
             --body "Automated upstream sync for pulseaiclub/phi at ${UPSTREAM_SHA}. The Alpha agent reviewed and tested the proposed changes."
+          git tag "automation/upstream-sync-${UPSTREAM_SHA}"
+          git push origin "refs/tags/automation/upstream-sync-${UPSTREAM_SHA}"

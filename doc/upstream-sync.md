@@ -13,6 +13,8 @@ When upstream `main` moves, the workflow performs these steps:
 
 The workflow never pushes directly to `main`. Review and merge each pull
 request. The agent prompt also forbids changes to the sync workflow itself.
+Each checked upstream revision gets an `automation/upstream-sync-*` tag after
+one review, including a review that finds no compatible changes.
 
 ## Required repository secrets
 
