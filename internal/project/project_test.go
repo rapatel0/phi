@@ -375,6 +375,11 @@ models:
 	codex, ok := cfg.FindModel("gpt-5.5")
 	require.True(t, ok)
 	assert.Equal(t, "oat-codex", codex.APIKey)
+	for _, name := range []string{"gpt-5.6-sol", "gpt-5.6-terra", "gpt-5.6-luna"} {
+		model, found := cfg.FindModel(name)
+		require.True(t, found, name)
+		assert.Equal(t, "oat-codex", model.APIKey, name)
+	}
 	_, ok = cfg.FindModel("grok-4.6")
 	assert.False(t, ok)
 }

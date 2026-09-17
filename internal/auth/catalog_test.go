@@ -20,5 +20,16 @@ func TestCatalogKnownProviders(t *testing.T) {
 			seen[m.Name] = struct{}{}
 		}
 	}
+	codex := Catalog(ProviderCodex)
+	for _, name := range []string{"gpt-5.6-sol", "gpt-5.6-terra", "gpt-5.6-luna"} {
+		found := false
+		for _, model := range codex {
+			if model.Name == name {
+				found = true
+				break
+			}
+		}
+		require.True(t, found, name)
+	}
 	require.Empty(t, Catalog("unknown"))
 }

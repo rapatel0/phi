@@ -39,6 +39,8 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ### Changed
 
+- The welcome screen now uses a timer-driven animated alpha mark. The model
+  picker includes the GPT-5.6 Sol, Terra, and Luna Codex models.
 - Settings → compact sets the autocompact window percent and token cap.
   Values persist in `~/.alpha/compaction/config.json`.
 - `/resume` with no id opens the same session picker as `/sessions`.

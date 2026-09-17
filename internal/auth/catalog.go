@@ -28,6 +28,9 @@ func Catalog(provider string) []llm.ModelConfig {
 		}
 	case ProviderCodex:
 		return []llm.ModelConfig{
+			entry("gpt-5.6-sol", CodexBackendBaseURL, 1_050_000),
+			entry("gpt-5.6-terra", CodexBackendBaseURL, 1_050_000),
+			entry("gpt-5.6-luna", CodexBackendBaseURL, 1_050_000),
 			entry("gpt-5.5", CodexBackendBaseURL, 272_000),
 			entry("gpt-5.4", CodexBackendBaseURL, 272_000),
 			entry("gpt-5.4-codex", CodexBackendBaseURL, 272_000),
