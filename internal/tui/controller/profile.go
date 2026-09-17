@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"strings"
 	"sync"
-	"time"
 
 	"github.com/rapatel0/alpha/internal/ext"
 
@@ -145,23 +144,15 @@ func (c *Controller) ImageEnabled() bool {
 	return c != nil && c.modelCfg.ImageEnabled
 }
 
-const modelListTTL = 2 * time.Minute
-
 // RefreshModelCatalog fetches /models from each unique provider endpoint and
 // merges IDs into the live config so the palette and SetModel share them.
-// Failures keep the config/catalog list. ALPHA_MODEL_LIST=0 skips the network.
+// Each explicit call fetches current provider data. Failures keep the existing
+// config/catalog list. ALPHA_MODEL_LIST=0 skips the network.
 func (c *Controller) RefreshModelCatalog(ctx context.Context) []string {
 	if c == nil || c.proj == nil || c.proj.Config() == nil {
 		return nil
 	}
 	cfg := c.proj.Config()
-	c.modelListMu.Lock()
-	if time.Since(c.modelListAt) < modelListTTL && len(c.modelList) > 0 {
-		out := append([]string(nil), c.modelList...)
-		c.modelListMu.Unlock()
-		return out
-	}
-	c.modelListMu.Unlock()
 
 	if !modellist.Disabled() {
 		var (
@@ -196,10 +187,6 @@ func (c *Controller) RefreshModelCatalog(ctx context.Context) []string {
 			names = append(names, m.Name)
 		}
 	}
-	c.modelListMu.Lock()
-	c.modelList = names
-	c.modelListAt = time.Now()
-	c.modelListMu.Unlock()
 	return names
 }
 

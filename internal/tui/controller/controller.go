@@ -62,10 +62,6 @@ type Controller struct {
 	children     *childRegistry
 	attachedID   string   // guarded by streamMu; empty = parent focused
 	attachedInfo job.Info // guarded by streamMu
-
-	modelListMu sync.Mutex
-	modelList   []string
-	modelListAt time.Time
 }
 
 // NewController wires bus + project into a ready Controller with a live Engine.

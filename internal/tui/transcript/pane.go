@@ -64,9 +64,9 @@ func NewTranscriptPane(theme components.Theme, spin *status.Spinner, brand strin
 			Selected: -1,
 		},
 		welcome: splash.Screen{
-			Sphere: &splash.Sphere{Fast: true},
-			Theme:  theme,
-			Brand:  brand,
+			Mark:  &splash.AlphaMark{Fast: true},
+			Theme: theme,
+			Brand: brand,
 		},
 		startedAt: time.Now(),
 		subagents: NewSubagentStore(),
@@ -299,9 +299,7 @@ func (t *TranscriptPane) Draw(ctx components.DrawContext, width, height int) com
 		return components.Surface{}
 	}
 	t.listH = height
-	if t.welcome.Sphere != nil {
-		t.welcome.Sphere.Time = time.Since(t.startedAt).Seconds()
-	}
+	t.welcome.Time = time.Since(t.startedAt).Seconds()
 	constraints := ctx.WithConstraints(components.Size{}, components.Size{Width: width, Height: height})
 	var listSurf components.Surface
 	if len(t.list.Entries) == 0 && !t.noWelcome {

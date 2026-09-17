@@ -8,11 +8,13 @@ import (
 	"github.com/rapatel0/alpha/internal/components"
 )
 
-// Screen is the splash screen: animated sphere + intro copy.
+// Screen is the splash screen: animated alpha mark + intro copy.
 // Shown when the transcript is empty at startup.
 type Screen struct {
-	Sphere *Sphere
+	Mark   *AlphaMark
+	Sphere *Sphere // compatibility for callers that still provide a sphere
 	Theme  components.Theme
+	Time   float64
 	// Brand is the product name in the hero line (default "alpha").
 	Brand string
 	Hint  string // optional tip under the help line; empty uses the default
@@ -59,14 +61,17 @@ func wrapHint(s string, width int) []string {
 	return lines
 }
 
-// Handle forwards events to the animated sphere.
+// Handle forwards events to the animated mark.
 func (w *Screen) Handle(ctx *components.EventContext, ev xui.Event) {
+	if w.Mark != nil {
+		w.Mark.Handle(ctx, ev)
+	}
 	if w.Sphere != nil {
 		w.Sphere.Handle(ctx, ev)
 	}
 }
 
-// Draw renders the centered sphere plus brand, help, and hint copy.
+// Draw renders the centered alpha mark plus brand, help, and hint copy.
 func (w *Screen) Draw(ctx components.DrawContext) components.Surface {
 	maxW, maxH := ctx.Max.Width, ctx.Max.Height
 	if maxW <= 0 {
@@ -82,28 +87,30 @@ func (w *Screen) Draw(ctx components.DrawContext) components.Surface {
 		th = components.DefaultTheme()
 	}
 
-	sphere := w.Sphere
-	if sphere == nil {
-		sphere = &Sphere{}
+	markW, markH := 30, 15
+	if maxW < markW+24 {
+		markW = maxW / 3
 	}
-	// Fit sphere into available space; default is 40×40.
-	sphereSize := 40
-	if maxH < sphereSize+2 {
-		sphereSize = maxH - 2
+	if maxH < markH+4 {
+		markH = maxH - 4
 	}
-	if sphereSize > maxW/2 {
-		sphereSize = maxW / 2
+	markW = max(7, markW)
+	markH = max(7, markH)
+	var markSurf components.Surface
+	if w.Mark != nil {
+		w.Mark.Width, w.Mark.Height, w.Mark.Time = markW, markH, w.Time
+		markSurf = w.Mark.Draw(ctx.WithConstraints(components.Size{}, components.Size{Width: markW, Height: markH}))
+	} else if w.Sphere != nil {
+		// Keep the old field usable for callers that construct Screen directly.
+		w.Sphere.Width, w.Sphere.Height = markW, markH
+		markSurf = w.Sphere.Draw(ctx.WithConstraints(components.Size{}, components.Size{Width: markW, Height: markH}))
+	} else {
+		mark := &AlphaMark{Width: markW, Height: markH, Time: w.Time}
+		markSurf = mark.Draw(ctx.WithConstraints(components.Size{}, components.Size{Width: markW, Height: markH}))
 	}
-	if sphereSize < 12 {
-		sphereSize = 12
-	}
-	sphere.Width, sphere.Height = sphereSize, sphereSize
-	sphereSurf := sphere.Draw(
-		ctx.WithConstraints(components.Size{}, components.Size{Width: sphereSize, Height: sphereSize}),
-	)
 
 	const gap = 2
-	textW := maxW - sphereSize - gap - 4
+	textW := maxW - markW - gap - 4
 	textW = max(textW, 20)
 	textW = min(textW, 50)
 
@@ -151,8 +158,8 @@ func (w *Screen) Draw(ctx components.DrawContext) components.Surface {
 		components.PaintSpans(&textSurf, 0, y, line.spans, ctx.Method)
 	}
 
-	blockW := sphereSize + gap + textW
-	blockH := sphereSize
+	blockW := markW + gap + textW
+	blockH := markH
 	blockH = max(blockH, textH)
 	ox := (maxW - blockW) / 2
 	oy := (maxH - blockH) / 2
@@ -166,8 +173,8 @@ func (w *Screen) Draw(ctx components.DrawContext) components.Surface {
 	textOY = max(textOY, 0)
 
 	root.Children = []components.SubSurface{
-		{Origin: components.Point{X: ox, Y: oy}, Surface: sphereSurf},
-		{Origin: components.Point{X: ox + sphereSize + gap, Y: textOY}, Surface: textSurf},
+		{Origin: components.Point{X: ox, Y: oy}, Surface: markSurf},
+		{Origin: components.Point{X: ox + markW + gap, Y: textOY}, Surface: textSurf},
 	}
 	return root
 }
