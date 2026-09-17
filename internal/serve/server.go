@@ -10,17 +10,26 @@ import (
 	"sync"
 	"time"
 
+	"tailscale.com/tsnet"
+
 	"github.com/rapatel0/alpha/internal/project"
 	"github.com/rapatel0/alpha/internal/tui/controller"
 )
 
-const DefaultAddr = "127.0.0.1:38765"
+const (
+	DefaultAddr      = "127.0.0.1:38765"
+	DefaultTSNetAddr = ":38765"
+	DefaultTSNetName = "alpha"
+)
 
 // Server is a loopback HTTP control plane over Controller.
 type Server struct {
-	ctrl *controller.Controller
-	bus  *controller.Bus
-	http *http.Server
+	ctrl      *controller.Controller
+	bus       *controller.Bus
+	http      *http.Server
+	listener  net.Listener
+	tailnet   *tsnet.Server
+	closeOnce sync.Once
 
 	mu      sync.Mutex
 	clients map[chan []byte]struct{}
@@ -28,8 +37,12 @@ type Server struct {
 
 // Options configure Listen.
 type Options struct {
-	Addr string // default DefaultAddr; must be loopback
-	Cwd  string
+	Addr          string // default DefaultAddr; must be loopback unless TSNet is true
+	Cwd           string
+	TSNet         bool
+	TSNetHostname string
+	TSNetAuthKey  string
+	TSNetStateDir string
 }
 
 // Listen binds a loopback control plane. It refuses non-loopback hosts.
@@ -37,9 +50,14 @@ func Listen(ctx context.Context, proj *project.Project, opts Options) (*Server, 
 	addr := strings.TrimSpace(opts.Addr)
 	if addr == "" {
 		addr = DefaultAddr
+		if opts.TSNet {
+			addr = DefaultTSNetAddr
+		}
 	}
-	if err := requireLoopback(addr); err != nil {
-		return nil, err
+	if !opts.TSNet {
+		if err := requireLoopback(addr); err != nil {
+			return nil, err
+		}
 	}
 	bus := controller.NewBus(nil)
 	ctrl, err := controller.NewController(bus, proj, opts.Cwd)
@@ -62,11 +80,38 @@ func Listen(ctx context.Context, proj *project.Project, opts Options) (*Server, 
 		ReadHeaderTimeout: 5 * time.Second,
 	}
 	go s.pump(ctx)
-	ln, err := net.Listen("tcp", addr)
-	if err != nil {
-		ctrl.Close()
-		return nil, err
+
+	var (
+		ln   net.Listener
+		tail *tsnet.Server
+	)
+	if opts.TSNet {
+		hostname := strings.TrimSpace(opts.TSNetHostname)
+		if hostname == "" {
+			hostname = DefaultTSNetName
+		}
+		tail = &tsnet.Server{
+			Hostname: hostname,
+			AuthKey:  strings.TrimSpace(opts.TSNetAuthKey),
+			Dir:      strings.TrimSpace(opts.TSNetStateDir),
+		}
+		var listenErr error
+		ln, listenErr = tail.Listen("tcp", addr)
+		if listenErr != nil {
+			_ = tail.Close()
+			ctrl.Close()
+			return nil, fmt.Errorf("tsnet listen: %w", listenErr)
+		}
+	} else {
+		var listenErr error
+		ln, listenErr = net.Listen("tcp", addr)
+		if listenErr != nil {
+			ctrl.Close()
+			return nil, listenErr
+		}
 	}
+	s.listener = ln
+	s.tailnet = tail
 	go func() {
 		_ = s.http.Serve(ln)
 	}()
@@ -79,7 +124,13 @@ func Listen(ctx context.Context, proj *project.Project, opts Options) (*Server, 
 
 // Addr returns the bound address.
 func (s *Server) Addr() string {
-	if s == nil || s.http == nil {
+	if s == nil {
+		return ""
+	}
+	if s.listener != nil {
+		return s.listener.Addr().String()
+	}
+	if s.http == nil {
 		return ""
 	}
 	return s.http.Addr
@@ -90,13 +141,26 @@ func (s *Server) Close() error {
 	if s == nil {
 		return nil
 	}
-	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
-	defer cancel()
-	_ = s.http.Shutdown(ctx)
-	if s.ctrl != nil {
-		s.ctrl.Close()
-	}
-	return nil
+	var err error
+	s.closeOnce.Do(func() {
+		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+		defer cancel()
+		if s.http != nil {
+			err = s.http.Shutdown(ctx)
+		}
+		if s.listener != nil {
+			_ = s.listener.Close()
+		}
+		if s.tailnet != nil {
+			if closeErr := s.tailnet.Close(); err == nil {
+				err = closeErr
+			}
+		}
+		if s.ctrl != nil {
+			s.ctrl.Close()
+		}
+	})
+	return err
 }
 
 func requireLoopback(addr string) error {

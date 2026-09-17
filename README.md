@@ -277,6 +277,7 @@ the palette under settings → theme.
 | ------------------ | --------------------------------------------- |
 | `alpha` / `alpha tui`  | Start the interactive TUI                     |
 | `alpha run -p "…"`   | Run one agent loop headlessly (see below)     |
+| `alpha serve`         | Serve the agent HTTP control plane locally or over Tailscale |
 | `alpha update`       | Download and install the latest GitHub release |
 | `alpha update --check` | Query the latest release without installing |
 | `alpha sessions list`| List persisted sessions for this directory    |
@@ -290,6 +291,33 @@ the palette under settings → theme.
 In the TUI, `!command` runs locally via `bash -c` — outside the agent loop. It
 doesn't count toward agent busy state, and the running command can be cancelled
 with `Esc` without touching an in-flight agent turn.
+
+## Remote agent access
+
+Run the HTTP control plane on the local machine:
+
+```sh
+alpha serve
+```
+
+Run it as an embedded Tailscale node:
+
+```sh
+TS_AUTHKEY=tskey-auth-... alpha serve --tsnet --tsnet-hostname alpha
+```
+
+The node stores its identity under `~/.alpha/tsnet` by default. Use
+`--tsnet-state-dir` to choose another directory. Tailnet ACLs control who can
+reach the API. The API accepts `GET /health`, `GET /v1/session`, `POST
+/v1/prompt`, and `GET /v1/events`.
+
+From another tailnet device, send a prompt:
+
+```sh
+curl -X POST http://alpha:38765/v1/prompt \
+  -H 'content-type: application/json' \
+  -d '{"text":"Run the tests and report failures."}'
+```
 
 ## Sessions
 
