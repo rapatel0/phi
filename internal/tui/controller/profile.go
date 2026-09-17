@@ -7,6 +7,7 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/rapatel0/alpha/internal/auth"
 	"github.com/rapatel0/alpha/internal/ext"
 
 	"github.com/rapatel0/alpha/internal/debuglog"
@@ -153,6 +154,7 @@ func (c *Controller) RefreshModelCatalog(ctx context.Context) []string {
 		return nil
 	}
 	cfg := c.proj.Config()
+	addLoggedInModels(ctx, cfg, c.proj.Global().AuthFile())
 
 	if !modellist.Disabled() {
 		var (
@@ -188,6 +190,21 @@ func (c *Controller) RefreshModelCatalog(ctx context.Context) []string {
 		}
 	}
 	return names
+}
+
+func addLoggedInModels(ctx context.Context, cfg *project.Config, authFile string) {
+	if cfg == nil || strings.TrimSpace(authFile) == "" {
+		return
+	}
+	for _, provider := range auth.OpenStore(authFile).Providers() {
+		models := auth.Catalog(provider)
+		for i := range models {
+			if err := auth.Apply(ctx, &models[i], authFile); err != nil {
+				continue
+			}
+		}
+		cfg.AddModels(models)
+	}
 }
 
 func uniqueModelEndpoints(cfg *project.Config) []llm.ModelConfig {
