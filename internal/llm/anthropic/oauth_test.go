@@ -25,6 +25,29 @@ func TestSetAuthHeadersOAuth(t *testing.T) {
 	if !strings.Contains(req.Header.Get("anthropic-beta"), "oauth-2025-04-20") {
 		t.Fatalf("missing oauth beta: %q", req.Header.Get("anthropic-beta"))
 	}
+	if req.Header.Get("User-Agent") != "claude-cli/2.1.260" {
+		t.Fatalf("User-Agent = %q", req.Header.Get("User-Agent"))
+	}
+}
+
+func TestBillingHeaderUsesClaudeCodeVersionOverride(t *testing.T) {
+	t.Setenv(oauthClaudeCodeVersionEnv, "2.1.999")
+	header, err := billingHeader([]llm.Message{{Role: llm.RoleUser, Content: "hello from alpha"}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(header, "cc_version=2.1.999.") ||
+		!strings.Contains(header, "cc_entrypoint=sdk-cli;") ||
+		!strings.Contains(header, "cch=") {
+		t.Fatalf("unexpected billing header: %q", header)
+	}
+}
+
+func TestBillingHeaderRejectsMalformedVersionOverride(t *testing.T) {
+	t.Setenv(oauthClaudeCodeVersionEnv, "latest")
+	if _, err := billingHeader([]llm.Message{{Role: llm.RoleUser, Content: "hello"}}); err == nil {
+		t.Fatal("expected malformed Claude Code version error")
+	}
 }
 
 func TestSetAuthHeadersAPIKey(t *testing.T) {

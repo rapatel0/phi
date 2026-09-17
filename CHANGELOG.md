@@ -39,6 +39,8 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ### Changed
 
+- Anthropic OAuth requests now include the current Claude Code billing header.
+  Override its version with `PI_ANTHROPIC_AUTH_CLAUDE_CODE_VERSION` when needed.
 - The welcome screen now uses a timer-driven animated alpha mark. The model
   picker includes the GPT-5.6 Sol, Terra, and Luna Codex models.
 - Settings → compact sets the autocompact window percent and token cap.

@@ -61,12 +61,34 @@ func TestBuildRequestOAuthIdentityAndToolNames(t *testing.T) {
 	if len(req.System) < 2 {
 		t.Fatalf("oauth system should prepend Claude Code identity, got %d blocks", len(req.System))
 	}
-	if req.System[0].Text != oauthIdentity {
-		t.Fatalf("first system block = %q", req.System[0].Text)
+	if !containsSystemText(req.System, oauthIdentity) {
+		t.Fatalf("missing OAuth identity in system blocks: %+v", req.System)
 	}
 	if len(req.Tools) != 1 || req.Tools[0].Name != "Read" {
 		t.Fatalf("oauth tool name = %+v, want Read", req.Tools)
 	}
+}
+
+func TestBuildRequestOAuthBillingHeader(t *testing.T) {
+	t.Setenv(oauthClaudeCodeVersionEnv, "2.1.999")
+	req := BuildRequest(
+		llm.ModelConfig{Name: "claude-sonnet-4-20250514", APIKey: "sk-ant-oat-test"},
+		"You are alpha.",
+		[]llm.Message{{Role: llm.RoleUser, Content: "hello from alpha"}},
+		nil,
+	)
+	if len(req.System) < 2 || !strings.Contains(req.System[0].Text, "x-anthropic-billing-header:") {
+		t.Fatalf("billing header missing from system blocks: %+v", req.System)
+	}
+}
+
+func containsSystemText(blocks []sysBlock, want string) bool {
+	for _, block := range blocks {
+		if block.Text == want {
+			return true
+		}
+	}
+	return false
 }
 
 func TestBuildRequestOAuthToolNamesUnique(t *testing.T) {

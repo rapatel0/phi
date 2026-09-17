@@ -71,6 +71,9 @@ func BuildRequest(
 	}
 	oauth := isOAuth(cfg)
 	if oauth {
+		if header, err := billingHeader(msgs); err == nil && header != "" {
+			req.System = append(req.System, sysBlock{Type: "text", Text: header})
+		}
 		req.System = append(req.System, sysBlock{
 			Type:         "text",
 			Text:         oauthIdentity,
@@ -425,9 +428,22 @@ func processStream(body io.Reader, oauth bool, yield func(llm.StreamEvent, error
 // Compact sends a single non-streaming request and returns the assistant
 // text. Satisfies llm.Compactor for session compaction on Claude.
 func Compact(ctx context.Context, httpClient *http.Client, cfg llm.ModelConfig, prompt string) (string, error) {
+	messages := []llm.Message{{Role: llm.RoleUser, Content: prompt}}
+	var system []sysBlock
+	if isOAuth(cfg) {
+		header, err := billingHeader(messages)
+		if err != nil {
+			return "", err
+		}
+		if header != "" {
+			system = append(system, sysBlock{Type: "text", Text: header})
+		}
+		system = append(system, sysBlock{Type: "text", Text: oauthIdentity})
+	}
 	body, err := json.Marshal(anthropicRequest{
 		Model:     cfg.Name,
 		MaxTokens: defaultMaxTokens,
+		System:    system,
 		Messages: []anthropicMessage{
 			{Role: "user", Content: prompt},
 		},

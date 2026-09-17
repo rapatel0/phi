@@ -1,7 +1,12 @@
 package anthropic
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
+	"fmt"
 	"net/http"
+	"os"
+	"regexp"
 	"strings"
 
 	"github.com/rapatel0/alpha/internal/auth"
@@ -9,10 +14,16 @@ import (
 )
 
 const (
-	oauthBetaHeader = "claude-code-20250219,oauth-2025-04-20,fine-grained-tool-streaming-2025-05-14"
-	oauthUserAgent  = "claude-cli/2.1.75"
-	oauthIdentity   = "You are Claude Code, Anthropic's official CLI for Claude."
+	oauthBetaHeader  = "claude-code-20250219,oauth-2025-04-20,fine-grained-tool-streaming-2025-05-14"
+	oauthUserAgent   = "claude-cli/2.1.260"
+	oauthIdentity    = "You are Claude Code, Anthropic's official CLI for Claude."
+	oauthBillingSalt = "59cf53e54c78"
+	oauthEntrypoint  = "sdk-cli"
 )
+
+const oauthClaudeCodeVersionEnv = "PI_ANTHROPIC_AUTH_CLAUDE_CODE_VERSION"
+
+var claudeCodeVersionPattern = regexp.MustCompile(`^\d+\.\d+\.\d+$`)
 
 // Claude Code 2.x names. Anthropic's OAuth billing classifier keys off these.
 var toClaudeCodeName = map[string]string{
@@ -65,6 +76,46 @@ func setAuthHeaders(req *http.Request, cfg llm.ModelConfig) {
 		return
 	}
 	req.Header.Set("X-Api-Key", cfg.APIKey)
+}
+
+func resolveClaudeCodeVersion() (string, error) {
+	version := strings.TrimSpace(os.Getenv(oauthClaudeCodeVersionEnv))
+	if version == "" {
+		return "2.1.260", nil
+	}
+	if !claudeCodeVersionPattern.MatchString(version) {
+		return "", fmt.Errorf("%s must be a bare X.Y.Z version, got %q", oauthClaudeCodeVersionEnv, version)
+	}
+	return version, nil
+}
+
+func billingHeader(messages []llm.Message) (string, error) {
+	var text string
+	for _, message := range messages {
+		if message.Role == llm.RoleUser {
+			text = message.Content
+			break
+		}
+	}
+	if text == "" {
+		return "", nil
+	}
+	version, err := resolveClaudeCodeVersion()
+	if err != nil {
+		return "", err
+	}
+	messageHash := sha256.Sum256([]byte(text))
+	sampled := make([]byte, 0, 3)
+	for _, index := range []int{4, 7, 20} {
+		if index < len(text) {
+			sampled = append(sampled, text[index])
+		} else {
+			sampled = append(sampled, '0')
+		}
+	}
+	suffixHash := sha256.Sum256([]byte(oauthBillingSalt + string(sampled) + version))
+	return fmt.Sprintf("x-anthropic-billing-header: cc_version=%s.%s; cc_entrypoint=%s; cch=%s;",
+		version, hex.EncodeToString(suffixHash[:])[:3], oauthEntrypoint, hex.EncodeToString(messageHash[:])[:5]), nil
 }
 
 func outboundToolName(name string, oauth bool) string {

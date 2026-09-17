@@ -2,6 +2,7 @@ package client
 
 import (
 	"context"
+	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -153,6 +154,34 @@ func TestClientCompactAnthropic(t *testing.T) {
 	}
 	if out != "summary here" {
 		t.Fatalf("expected 'summary here', got %q", out)
+	}
+}
+
+func TestClientCompactAnthropicOAuthShapesBillingHeader(t *testing.T) {
+	var body struct {
+		System []struct {
+			Text string `json:"text"`
+		} `json:"system"`
+	}
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+			t.Errorf("decode request: %v", err)
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"content":[{"type":"text","text":"summary here"}]}`))
+	}))
+	defer srv.Close()
+
+	client := NewClient(llm.ModelConfig{
+		Name:    "claude-sonnet-4-20250514",
+		BaseURL: srv.URL,
+		APIKey:  "sk-ant-oat-test",
+	}, nil, "")
+	if _, err := client.Compact(t.Context(), "summarize"); err != nil {
+		t.Fatalf("compact: %v", err)
+	}
+	if len(body.System) < 2 || !strings.Contains(body.System[0].Text, "x-anthropic-billing-header:") {
+		t.Fatalf("OAuth billing header missing: %+v", body.System)
 	}
 }
 
