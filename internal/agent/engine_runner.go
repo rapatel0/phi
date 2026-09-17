@@ -20,7 +20,7 @@ import (
 //
 // Each Run creates a fresh Engine with a persisted session under
 // <job.Dir>/session/, ParentID from the job, and no Ask handler.
-// Child engines do not receive Jobs, so they have no agent_* tools.
+// Child engines inherit Jobs and receive agent_* tools until MaxDepth.
 // Role (explore|worker|review) selects tools and default permission mode
 // when Gate/Tools are nil.
 //
@@ -38,7 +38,8 @@ type EngineRunner struct {
 	// AuthFn is preferred over AuthFile, so a profile switch reaches
 	// sub-agents started later instead of leaving them on the old account.
 	AuthFn func() string
-	Hub    ChildHub // optional; TUI live-attach. nil in headless runs
+	Hub    ChildHub     // optional; TUI live-attach. nil in headless runs
+	Jobs   *job.Manager // shared manager for recursive child spawning
 }
 
 // authFile prefers the live getter, falling back to the fixed path.
@@ -103,6 +104,8 @@ func (r EngineRunner) Run(ctx context.Context, env job.RunEnv) (string, error) {
 		Gate:      gate,
 		Ask:       nil,
 		Tools:     toolList,
+		Jobs:      r.Jobs,
+		JobDepth:  env.Job.ParentDepth + 1,
 		MaxRounds: r.MaxRounds,
 		Hooks:     hookMgr,
 		AuthFile:  r.authFile(),

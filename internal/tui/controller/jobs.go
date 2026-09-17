@@ -61,7 +61,7 @@ func (c *Controller) ListJobs(ctx context.Context) ([]job.Info, error) {
 	if c == nil || c.jobs == nil {
 		return nil, nil
 	}
-	return c.jobs.ListForParent(ctx, c.SessionID())
+	return c.jobs.ListForParentTree(ctx, c.SessionID())
 }
 
 // LiveJobs returns in-process sub-agent jobs for the current session.
@@ -69,7 +69,7 @@ func (c *Controller) LiveJobs() []job.Info {
 	if c == nil || c.jobs == nil {
 		return nil
 	}
-	return job.ForParent(c.jobs.Live(), c.SessionID())
+	return job.ForParentTree(c.jobs.Live(), c.SessionID())
 }
 
 // ChildSnapshot loads a sub-agent's persisted session as a UI snapshot.

@@ -37,9 +37,11 @@ type Config struct {
 // AgentsConfig controls whether the main agent may spawn sub-agents
 // (agent_spawn / agent_wait / …). Default is enabled; set enabled: false
 // to keep ordinary sessions lean and avoid loading the extra tool schemas.
+// MaxDepth limits child levels. Values below 1 use the default of 3.
 type AgentsConfig struct {
-	Enabled bool // true when absent from config
-	Models  AgentsRoleModels
+	Enabled  bool // true when absent from config
+	MaxDepth int  // maximum child levels; defaults to 3
+	Models   AgentsRoleModels
 }
 
 // AgentsRoleModels names optional models for child-agent roles. An empty name
@@ -277,7 +279,7 @@ func loadConfig(global GlobalLayout) (*Config, error) {
 // permissions; a malformed file is an error so bad config never silently
 // degrades to defaults.
 func parseConfigFile(path string) (*Config, error) {
-	cfg := &Config{Permissions: permission.DefaultPolicy(), Agents: AgentsConfig{Enabled: true}}
+	cfg := &Config{Permissions: permission.DefaultPolicy(), Agents: AgentsConfig{Enabled: true, MaxDepth: 3}}
 
 	data, err := os.ReadFile(path)
 	if err != nil {
@@ -312,6 +314,9 @@ func parseConfigFile(path string) (*Config, error) {
 		if raw.Agents.Enabled != nil {
 			cfg.Agents.Enabled = *raw.Agents.Enabled
 		}
+		if raw.Agents.MaxDepth != nil && *raw.Agents.MaxDepth > 0 {
+			cfg.Agents.MaxDepth = *raw.Agents.MaxDepth
+		}
 		cfg.Agents.Models = AgentsRoleModels{
 			Explore: strings.TrimSpace(raw.Agents.Models.Explore),
 			Review:  strings.TrimSpace(raw.Agents.Models.Review),
@@ -338,8 +343,9 @@ type fileConfig struct {
 }
 
 type agentsConfig struct {
-	Enabled *bool              `yaml:"enabled"`
-	Models  agentsModelsConfig `yaml:"models"`
+	Enabled  *bool              `yaml:"enabled"`
+	MaxDepth *int               `yaml:"max_depth"`
+	Models   agentsModelsConfig `yaml:"models"`
 }
 
 type agentsModelsConfig struct {

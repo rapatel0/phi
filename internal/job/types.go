@@ -61,7 +61,7 @@ type SpawnRequest struct {
 	Description     string
 	ParentID        string // parent session or parent job id (opaque to this package)
 	ParentToolUseID string // parent agent tool_use id for TUI nesting (not persisted)
-	Depth           int    // 0 = top-level; tool layer should force Depth for children
+	Depth           int    // parent depth; 0 = children of the root session
 	Role            Role   // explore | worker | review; empty → explore
 	WorkDir         string
 	Timeout         time.Duration // 0 = no run timeout; Cancel still works

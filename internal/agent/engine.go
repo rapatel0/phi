@@ -58,6 +58,7 @@ type Engine struct {
 	hooks       *hooks.Manager
 	mcp         *mcp.Pool
 	baseTools   []tools.Tool // constructor set; rebindTools must not drop it
+	jobDepth    int          // depth used for newly spawned children
 	// toolScope narrows what the model is offered. An empty scope means every
 	// built-in and extension tool is advertised.
 	toolScope []string
@@ -74,7 +75,8 @@ type EngineOpts struct {
 	ContinueAsk ContinueFunc       // nil = ErrMaxRounds on budget exhaust
 	Tools       []tools.Tool       // nil = tools.DefaultTools(); sub-agents use ChildTools()
 	MaxRounds   int                // 0 = package default
-	Jobs        *job.Manager       // if set, register agent_* tools on this engine
+	Jobs        *job.Manager       // if set and below MaxDepth, register agent_* tools
+	JobDepth    int                // parent depth for children spawned by this engine
 	Hooks       *hooks.Manager     // nil = no hooks; child engines inherit parent Manager
 	MCP         *mcp.Pool          // if set, register mcp_list/inspect/call meta-tools
 	AuthFile    string             // ~/.alpha/auth.json; OAuth refresh when set
@@ -100,6 +102,7 @@ func NewEngine(opts EngineOpts) (*Engine, error) {
 		hooks:         opts.Hooks,
 		mcp:           opts.MCP,
 		baseTools:     opts.Tools,
+		jobDepth:      opts.JobDepth,
 	}
 	if opts.MaxRounds > 0 {
 		engine.maxRounds = opts.MaxRounds
@@ -154,13 +157,14 @@ func (engine *Engine) buildToolList(base []tools.Tool) []tools.Tool {
 			out = merged
 		}
 	}
-	if engine.jobs == nil {
+	if engine.jobs == nil || engine.jobDepth >= engine.jobs.MaxDepth() {
 		return out
 	}
 	agentTools := tools.AgentTools(tools.AgentDeps{
 		Manager:  engine.jobs,
 		ParentID: engine.SessionID,
 		WorkDir:  engine.SessionCwd,
+		Depth:    func() int { return engine.jobDepth },
 	})
 	merged := make([]tools.Tool, 0, len(out)+len(agentTools))
 	merged = append(merged, out...)

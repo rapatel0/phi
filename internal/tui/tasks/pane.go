@@ -20,6 +20,12 @@ const (
 )
 
 // Pane is the persistent agent-tree sidebar.
+type taskRow struct {
+	info       job.Info
+	prefix     string
+	metaPrefix string
+}
+
 type Pane struct {
 	Theme    components.Theme
 	Visible  bool
@@ -27,7 +33,7 @@ type Pane struct {
 	hidden   bool // user hid it; sticky until Toggle, even with live jobs
 	Selected int
 	Attached string // job id the TUI is currently talking to
-	rows     []job.Info
+	rows     []taskRow
 	OnOpen   func(jobID string) // view transcript
 	OnSelect func(jobID string) // selection moved; may swap an open view
 	frameX   int
@@ -68,27 +74,28 @@ func (p *Pane) SetJobs(live, recent []job.Info) {
 	if p == nil {
 		return
 	}
+	selectedID := p.SelectedID()
 	seen := map[string]struct{}{}
-	var rows []job.Info
-	for _, inf := range live {
+	infos := make([]job.Info, 0, len(live)+len(recent))
+	for _, inf := range append(append([]job.Info(nil), live...), recent...) {
 		if inf.ID == "" {
 			continue
 		}
-		seen[inf.ID] = struct{}{}
-		rows = append(rows, inf)
-	}
-	for _, inf := range recent {
 		if _, ok := seen[inf.ID]; ok {
 			continue
 		}
-		rows = append(rows, inf)
-		if len(rows) >= 24 {
-			break
-		}
+		seen[inf.ID] = struct{}{}
+		infos = append(infos, inf)
 	}
-	p.rows = rows
-	if p.Selected >= len(p.rows) {
-		p.Selected = max(len(p.rows)-1, 0)
+	p.rows = treeRows(infos)
+	p.Selected = 0
+	if selectedID != "" {
+		for i, row := range p.rows {
+			if row.info.ID == selectedID {
+				p.Selected = i
+				break
+			}
+		}
 	}
 	if p.hidden {
 		p.Visible = false
@@ -102,7 +109,7 @@ func (p *Pane) SelectedID() string {
 	if p == nil || p.Selected < 0 || p.Selected >= len(p.rows) {
 		return ""
 	}
-	return p.rows[p.Selected].ID
+	return p.rows[p.Selected].info.ID
 }
 
 // Handle consumes sidebar keys/clicks. Returns true if handled.
@@ -138,7 +145,7 @@ func (p *Pane) Handle(ctx *components.EventContext, ev xui.Event) bool {
 		if idx, ok := p.hit(e.Y - p.frameY); ok {
 			p.Selected = idx
 			if p.OnOpen != nil {
-				p.OnOpen(p.rows[idx].ID)
+				p.OnOpen(p.rows[idx].info.ID)
 			}
 			ctx.ConsumeAndRedraw()
 			return true
@@ -160,8 +167,50 @@ func (p *Pane) moveBy(delta int) {
 	}
 	p.Selected = next
 	if p.OnSelect != nil {
-		p.OnSelect(p.rows[next].ID)
+		p.OnSelect(p.rows[next].info.ID)
 	}
+}
+
+func treeRows(infos []job.Info) []taskRow {
+	if len(infos) == 0 {
+		return nil
+	}
+	known := make(map[string]struct{}, len(infos))
+	children := make(map[string][]job.Info)
+	for _, inf := range infos {
+		known[inf.ID] = struct{}{}
+		children[inf.ParentID] = append(children[inf.ParentID], inf)
+	}
+	roots := make([]job.Info, 0, len(infos))
+	for _, inf := range infos {
+		if _, ok := known[inf.ParentID]; !ok {
+			roots = append(roots, inf)
+		}
+	}
+	rows := make([]taskRow, 0, len(infos))
+	seen := make(map[string]struct{}, len(infos))
+	var visit func([]job.Info, string)
+	visit = func(siblings []job.Info, parentPrefix string) {
+		for i, inf := range siblings {
+			if _, ok := seen[inf.ID]; ok {
+				continue
+			}
+			seen[inf.ID] = struct{}{}
+			last := i == len(siblings)-1
+			branch := "├─ "
+			if last {
+				branch = "└─ "
+			}
+			rows = append(rows, taskRow{info: inf, prefix: parentPrefix + branch, metaPrefix: parentPrefix + "│  └ "})
+			childPrefix := parentPrefix + "│  "
+			if last {
+				childPrefix = parentPrefix + "   "
+			}
+			visit(children[inf.ID], childPrefix)
+		}
+	}
+	visit(roots, "")
+	return rows
 }
 
 func (p *Pane) hit(localY int) (int, bool) {
@@ -191,7 +240,8 @@ func (p *Pane) Draw(ctx components.DrawContext, height int) components.Surface {
 	}
 
 	live := 0
-	for _, inf := range p.rows {
+	for _, row := range p.rows {
+		inf := row.info
 		if !inf.Status.Terminal() {
 			live++
 		}
@@ -208,17 +258,13 @@ func (p *Pane) Draw(ctx components.DrawContext, height int) components.Surface {
 	}
 
 	y := headerRows
-	last := len(p.rows) - 1
-	for i, inf := range p.rows {
+	for i, row := range p.rows {
+		inf := row.info
 		if y >= h {
 			break
 		}
-		branch := "├─ "
-		child := "│  └ "
-		if i == last {
-			branch = "└─ "
-			child = "   └ "
-		}
+		branch := row.prefix
+		child := row.metaPrefix
 		icon, st := jobIcon(inf.Status, th)
 		label := branch + icon + " " + jobLabel(inf)
 		meta := child + jobMeta(inf)

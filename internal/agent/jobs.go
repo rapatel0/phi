@@ -22,18 +22,26 @@ func NewJobManager(
 	hooksFn func() *hooks.Manager,
 	authFn func() string,
 	hub ChildHub,
+	maxDepth ...int,
 ) (*job.Manager, error) {
 	if root == "" {
 		return nil, errors.New("agent: jobs root is required")
 	}
-	return job.New(job.Options{
-		Root: root,
-		Runner: EngineRunner{
-			Model:   model,
-			ModelFn: modelFn,
-			HooksFn: hooksFn,
-			AuthFn:  authFn,
-			Hub:     hub,
-		},
-	})
+	depth := 3
+	if len(maxDepth) > 0 && maxDepth[0] > 0 {
+		depth = maxDepth[0]
+	}
+	runner := &EngineRunner{
+		Model:   model,
+		ModelFn: modelFn,
+		HooksFn: hooksFn,
+		AuthFn:  authFn,
+		Hub:     hub,
+	}
+	mgr, err := job.New(job.Options{Root: root, MaxDepth: depth, Runner: runner})
+	if err != nil {
+		return nil, err
+	}
+	runner.Jobs = mgr
+	return mgr, nil
 }

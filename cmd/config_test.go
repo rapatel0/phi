@@ -38,6 +38,7 @@ permissions:
       - "^git "
 agents:
   enabled: false
+  max_depth: 5
 `
 
 func TestConfigHandlerGETAndRoundTrip(t *testing.T) {
@@ -66,6 +67,8 @@ func TestConfigHandlerGETAndRoundTrip(t *testing.T) {
 	require.NotNil(t, got.Agents)
 	require.NotNil(t, got.Agents.Enabled)
 	assert.False(t, *got.Agents.Enabled)
+	require.NotNil(t, got.Agents.MaxDepth)
+	assert.Equal(t, 5, *got.Agents.MaxDepth)
 	assert.Equal(t, path, got.Path)
 
 	// Edit: drop model-b and change the api_key, keep permissions untouched.
@@ -94,6 +97,7 @@ func TestConfigHandlerGETAndRoundTrip(t *testing.T) {
 	assert.True(t, cfg.Permissions.DangerouslyAllowAll)
 	assert.Equal(t, []string{"^git "}, cfg.Permissions.BashAllow)
 	assert.False(t, cfg.Agents.Enabled)
+	assert.Equal(t, 5, cfg.Agents.MaxDepth)
 
 	// The previous file content is kept as a backup.
 	bak, err := os.ReadFile(path + ".bak")

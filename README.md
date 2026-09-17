@@ -147,6 +147,7 @@ skill_path: ~/.agents/skills # where SKILL.md files are loaded from
 
 agents:
   enabled: true           # default; set false to disable agent_* sub-agent tools
+  max_depth: 3            # maximum nested child levels; values below 1 use 3
 
 permissions:
   mode: interactive       # interactive | readonly | autopilot | headless-strict

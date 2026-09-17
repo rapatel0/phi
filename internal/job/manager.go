@@ -14,7 +14,7 @@ type Options struct {
 	Root          string // required: jobs directory
 	Runner        Runner // required
 	MaxConcurrent int    // default 4; Spawn returns [ErrBusy] when full (no queue)
-	MaxDepth      int    // default 1 (children cannot spawn further)
+	MaxDepth      int    // default 3 child levels
 	Recovery      RecoveryMode
 	// OnStoreError is called when a disk write fails after the job is live.
 	// Create/Spawn still return the create error directly.
@@ -69,7 +69,7 @@ func New(opts Options) (*Manager, error) {
 	}
 	maxD := opts.MaxDepth
 	if maxD <= 0 {
-		maxD = 1
+		maxD = 3
 	}
 	m := &Manager{
 		store:         st,
@@ -353,13 +353,51 @@ func ForParent(jobs []Info, parentID string) []Info {
 	return out
 }
 
-// ListForParent returns jobs spawned by parentID, newest first.
+// ForParentTree returns all descendants of parentID in depth-first order.
+// The input order is preserved within each sibling group. Cycles are ignored.
+func ForParentTree(jobs []Info, parentID string) []Info {
+	if parentID == "" {
+		return nil
+	}
+	children := make(map[string][]Info)
+	for _, info := range jobs {
+		if info.ID != "" {
+			children[info.ParentID] = append(children[info.ParentID], info)
+		}
+	}
+	seen := make(map[string]struct{}, len(jobs))
+	out := make([]Info, 0, len(jobs))
+	var visit func(string)
+	visit = func(id string) {
+		for _, info := range children[id] {
+			if _, ok := seen[info.ID]; ok {
+				continue
+			}
+			seen[info.ID] = struct{}{}
+			out = append(out, info)
+			visit(info.ID)
+		}
+	}
+	visit(parentID)
+	return out
+}
+
+// ListForParent returns direct jobs spawned by parentID, newest first.
 func (m *Manager) ListForParent(ctx context.Context, parentID string) ([]Info, error) {
 	all, err := m.List(ctx)
 	if err != nil {
 		return nil, err
 	}
 	return ForParent(all, parentID), nil
+}
+
+// ListForParentTree returns all descendants of parentID in tree order.
+func (m *Manager) ListForParentTree(ctx context.Context, parentID string) ([]Info, error) {
+	all, err := m.List(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return ForParentTree(all, parentID), nil
 }
 
 // Get returns one job by id.

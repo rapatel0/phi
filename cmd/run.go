@@ -117,7 +117,7 @@ func runCmd(args []string) int {
 			return bs.Config.ModelForRole(string(role), bs.Config.Model())
 		}, func() *hooks.Manager {
 			return hooksMgr
-		}, bs.Proj.Global().AuthFile, nil)
+		}, bs.Proj.Global().AuthFile, nil, bs.Config.Agents.MaxDepth)
 		if jobErr != nil {
 			fmt.Fprintln(os.Stderr, "alpha run:", jobErr)
 			return ExitUsage
