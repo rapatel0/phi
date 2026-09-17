@@ -325,6 +325,8 @@ func (c *Controller) openChildEngine(info job.Info) (*agent.Engine, error) {
 		Ask:         nil,
 		ContinueAsk: nil,
 		Tools:       c.childTools(info.ID, spec.Tools),
+		Jobs:        c.jobs,
+		JobDepth:    info.ParentDepth + 1,
 		Hooks:       c.Hooks(),
 		AuthFile:    c.authFile(),
 	})

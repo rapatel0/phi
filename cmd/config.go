@@ -64,8 +64,9 @@ type bashDoc struct {
 }
 
 type agentsDoc struct {
-	Enabled *bool            `yaml:"enabled,omitempty" json:"enabled,omitempty"`
-	Models  *agentsModelsDoc `yaml:"models,omitempty"  json:"models,omitempty"`
+	Enabled  *bool            `yaml:"enabled,omitempty"   json:"enabled,omitempty"`
+	MaxDepth *int             `yaml:"max_depth,omitempty" json:"maxDepth,omitempty"`
+	Models   *agentsModelsDoc `yaml:"models,omitempty"    json:"models,omitempty"`
 }
 
 type agentsModelsDoc struct {

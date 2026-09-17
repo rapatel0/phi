@@ -1,6 +1,7 @@
 package tasks
 
 import (
+	"strings"
 	"testing"
 	"time"
 
@@ -89,6 +90,24 @@ func TestPaneTreeHeader(t *testing.T) {
 	s := p.Draw(components.DrawContext{Max: components.Size{Width: 40, Height: 12}, Method: xui.WidthUnicode}, 12)
 	if s.Size.Width != defaultWidth {
 		t.Fatalf("width %d", s.Size.Width)
+	}
+}
+
+func TestPaneDrawNestedTreePrefixes(t *testing.T) {
+	p := &Pane{Theme: components.DefaultTheme()}
+	p.SetJobs(nil, []job.Info{
+		{Meta: job.Meta{ID: "root", ParentID: "session", Description: "root", Status: job.StatusRunning}},
+		{Meta: job.Meta{ID: "child", ParentID: "root", Description: "child", Status: job.StatusRunning}},
+		{Meta: job.Meta{ID: "child2", ParentID: "root", Description: "child2", Status: job.StatusCompleted}},
+		{Meta: job.Meta{ID: "grandchild", ParentID: "child", Description: "grandchild", Status: job.StatusCompleted}},
+		{Meta: job.Meta{ID: "root2", ParentID: "session", Description: "root2", Status: job.StatusCompleted}},
+	})
+	s := p.Draw(components.DrawContext{Max: components.Size{Width: 80, Height: 12}, Method: xui.WidthUnicode}, 12)
+	text := components.SurfaceText(s)
+	for _, want := range []string{"├─", "│  ├─", "│  │  └─"} {
+		if !strings.Contains(text, want) {
+			t.Fatalf("tree text %q missing %q", text, want)
+		}
 	}
 }
 

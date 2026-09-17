@@ -114,6 +114,37 @@ func TestDepthLimit(t *testing.T) {
 	require.ErrorIs(t, err, job.ErrDepth)
 }
 
+func TestDefaultDepthAllowsThreeChildLevels(t *testing.T) {
+	m := newMgr(
+		t,
+		job.RunnerFunc(func(_ context.Context, _ job.RunEnv) (string, error) { return "ok", nil }),
+		job.Options{},
+	)
+	assert.Equal(t, 3, m.MaxDepth())
+	info, err := m.Spawn(t.Context(), job.SpawnRequest{Prompt: "deep", Depth: 2})
+	require.NoError(t, err)
+	_, err = m.Wait(t.Context(), info.ID)
+	require.NoError(t, err)
+	_, err = m.Spawn(t.Context(), job.SpawnRequest{Prompt: "too deep", Depth: 3})
+	require.ErrorIs(t, err, job.ErrDepth)
+}
+
+func TestForParentTreeDepthFirst(t *testing.T) {
+	jobs := []job.Info{
+		{Meta: job.Meta{ID: "grandchild", ParentID: "child"}},
+		{Meta: job.Meta{ID: "root-b", ParentID: "session"}},
+		{Meta: job.Meta{ID: "child", ParentID: "root-a"}},
+		{Meta: job.Meta{ID: "root-a", ParentID: "session"}},
+	}
+	got := job.ForParentTree(jobs, "session")
+	require.Len(t, got, 4)
+	assert.Equal(
+		t,
+		[]string{"root-b", "root-a", "child", "grandchild"},
+		[]string{got[0].ID, got[1].ID, got[2].ID, got[3].ID},
+	)
+}
+
 func TestConcurrencyBusy(t *testing.T) {
 	block := make(chan struct{})
 	m := newMgr(t, job.RunnerFunc(func(ctx context.Context, _ job.RunEnv) (string, error) {

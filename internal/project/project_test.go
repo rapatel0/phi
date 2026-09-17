@@ -184,6 +184,7 @@ permissions:
 	assert.Equal(t, []string{`^echo\b`}, perm.BashAllow)
 	assert.Equal(t, []string{`\bsudo\b`}, perm.BashDeny)
 	assert.True(t, p.Config().Agents.Enabled) // default on when agents: absent
+	assert.Equal(t, 3, p.Config().Agents.MaxDepth)
 }
 
 func TestLoadConfigAgentsEnabled(t *testing.T) {
@@ -211,6 +212,7 @@ models:
   - name: reviewer
     api_key: reviewer-key
 agents:
+  max_depth: 7
   models:
     explore: explorer
     review: reviewer
@@ -220,6 +222,7 @@ agents:
 	require.NoError(t, p.LoadConfig())
 	cfg := p.Config()
 	assert.True(t, cfg.Agents.Enabled, "omitted agents.enabled defaults to true")
+	assert.Equal(t, 7, cfg.Agents.MaxDepth)
 	assert.Equal(t, "explorer", cfg.Agents.Models.Explore)
 	assert.Equal(t, "reviewer", cfg.Agents.Models.Review)
 	assert.Equal(t, "missing-model", cfg.Agents.Models.Worker)

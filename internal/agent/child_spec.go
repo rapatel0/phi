@@ -26,7 +26,7 @@ func SpecForRole(role job.Role) ChildSpec {
 	case job.RoleWorker:
 		return ChildSpec{
 			Role:  job.RoleWorker,
-			Tools: tools.DefaultTools(), // no agent_*; writable
+			Tools: tools.DefaultTools(), // the engine adds agent_* until the depth limit; writable
 			Mode:  permission.ModeHeadlessStrict,
 			Hint:  workerSummaryHint,
 		}
@@ -70,5 +70,5 @@ Notes:
 1. Stay within the assigned scope; do not expand into unrelated refactors.
 2. Prefer cwd-relative paths. Summarize what you changed and how you verified.
 3. The parent sees only this final reply — not your tool transcript.
-4. You cannot spawn further agents.
+4. You can spawn further agents until the configured depth limit.
 5. If you are blocked on a preference or missing requirement, use ask_parent. The parent answers, or asks the user.`

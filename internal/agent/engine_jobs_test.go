@@ -102,3 +102,50 @@ func TestChildSetModelKeepsReadonlyTools(t *testing.T) {
 	assert.False(t, eng.HasTool("edit"))
 	assert.True(t, eng.HasTool("read"))
 }
+
+func TestChildEngineRegistersRecursiveAgentTools(t *testing.T) {
+	mgr, err := job.New(job.Options{
+		Root:     t.TempDir(),
+		MaxDepth: 3,
+		Runner: job.RunnerFunc(func(_ context.Context, _ job.RunEnv) (string, error) {
+			return "ok", nil
+		}),
+	})
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = mgr.Close(context.WithoutCancel(t.Context())) })
+
+	eng, err := agent.NewEngine(agent.EngineOpts{
+		Model:       llm.ModelConfig{Name: "fake", BaseURL: "http://127.0.0.1:9", APIKey: "x"},
+		SessionOpts: agent.SessionOpts{Cwd: t.TempDir()},
+		Tools:       agent.ChildTools(),
+		Jobs:        mgr,
+		JobDepth:    1,
+	})
+	require.NoError(t, err)
+	assert.True(t, eng.HasTool("agent_spawn"))
+
+	eng, err = agent.NewEngine(agent.EngineOpts{
+		Model:       llm.ModelConfig{Name: "fake", BaseURL: "http://127.0.0.1:9", APIKey: "x"},
+		SessionOpts: agent.SessionOpts{Cwd: t.TempDir()},
+		Tools:       agent.ChildTools(),
+		Jobs:        mgr,
+		JobDepth:    3,
+	})
+	require.NoError(t, err)
+	assert.False(t, eng.HasTool("agent_spawn"))
+}
+
+func TestNewJobManagerUsesConfiguredMaxDepth(t *testing.T) {
+	mgr, err := agent.NewJobManager(
+		t.TempDir(),
+		llm.ModelConfig{},
+		nil,
+		nil,
+		nil,
+		nil,
+		6,
+	)
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = mgr.Close(context.WithoutCancel(t.Context())) })
+	assert.Equal(t, 6, mgr.MaxDepth())
+}

@@ -10,6 +10,8 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ### Added
 
+- Sub-agents can spawn nested sub-agents up to the configurable `agents.max_depth` (default 3). The TASKS sidebar renders the full job tree.
+
 - `/diff` opens a full-screen unified git diff review. Add line notes and send them to the agent.
 - Settings → agents → models selects explore, review, and worker models for
   later sub-agents. Each role can inherit the parent model.

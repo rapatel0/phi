@@ -42,19 +42,20 @@ How to use:
 2. Always set description to a few words for the TASKS list (required). Do not reuse the prompt.
 3. Stateless: put a highly detailed, self-contained prompt and say what the final summary must include.
 4. You only receive the final summary. Summarize for the user if needed.
-5. Sub-agents cannot spawn further agents. Do not put secrets in the prompt.
+5. Sub-agents can spawn further agents until the configured depth limit. Do not put secrets in the prompt.
 6. Verify before relying on a worker's edits in follow-up work.`
 
 // AgentDeps wires sub-agent tools to a process-level [job.Manager].
-// ParentID/WorkDir are read at call time (session may change via /resume).
+// ParentID, WorkDir, and Depth are read at call time (session may change via /resume).
 type AgentDeps struct {
 	Manager  *job.Manager
 	ParentID func() string
 	WorkDir  func() string
+	Depth    func() int
 }
 
 // AgentTools returns agent_spawn / list / wait / cancel.
-// Depth is forced to 0; ParentID comes from ParentID(), not model args.
+// ParentID and depth come from the callbacks, not model arguments.
 func AgentTools(deps AgentDeps) []tooldef.Tool {
 	if deps.Manager == nil {
 		return nil
@@ -64,6 +65,9 @@ func AgentTools(deps AgentDeps) []tooldef.Tool {
 	}
 	if deps.WorkDir == nil {
 		deps.WorkDir = func() string { return "" }
+	}
+	if deps.Depth == nil {
+		deps.Depth = func() int { return 0 }
 	}
 	return []tooldef.Tool{
 		agentSpawnTool(deps),
@@ -128,7 +132,7 @@ Starts asynchronously and returns job_id immediately. Use agent_wait for the sum
 				Description:     in.Description,
 				ParentID:        deps.ParentID(),
 				ParentToolUseID: tooldef.ToolCallID(ctx),
-				Depth:           0,
+				Depth:           deps.Depth(),
 				Role:            role,
 				WorkDir:         wd,
 			}

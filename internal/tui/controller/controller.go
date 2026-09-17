@@ -117,7 +117,15 @@ func NewController(bus *Bus, proj *project.Project, cwd string) (*Controller, er
 	c.hooksManager.Store(hooksManager)
 
 	c.children = newChildRegistry()
-	jobs, err := agent.NewJobManager(proj.JobsDir(), c.modelCfg, c.modelForRole, c.Hooks, c.authFile, c)
+	jobs, err := agent.NewJobManager(
+		proj.JobsDir(),
+		c.modelCfg,
+		c.modelForRole,
+		c.Hooks,
+		c.authFile,
+		c,
+		config.Agents.MaxDepth,
+	)
 	if err != nil {
 		return nil, err
 	}
