@@ -110,9 +110,13 @@ func (w *Screen) Draw(ctx components.DrawContext) components.Surface {
 	}
 
 	const gap = 2
-	textW := maxW - markW - gap - 4
-	textW = max(textW, 20)
-	textW = min(textW, 50)
+	stacked := maxW < 88
+	textW := maxW - 4
+	if !stacked {
+		textW = maxW - markW - gap - 4
+		textW = max(textW, 20)
+		textW = min(textW, 50)
+	}
 
 	// Brand near-white; only the palette shortcut / ! carry the accent punch.
 	brand := xui.Style{Fg: xui.RGBColor(0xe8, 0xec, 0xf2), Bold: true}
@@ -159,8 +163,11 @@ func (w *Screen) Draw(ctx components.DrawContext) components.Surface {
 	}
 
 	blockW := markW + gap + textW
-	blockH := markH
-	blockH = max(blockH, textH)
+	blockH := max(markH, textH)
+	if stacked {
+		blockW = max(markW, textW)
+		blockH = markH + gap + textH
+	}
 	ox := (maxW - blockW) / 2
 	oy := (maxH - blockH) / 2
 	if ox < 0 {
@@ -169,12 +176,23 @@ func (w *Screen) Draw(ctx components.DrawContext) components.Surface {
 	if oy < 0 {
 		oy = 0
 	}
+	markOX := ox
+	markOY := oy
+	textOX := ox + markW + gap
 	textOY := oy + (blockH-textH)/2
+	if stacked {
+		markOX = ox + (blockW-markW)/2
+		textOX = ox + (blockW-textW)/2
+		textOY = oy + markH + gap
+	}
+	markOX = max(markOX, 0)
+	markOY = max(markOY, 0)
+	textOX = max(textOX, 0)
 	textOY = max(textOY, 0)
 
 	root.Children = []components.SubSurface{
-		{Origin: components.Point{X: ox, Y: oy}, Surface: markSurf},
-		{Origin: components.Point{X: ox + markW + gap, Y: textOY}, Surface: textSurf},
+		{Origin: components.Point{X: markOX, Y: markOY}, Surface: markSurf},
+		{Origin: components.Point{X: textOX, Y: textOY}, Surface: textSurf},
 	}
 	return root
 }
