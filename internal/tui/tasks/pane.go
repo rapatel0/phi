@@ -24,22 +24,34 @@ type taskRow struct {
 	info       job.Info
 	prefix     string
 	metaPrefix string
+	root       bool
 }
 
 type Pane struct {
-	Theme    components.Theme
-	Visible  bool
-	forced   bool // user toggled on even with no jobs
-	hidden   bool // user hid it; sticky until Toggle, even with live jobs
-	Selected int
-	Attached string // job id the TUI is currently talking to
-	rows     []taskRow
-	OnOpen   func(jobID string) // view transcript
-	OnSelect func(jobID string) // selection moved; may swap an open view
-	frameX   int
-	frameY   int
-	frameW   int
-	frameH   int
+	Theme     components.Theme
+	Visible   bool
+	forced    bool // user toggled on even with no jobs
+	hidden    bool // user hid it; sticky until Toggle, even with live jobs
+	Selected  int
+	Attached  string // job id the TUI is currently talking to
+	RootID    string // current session id shown above child jobs
+	RootLabel string // label for the current session root
+	rows      []taskRow
+	OnOpen    func(jobID string) // view transcript
+	OnSelect  func(jobID string) // selection moved; may swap an open view
+	frameX    int
+	frameY    int
+	frameW    int
+	frameH    int
+}
+
+// SetRoot sets the current session row shown above child jobs.
+func (p *Pane) SetRoot(id, label string) {
+	if p == nil {
+		return
+	}
+	p.RootID = id
+	p.RootLabel = label
 }
 
 // Width is the sidebar column count when visible.
@@ -88,14 +100,23 @@ func (p *Pane) SetJobs(live, recent []job.Info) {
 		infos = append(infos, inf)
 	}
 	p.rows = treeRows(infos)
+	if p.RootID != "" && len(p.rows) > 0 {
+		root := taskRow{
+			info: job.Info{Meta: job.Meta{ID: p.RootID, Description: p.RootLabel, Status: job.StatusRunning}},
+			root: true,
+		}
+		p.rows = append([]taskRow{root}, p.rows...)
+	}
 	p.Selected = 0
 	if selectedID != "" {
 		for i, row := range p.rows {
-			if row.info.ID == selectedID {
+			if !row.root && row.info.ID == selectedID {
 				p.Selected = i
 				break
 			}
 		}
+	} else if len(p.rows) > 1 && p.rows[0].root {
+		p.Selected = 1
 	}
 	if p.hidden {
 		p.Visible = false
@@ -106,7 +127,7 @@ func (p *Pane) SetJobs(live, recent []job.Info) {
 
 // SelectedID is the highlighted job, or empty.
 func (p *Pane) SelectedID() string {
-	if p == nil || p.Selected < 0 || p.Selected >= len(p.rows) {
+	if p == nil || p.Selected < 0 || p.Selected >= len(p.rows) || p.rows[p.Selected].root {
 		return ""
 	}
 	return p.rows[p.Selected].info.ID
@@ -144,7 +165,7 @@ func (p *Pane) Handle(ctx *components.EventContext, ev xui.Event) bool {
 		}
 		if idx, ok := p.hit(e.Y - p.frameY); ok {
 			p.Selected = idx
-			if p.OnOpen != nil {
+			if p.OnOpen != nil && !p.rows[idx].root {
 				p.OnOpen(p.rows[idx].info.ID)
 			}
 			ctx.ConsumeAndRedraw()
@@ -166,7 +187,7 @@ func (p *Pane) moveBy(delta int) {
 		return
 	}
 	p.Selected = next
-	if p.OnSelect != nil {
+	if p.OnSelect != nil && !p.rows[next].root {
 		p.OnSelect(p.rows[next].info.ID)
 	}
 }
@@ -217,11 +238,18 @@ func (p *Pane) hit(localY int) (int, bool) {
 	if localY < headerRows || len(p.rows) == 0 {
 		return 0, false
 	}
-	idx := (localY - headerRows) / rowHeight
-	if idx < 0 || idx >= len(p.rows) {
-		return 0, false
+	y := headerRows
+	for idx, row := range p.rows {
+		h := rowHeight
+		if row.root {
+			h = 1
+		}
+		if localY >= y && localY < y+h {
+			return idx, true
+		}
+		y += h
 	}
-	return idx, true
+	return 0, false
 }
 
 // Draw renders the sidebar as a tree of sub-agents.
@@ -241,6 +269,9 @@ func (p *Pane) Draw(ctx components.DrawContext, height int) components.Surface {
 
 	live := 0
 	for _, row := range p.rows {
+		if row.root {
+			continue
+		}
 		inf := row.info
 		if !inf.Status.Terminal() {
 			live++
@@ -267,6 +298,9 @@ func (p *Pane) Draw(ctx components.DrawContext, height int) components.Surface {
 		child := row.metaPrefix
 		icon, st := jobIcon(inf.Status, th)
 		label := branch + icon + " " + jobLabel(inf)
+		if row.root {
+			label = "● " + jobLabel(inf)
+		}
 		meta := child + jobMeta(inf)
 		attached := p.Attached != "" && inf.ID == p.Attached
 		selected := i == p.Selected
@@ -285,6 +319,9 @@ func (p *Pane) Draw(ctx components.DrawContext, height int) components.Surface {
 			}
 		}
 		y++
+		if row.root {
+			continue
+		}
 		if y >= h {
 			break
 		}

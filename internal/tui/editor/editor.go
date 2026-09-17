@@ -698,6 +698,7 @@ func (e *Editor) refreshTasks() {
 		e.tasksLoaded = true
 		e.lastLiveN = n
 	}
+	e.tasks.SetRoot(e.ctrl.SessionID(), "main")
 	e.tasks.SetJobs(live, e.recentJobs)
 	e.tasks.Attached = e.ctrl.AttachedID()
 }

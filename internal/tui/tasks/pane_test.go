@@ -111,6 +111,23 @@ func TestPaneDrawNestedTreePrefixes(t *testing.T) {
 	}
 }
 
+func TestPaneDrawsMainRootAboveJobs(t *testing.T) {
+	p := &Pane{Theme: components.DefaultTheme()}
+	p.SetRoot("session", "main")
+	p.SetJobs(nil, []job.Info{{
+		Meta: job.Meta{ID: "child", ParentID: "session", Description: "child", Status: job.StatusRunning},
+	}})
+	text := components.SurfaceText(p.Draw(components.DrawContext{
+		Max: components.Size{Width: 80, Height: 8}, Method: xui.WidthUnicode,
+	}, 8))
+	if !strings.Contains(text, "main") {
+		t.Fatalf("main root missing from tree: %q", text)
+	}
+	if p.SelectedID() != "child" {
+		t.Fatalf("expected first child selected, got %q", p.SelectedID())
+	}
+}
+
 func TestPaneMouseOpens(t *testing.T) {
 	var opened string
 	p := &Pane{Theme: components.DefaultTheme(), OnOpen: func(id string) { opened = id }}
